@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>O mito do vermífugo mensal — Mimi &amp; Pipo</title>
+  <meta name="description" content="[PLACEHOLDER] História sobre saúde intestinal do cão — Digestão Saudável Mimi &amp; Pipo.">
+  <meta name="robots" content="noindex, nofollow">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1a2e1f;
+      --muted: #4a5d4f;
+      --green: #255d3d;
+      --green-dark: #0d4635;
+      --cream: #faf8f5;
+      --alert-bg: #fff8e6;
+      --alert-border: #e8c96b;
+      --cta: #255d3d;
+      --cta-hover: #0d4635;
+      --radius: 12px;
+      --max: 680px;
+      --pad: 1.125rem;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+      padding-bottom: 7.5rem;
+    }
+    img { max-width: 100%; height: auto; display: block; }
+    a { color: var(--green); }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); }
+    .date {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9375rem;
+      padding: 1rem 0 0.5rem;
+    }
+    .important {
+      background: var(--alert-bg);
+      border-left: 4px solid var(--alert-border);
+      padding: 1rem 1.125rem;
+      margin: 1rem 0 1.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    h1 {
+      font-size: clamp(1.35rem, 5vw, 1.75rem);
+      line-height: 1.25;
+      color: var(--green-dark);
+      margin: 0 0 1rem;
+      font-weight: 700;
+    }
+    h2 {
+      font-size: clamp(1.2rem, 4.5vw, 1.45rem);
+      line-height: 1.3;
+      color: var(--green-dark);
+      margin: 2rem 0 1rem;
+      font-weight: 700;
+    }
+    h3 {
+      font-size: 1.1rem;
+      color: var(--green);
+      margin: 1.5rem 0 0.75rem;
+      font-weight: 700;
+    }
+    p { margin: 0 0 1rem; }
+    .lead { font-size: 1.125rem; }
+    .hero-img, .section-img {
+      width: 100%;
+      border-radius: var(--radius);
+      margin: 1.25rem 0;
+    }
+    ul.bullets {
+      margin: 0 0 1.25rem;
+      padding-left: 1.25rem;
+    }
+    ul.bullets li { margin-bottom: 0.5rem; }
+    .stat {
+      font-weight: 700;
+      color: var(--green-dark);
+    }
+    .foundation {
+      background: var(--cream);
+      border-radius: var(--radius);
+      padding: 1rem 1.125rem;
+      margin: 1rem 0;
+    }
+    .week {
+      border-left: 3px solid var(--green);
+      padding-left: 1rem;
+      margin: 0.75rem 0 1rem;
+    }
+    .week strong { color: var(--green-dark); }
+    .compare-card {
+      border: 1px solid #dde5df;
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin: 1rem 0;
+      background: #f9fbf9;
+    }
+    .compare-card .bad { color: #b33; font-weight: 600; }
+    .btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: var(--cta);
+      color: #fff !important;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.05rem;
+      padding: 1rem 1.25rem;
+      border: none;
+      border-radius: 999px;
+      margin: 1.25rem 0;
+      cursor: pointer;
+      line-height: 1.3;
+    }
+    .btn:hover, .btn:focus { background: var(--cta-hover); }
+    .reviews { margin: 2rem 0; }
+    .review-card {
+      border: 1px solid #e8ebe8;
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .stars {
+      color: #e8a317;
+      font-size: 1.125rem;
+      letter-spacing: 2px;
+      margin-bottom: 0.5rem;
+    }
+    .review-screenshot {
+      width: 100%;
+      border-radius: 8px;
+      margin: 0.75rem 0;
+      background: #f0f2f0;
+      min-height: 120px;
+      object-fit: cover;
+    }
+    .review-meta {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+    .product-inline {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      background: var(--cream);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin: 1.5rem 0;
+    }
+    .product-inline img {
+      width: 100px;
+      flex-shrink: 0;
+    }
+    .product-inline strong { color: var(--green-dark); display: block; }
+    .sticky-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      background: #fff;
+      border-top: 1px solid #e0e6e1;
+      box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+      padding: 0.75rem var(--pad) calc(0.75rem + env(safe-area-inset-bottom));
+    }
+    .sticky-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .sticky-inner img { width: 56px; border-radius: 8px; }
+    .sticky-copy { flex: 1; min-width: 0; }
+    .sticky-copy strong {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--green-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sticky-copy span { font-size: 0.75rem; color: var(--muted); }
+    .sticky-btn {
+      flex-shrink: 0;
+      background: var(--cta);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.65rem 1rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #e8ebe8;
+      margin: 2rem 0;
+    }
+    .fine { font-size: 0.8125rem; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="wrap">
+    <p class="date" id="article-date">Carregando data...</p>
+
+    <p class="important">IMPORTANTE! &ldquo;[PLACEHOLDER] Meu cão tomava o melhor vermífugo. Mesmo assim o intestino continuava frágil.&rdquo;</p>
+
+    <h1>[PLACEHOLDER] Veterinária revela o mito do &ldquo;vermífugo mensal&rdquo;: por que seu cão fica vulnerável 29 dias por mês (e como corrigir)</h1>
+
+    <p class="lead">Eles deveriam estar protegidos. Estavam no &ldquo;melhor&rdquo; remédio. Mesmo assim adoeciam.</p>
+
+    <ul class="bullets">
+      <li>Se você dá vermífugo todo mês ao seu cão...</li>
+      <li>Se acha que cocô &ldquo;normal&rdquo; na consulta significa intestino saudável...</li>
+      <li>Se notou cocô mole, gases ou energia baixa e ouviu que é &ldquo;só da raça&rdquo;...</li>
+      <li>Se acredita que ração cara basta para construir imunidade...</li>
+    </ul>
+
+    <p>Então o que vou contar pode poupar seu cão de anos de sofrimento silencioso no intestino.</p>
+
+    <p class="stat">[PLACEHOLDER] As estatísticas assustam: 85% dos cães reinfectam depois do vermífugo comum.</p>
+
+    <p>Mas isso não é falta de amor. É uma falha em como cuidamos da <strong>base intestinal</strong> — enquanto achamos que o comprimido mensal resolve tudo.</p>
+
+    <img class="hero-img" src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&amp;q=80" alt="[PLACEHOLDER] Cão em casa" width="800" height="533" loading="eager">
+
+    <h2>Começou com uma conversa que nunca vou esquecer</h2>
+    <p>[PLACEHOLDER] Meu nome não importa. O do meu cão é Thor. Por cinco anos achei que fazia tudo certo.</p>
+    <p>Ração premium? Sim.<br>Consulta anual? Sim.<br>Vermífugo em dia, entrega automática? Três vezes sim.</p>
+    <p>[PLACEHOLDER] Thor era o &ldquo;cachorro bom&rdquo; — mas também o que arrastava o bumbum, tinha hálito forte e energia baixa.</p>
+    <p>Até a vizinha me contar o que aconteceu com o Bailey dela...</p>
+
+    <img class="section-img" src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&amp;q=80" alt="[PLACEHOLDER] Dois cães no parque" width="800" height="533" loading="lazy">
+
+    <h2>A lacuna dos 29 dias que ninguém fala</h2>
+    <p>[PLACEHOLDER] O vermífugo promete matar parasitas adultos. Mas e os outros 29 dias do mês?</p>
+    <p>O comprimido é um &ldquo;ataque&rdquo; depois do problema — e deixa o intestino reaberto para o próximo ciclo.</p>
+    <p>Não estamos criando cães saudáveis. Estamos criando cães medicados com uma brecha de 720 horas no mês.</p>
+
+    <h2>Os 4 pilares que faltavam no intestino do Thor</h2>
+    <p>[PLACEHOLDER] 70% do sistema imune do cão vive no intestino. Não é um tubo — é uma fortaleza.</p>
+
+    <div class="foundation">
+      <h3>1. Ambiente hostil para o desequilíbrio</h3>
+      <p>[PLACEHOLDER] Prebióticos e fibras alimentam as bactérias boas — mudam o terreno.</p>
+      <img class="section-img" src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&amp;q=80" alt="[PLACEHOLDER] Ração e tigela" width="800" height="533" loading="lazy">
+    </div>
+    <div class="foundation">
+      <h3>2. Reparar e selar a barreira</h3>
+      <p>[PLACEHOLDER] Marshmallow, slippery elm, aloe — suporte à mucosa intestinal.</p>
+    </div>
+    <div class="foundation">
+      <h3>3. Treinar as defesas</h3>
+      <p>[PLACEHOLDER] Levedura prebiótica + botanicals — imunidade via intestino, não só &ldquo;reforço&rdquo; genérico.</p>
+    </div>
+    <div class="foundation">
+      <h3>4. Abrir a saída</h3>
+      <p>[PLACEHOLDER] Dente-de-leão, gengibre — trânsito e eliminação de toxinas.</p>
+    </div>
+
+    <h2>O momento em que vi o que faltava</h2>
+    <p>[PLACEHOLDER] Na pet shop, uma dona mostrou um pote que o cão idoso dela adorava como petisco.</p>
+
+    <div class="product-inline">
+      <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Mimi &amp; Pipo Digestão Saudável — pote 250g" width="200" height="200" loading="lazy">
+      <div>
+        <strong>Mimi &amp; Pipo — Digestão Saudável</strong>
+        <span>Biscoitos funcionais · 250g · formulado por veterinários · feito no Brasil</span>
+      </div>
+    </div>
+
+    <p>[PLACEHOLDER] Um petisco por dia. Os quatro pilares em um só ritual — sem brigar na hora do remédio.</p>
+
+    <h2>A prova está no cocô (e no humor)</h2>
+    <div class="week"><strong>Semana 1:</strong> [PLACEHOLDER] Mais confortável, sem drama.</div>
+    <div class="week"><strong>Semana 2:</strong> [PLACEHOLDER] Parou de arrastar o bumbum.</div>
+    <div class="week"><strong>Semana 4:</strong> [PLACEHOLDER] Mais energia, trouxe brinquedo de novo.</div>
+    <div class="week"><strong>Semana 8:</strong> [PLACEHOLDER] Cocô firme, zero gases no parque.</div>
+
+    <img class="section-img" src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&amp;q=80" alt="[PLACEHOLDER] Cão feliz ao ar livre" width="800" height="533" loading="lazy">
+
+    <h2>OPÇÕES COMUNS: NEM SEMPRE ADEQUADAS</h2>
+    <div class="compare-card">
+      <p><strong>SÓ PROBIÓTICO</strong></p>
+      <p class="bad">❌ [PLACEHOLDER] Não alimenta flora existente</p>
+      <p class="bad">❌ [PLACEHOLDER] Efeito limitado sem prebiótico</p>
+      <p>[PLACEHOLDER] Texto comparativo — abóbora caseira, remédio isolado, etc.</p>
+    </div>
+    <div class="compare-card">
+      <p><strong>SÓ VERMÍFUGO MENSAL</strong></p>
+      <p class="bad">❌ [PLACEHOLDER] Mata adultos, não reconstrói intestino</p>
+      <p class="bad">❌ [PLACEHOLDER] Reinfecção frequente</p>
+      <p>[PLACEHOLDER] Texto comparativo placeholder.</p>
+    </div>
+
+    <h2>A escolha que muda tudo</h2>
+    <p>[PLACEHOLDER] Você pode continuar no ciclo reativo — ou dar suporte diário à base intestinal.</p>
+    <p><strong>Digestão Saudável</strong> da Mimi &amp; Pipo reúne prebióticos, Boswellia, gengibre, yucca e mais — em biscoito que o cão come como petisco.</p>
+
+    <a class="btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Verificar disponibilidade</a>
+
+    <p class="fine">[PLACEHOLDER] Garantia de 60 dias · Frete grátis em pedidos acima de R$ 199</p>
+
+    <hr class="divider">
+
+    <h2>Depoimentos</h2>
+    <div class="reviews">
+
+      <div class="review-card">
+        <div class="stars" aria-label="5 estrelas">★★★★★</div>
+        <p>&ldquo;[PLACEHOLDER] Meu labrador de 9 anos estava &lsquo;preguiçoso&rsquo;. Em duas semanas com Digestão Saudável voltou a correr no quintal.&rdquo;</p>
+        <img class="review-screenshot" src="https://placehold.co/600x200/f0f2f0/4a5d4f?text=Screenshot+avalia%C3%A7%C3%A3o+1" alt="[PLACEHOLDER] Captura de avaliação" width="600" height="200" loading="lazy">
+        <p class="review-meta">— [PLACEHOLDER] Marcos T., São Paulo</p>
+      </div>
+
+      <div class="review-card">
+        <div class="stars" aria-label="5 estrelas">★★★★★</div>
+        <p>&ldquo;[PLACEHOLDER] Gastei milhares com &lsquo;estômago sensível&rsquo;. Três meses depois o cocô firmou e os gases sumiram.&rdquo;</p>
+        <img class="review-screenshot" src="https://placehold.co/600x200/f0f2f0/4a5d4f?text=Screenshot+avalia%C3%A7%C3%A3o+2" alt="[PLACEHOLDER] Captura de avaliação" width="600" height="200" loading="lazy">
+        <p class="review-meta">— [PLACEHOLDER] Jayne J., Minas Gerais</p>
+      </div>
+
+      <div class="review-card">
+        <div class="stars" aria-label="5 estrelas">★★★★★</div>
+        <p>&ldquo;[PLACEHOLDER] Cão resgatado com cocô mole crônico. Hoje come sem crise — só petisco diário, sem guerra de remédio.&rdquo;</p>
+        <img class="review-screenshot" src="https://placehold.co/600x200/f0f2f0/4a5d4f?text=Screenshot+avalia%C3%A7%C3%A3o+3" alt="[PLACEHOLDER] Captura de avaliação" width="600" height="200" loading="lazy">
+        <p class="review-meta">— [PLACEHOLDER] Davi L., Paraná</p>
+      </div>
+
+    </div>
+
+    <a class="btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Aplicar desconto e verificar estoque</a>
+
+    <p class="fine">Clique acima para ver se ainda há oferta na loja oficial Mimi &amp; Pipo.</p>
+
+    <div class="product-inline" style="margin-bottom:2rem;">
+      <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Digestão Saudável" width="120" height="120">
+      <div>
+        <strong>Digestão Saudável</strong>
+        <div class="stars" style="font-size:0.95rem;">★★★★★ <span style="color:var(--muted);font-weight:400;">(635+ avaliações)</span></div>
+        <span>✓ Flora intestinal · ✓ Mucosa · ✓ Imunidade · ✓ Trânsito</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sticky-bar" role="complementary" aria-label="Produto">
+    <div class="sticky-inner">
+      <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="" width="56" height="56">
+      <div class="sticky-copy">
+        <strong>Digestão Saudável</strong>
+        <span>★★★★★ · Frete grátis R$199+</span>
+      </div>
+      <a class="sticky-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">COMPRAR</a>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var el = document.getElementById('article-date');
+      if (!el) return;
+      var now = new Date();
+      var opts = { day: 'numeric', month: 'long', year: 'numeric' };
+      el.textContent = now.toLocaleDateString('pt-BR', opts);
+    })();
+  </script>
+</body>
+</html>
