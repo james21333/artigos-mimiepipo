@@ -20,6 +20,7 @@
       --cta-hover: #0d4635;
       --radius: 12px;
       --max: 680px;
+      --sidebar: 300px;
       --pad: 1.125rem;
     }
     *, *::before, *::after { box-sizing: border-box; }
@@ -35,7 +36,17 @@
     }
     img { max-width: 100%; height: auto; display: block; }
     a { color: var(--green); }
-    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); }
+    .page-shell {
+      max-width: calc(var(--max) + var(--sidebar) + 3rem);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      align-items: start;
+    }
+    .article-main { min-width: 0; max-width: var(--max); }
+    .wrap { max-width: var(--max); margin: 0; padding: 0; }
     .date {
       text-align: center;
       color: var(--muted);
@@ -211,10 +222,108 @@
       margin: 2rem 0;
     }
     .fine { font-size: 0.8125rem; color: var(--muted); text-align: center; }
+
+    /* Desktop sticky product card (right) */
+    .sidebar-product {
+      display: none;
+    }
+    .product-card {
+      background: #f7f9f7;
+      border: 1px solid #e2e8e3;
+      border-radius: 16px;
+      padding: 1.25rem 1.125rem 1.125rem;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,.06);
+    }
+    .product-card img {
+      width: 72%;
+      max-width: 200px;
+      margin: 0 auto 1rem;
+    }
+    .product-card h2 {
+      font-size: 1.2rem;
+      margin: 0 0 0.35rem;
+      color: #2d3436;
+      font-weight: 700;
+    }
+    .product-card .tagline {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      line-height: 1.4;
+    }
+    .product-card .stars-row {
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+    .product-card .stars-row span {
+      color: var(--muted);
+      font-size: 0.8125rem;
+      font-weight: 400;
+    }
+    .product-benefits {
+      list-style: none;
+      margin: 0 0 1.125rem;
+      padding: 0;
+      text-align: left;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .product-benefits li {
+      position: relative;
+      padding-left: 1.35rem;
+      margin-bottom: 0.5rem;
+      color: #2d3436;
+    }
+    .product-benefits li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+      color: var(--green-dark);
+    }
+    .product-card .shop-btn {
+      display: block;
+      width: 100%;
+      background: var(--cta);
+      color: #fff !important;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+      padding: 0.9rem 1rem;
+      border-radius: 999px;
+      margin: 0;
+    }
+    .product-card .shop-btn:hover { background: var(--cta-hover); }
+    .product-card .card-fine {
+      margin: 0.75rem 0 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    @media (min-width: 960px) {
+      .page-shell {
+        grid-template-columns: minmax(0, var(--max)) var(--sidebar);
+        gap: 2.5rem;
+        padding-top: 0.5rem;
+      }
+      .sidebar-product {
+        display: block;
+        position: sticky;
+        top: 1.25rem;
+        align-self: start;
+      }
+      .sticky-bar { display: none; }
+      body { padding-bottom: 2rem; }
+    }
   </style>
 </head>
 <body>
 
+  <div class="page-shell">
+    <main class="article-main">
   <div class="wrap">
     <p class="date" id="article-date">Carregando data...</p>
 
@@ -356,6 +465,24 @@
         <span>✓ Flora intestinal · ✓ Mucosa · ✓ Imunidade · ✓ Trânsito</span>
       </div>
     </div>
+    </main>
+
+    <aside class="sidebar-product" aria-label="Produto recomendado">
+      <div class="product-card">
+        <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Mimi &amp; Pipo Digestão Saudável" width="200" height="200" loading="lazy">
+        <h2>Digestão Saudável</h2>
+        <p class="tagline">Suporte intestinal diário em 4 frentes para cães</p>
+        <div class="stars-row stars" aria-label="4,7 de 5 estrelas">★★★★★ <span>(635+ avaliações)</span></div>
+        <ul class="product-benefits">
+          <li>Equilibra o ambiente intestinal</li>
+          <li>Suporta a integridade da mucosa</li>
+          <li>Suporta a prontidão imune via intestino</li>
+          <li>Ajuda no trânsito e eliminação natural</li>
+        </ul>
+        <a class="shop-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">COMPRAR AGORA →</a>
+        <p class="card-fine">Frete grátis acima de R$ 199 · Esgota rápido</p>
+      </div>
+    </aside>
   </div>
 
   <div class="sticky-bar" role="complementary" aria-label="Produto">
