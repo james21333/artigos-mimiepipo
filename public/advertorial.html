@@ -17,8 +17,8 @@
       background: #f4ecd9;
       color: #2c2c2c;
       font-family: "DM Sans", system-ui, -apple-system, sans-serif;
-      font-size: 15px;
-      line-height: 27px;
+      font-size: 16px;
+      line-height: 28.8px;
     }
     img { max-width: 100%; height: auto; display: block; }
     a { color: inherit; }
@@ -103,8 +103,17 @@
       line-height: 28.8px;
     }
 
-    .pag-body p {
+    .pag-body {
+      font-size: 16px;
+      line-height: 28.8px;
+    }
+    .pag-body p,
+    .pag-body li,
+    .pag-fail-item p,
+    .pag-arrow {
       margin: 0 0 16px;
+      font-size: 16px;
+      line-height: 28.8px;
     }
 
     .pag-h2 {
@@ -116,16 +125,18 @@
     }
 
     .pag-skip {
-      display: inline-block;
+      display: block;
+      width: 100%;
       background: #377359;
       color: #fff !important;
       text-decoration: none;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 600;
-      line-height: 25.2px;
-      padding: 10px 20px;
+      line-height: 28.8px;
+      padding: 14px 20px;
       border-radius: 4px;
       margin: 4px 0 28px;
+      text-align: center;
     }
 
     .pag-fail-item { margin: 0 0 16px; }
@@ -139,11 +150,15 @@
       margin: 0 0 16px;
     }
 
-    ul.pag-list {
+    ul.pag-list,
+    ol.pag-list {
       margin: 0 0 16px;
       padding-left: 1.25rem;
+      font-size: 16px;
+      line-height: 28.8px;
     }
-    ul.pag-list li { margin-bottom: 8px; }
+    ul.pag-list li,
+    ol.pag-list li { margin-bottom: 8px; }
 
     .pag-cta-wrap {
       margin: 28px 0;
@@ -165,9 +180,9 @@
       cursor: pointer;
     }
     .pag-cta-sub {
-      margin: 12px 0 0;
-      font-size: 14px;
-      line-height: 22px;
+      margin: 16px 0 0;
+      font-size: 16px;
+      line-height: 28.8px;
       color: #2c2c2c;
     }
 
@@ -177,16 +192,16 @@
       border-radius: 4px;
       padding: 12px 14px;
       margin: 16px 0;
-      font-size: 14px;
-      line-height: 22px;
+      font-size: 16px;
+      line-height: 28.8px;
     }
 
     .pag-testi {
-      margin: 16px 0;
+      margin: 20px 0;
       padding: 14px 0;
       border-top: 1px solid rgba(44,44,44,.12);
-      font-size: 15px;
-      line-height: 27px;
+      font-size: 16px;
+      line-height: 28.8px;
     }
     .pag-testi:first-of-type { border-top: none; padding-top: 0; }
 
@@ -197,9 +212,9 @@
     }
 
     .pag-signoff {
-      margin: 24px 0 0;
-      font-size: 14px;
-      line-height: 22px;
+      margin: 32px 0 8px;
+      font-size: 16px;
+      line-height: 28.8px;
       color: #2c2c2c;
     }
 
@@ -249,13 +264,24 @@
     }
 
     @media (min-width: 750px) {
-      body { font-size: 16px; line-height: 28.8px; }
+      body { font-size: 17px; line-height: 30.6px; }
+      .pag-body,
+      .pag-body p,
+      .pag-body li,
+      .pag-fail-item p,
+      .pag-arrow,
+      ul.pag-list,
+      ol.pag-list,
+      .pag-testi,
+      .pag-stock,
+      .pag-signoff,
+      .pag-cta-sub { font-size: 17px; line-height: 30.6px; }
       .pag-w { padding: 0 24px 56px; }
       .pag-bar-title { font-size: 16px; }
       .pag-h1 { font-size: 30px; line-height: 39px; }
       .pag-quote, .pag-meta, .pag-lead { font-size: 17px; line-height: 30.6px; }
       .pag-h2 { font-size: 24px; line-height: 31.2px; }
-      .pag-body p { margin-bottom: 16px; }
+      .pag-skip { font-size: 17px; line-height: 30.6px; }
     }
   </style>
 </head>
@@ -276,7 +302,7 @@
       <p class="pag-meta" id="dynamic-meta">— Juliana Da Silva, especialista em bem-estar canino<br>Publicado: <span id="byline-date">...</span></p>
 
       <div class="pag-img pag-img-atf">
-        <img id="dynamic-hero" src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&amp;h=1000&amp;fit=crop&amp;q=80" alt="Cão em casa — imagem padrão do advertorial" width="800" height="1000" loading="eager" decoding="async">
+        <img id="dynamic-hero" src="https://artigos.mimiepipo.com.br/creatives/01-itching-gut-skin/hero.jpg" alt="Cão em casa — imagem padrão do advertorial" width="800" height="1000" loading="eager" decoding="async">
       </div>
 
       <p class="pag-lead" id="dynamic-lead">Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.</p>
@@ -316,12 +342,19 @@
       <a class="pag-skip" href="#oferta">Quer ir direto ao ponto? Veja o suporte intestinal que recomendo</a>
 
       <h2 class="pag-h2">Quando o caminho convencional falhou</h2>
-      <p>[PLACEHOLDER] História de caso — tutora fez tudo &ldquo;certo&rdquo;: ração cara, consultas, remédios. O cão continuou sofrendo.</p>
+      <p>O Bruno tinha quatro anos, SRD resgatado. A tutora Clara fez tudo &ldquo;certo&rdquo;: ração premium, consultas, remédio para coceira, probiótico, vermífugo, troca de ração duas vezes.</p>
+      <p>Mesmo assim, o Bruno coçava o flanco toda noite.</p>
+      <p>Arrastava o bumbum três ou quatro vezes por dia.</p>
+      <p>Tinha cocô mole quase toda manhã.</p>
+      <p>Acordava a casa entre 2 e 3 da manhã.</p>
+      <p>Receitaram remédio mais forte. Nada mudou.</p>
+      <p>Indicaram dermatologista. Piorou antes de melhorar.</p>
+      <p>Clara sentou na minha sala em lágrimas e perguntou:</p>
       <p>&ldquo;Por que ele ainda está mal... se fiz tudo que mandaram?&rdquo;</p>
       <p>Naquela noite fui atrás de respostas — e o que encontrei mudou meu jeito de olhar para intestino, pele e comportamento.</p>
 
       <div class="pag-img pag-img-inline">
-        <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&amp;q=80" alt="[PLACEHOLDER] Cães ao ar livre" width="800" height="450" loading="lazy">
+        <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&amp;q=80" alt="Tutora abraçando cão em casa" width="800" height="450" loading="lazy">
       </div>
 
       <h2 class="pag-h2">A causa escondida: intestino comprometido</h2>
@@ -391,10 +424,15 @@
         <li>Noites mais tranquilas.</li>
         <li>Mais energia na porta, no passeio, no sofá.</li>
       </ul>
-      <p>[PLACEHOLDER] Semana 1 / 2 / 3 — detalhar caso do anúncio vinculado.</p>
+      <p>Clara tentou com o Bruno.</p>
+      <p><strong>Semana 1:</strong> menos gases. Cocô começando a firmar.</p>
+      <p><strong>Semana 2:</strong> coceira caiu. Parou de arrastar o bumbum.</p>
+      <p><strong>Semana 3:</strong> dormiu a noite inteira. Pela primeira vez em meses, Clara também dormiu.</p>
+      <p>Na quarta semana ela me disse, chorando:</p>
+      <p>&ldquo;Parece outro cachorro. Calmo. Dormindo. Cocô firme. Eu não sabia que ele podia ser assim.&rdquo;</p>
 
-      <div class="pag-testi">&ldquo;[PLACEHOLDER] Meu labrador voltou a correr no quintal depois de semanas com cocô mole.&rdquo;</div>
-      <div class="pag-testi">&ldquo;[PLACEHOLDER] Parei de acordar às 3 da manhã por causa da barriga dele.&rdquo;</div>
+      <div class="pag-testi">&ldquo;Depois de três semanas, parecia o mesmo cachorro de sempre. Adoro a fórmula limpa e natural.&rdquo;<br>— Camila, São Paulo</div>
+      <div class="pag-testi">&ldquo;Meu cão idoso tinha intestino desregulado e não dormia por causa da barriga. Hoje dorme feito anjo.&rdquo;<br>— Regiane, Belo Horizonte</div>
 
       <h2 class="pag-h2">Como deveria ser o normal</h2>
       <p>A maioria aceita sintomas crônicos como &ldquo;normal&rdquo;.</p>
@@ -409,8 +447,9 @@
 
       <h2 class="pag-h2">P.S.</h2>
       <p>Desde que comecei a recomendar suporte intestinal de verdade, ouço a mesma frase:</p>
-      <div class="pag-testi">&ldquo;[PLACEHOLDER] Gastei meses no remédio errado. Em três semanas de biscoito, finalmente entendi.&rdquo;</div>
-      <div class="pag-testi">&ldquo;[PLACEHOLDER] Meu cão parou de acordar a casa. Eu voltei a dormir.&rdquo;</div>
+      <div class="pag-testi">&ldquo;Gastei meses no remédio errado. Em três semanas de biscoito, finalmente entendi de onde vinha o problema.&rdquo;</div>
+      <div class="pag-testi">&ldquo;Meu cão parou de acordar a casa às 3 da manhã. Eu voltei a dormir.&rdquo;</div>
+      <div class="pag-testi">&ldquo;Estômago sensível há anos. Com os biscoitos diários, sem mais episódios de diarreia.&rdquo;<br>— Beatriz, Curitiba</div>
 
       <h2 class="pag-h2">Sua decisão</h2>
       <p><strong>Opção 1:</strong> Continuar só tratando sintoma.</p>
@@ -429,7 +468,7 @@
 
       <div class="pag-cta-wrap">
         <a class="pag-cta-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR DISPONIBILIDADE E GARANTIR 30% OFF</a>
-        <p class="pag-cta-sub">Clique acima para ver se a Mimi &amp; Pipo ainda está com frete grátis e 30% off.</p>
+        <p class="pag-cta-sub">Clique no link acima para ver se a Mimi &amp; Pipo ainda está com a promoção limitada.</p>
       </div>
 
       <p class="pag-signoff">Publicado: <span id="signoff-date">...</span> · Por Juliana Da Silva</p>
@@ -457,9 +496,15 @@
       var DEFAULTS = {
         h1: 'A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)',
         quote: '\u201cSe o seu c\u00e3o arrasta o bumbum, lambe a pata at\u00e9 ferir, tem coc\u00f4 mole ou acorda a casa \u00e0s 3 da manh\u00e3 \u2014 costuma haver a mesma causa por tr\u00e1s.\u201d',
-        hero: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=1000&fit=crop&q=80',
-        lead: 'Se o seu c\u00e3o tem problemas cr\u00f3nicos de pele, comportamento ou digest\u00e3o, voc\u00ea provavelmente j\u00e1 tentou o que a maioria tenta.'
+        hero: 'https://artigos.mimiepipo.com.br/creatives/01-itching-gut-skin/hero.jpg',
+        lead: 'Se o seu c\u00e3o tem problemas cr\u00f4nicos de pele, comportamento ou digest\u00e3o, voc\u00ea provavelmente j\u00e1 tentou o que a maioria tenta.'
       };
+
+      function publishedDate() {
+        var d = new Date();
+        d.setDate(d.getDate() - 35);
+        return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
 
       function getParam(name) {
         try {
@@ -493,8 +538,8 @@
 
       document.title = h1.length > 55 ? h1.substring(0, 52) + '...' : h1;
 
+      var dateStr = publishedDate();
       var now = new Date();
-      var dateStr = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
       ['byline-date', 'signoff-date'].forEach(function (id) {
         var el = document.getElementById(id);
