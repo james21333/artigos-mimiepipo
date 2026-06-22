@@ -3,538 +3,467 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>[PLACEHOLDER] — Diário de Saúde Canina</title>
+  <title>Diário de Saúde Canina — Advertorial</title>
   <meta name="description" content="Advertorial — saúde intestinal do cão. Mimi &amp; Pipo Digestão Saudável.">
   <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #ffffff;
-      --text: #1c1c1c;
-      --muted: #5c5c5c;
-      --line: #e5e5e5;
-      --accent: #1a5c3a;
-      --accent-dark: #0d3d28;
-      --cta: #1a5c3a;
-      --cta-hover: #0d3d28;
-      --cream: #f7f6f3;
-      --max: 680px;
-      --sidebar: 300px;
-      --pad: 1rem;
-      --radius: 8px;
-    }
     *, *::before, *::after { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", Times, serif;
-      font-size: 1.0625rem;
-      line-height: 1.7;
-      color: var(--text);
-      background: var(--bg);
-      padding-bottom: 5.5rem;
-    }
-    .sans {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f4ecd9;
+      color: #2c2c2c;
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 27px;
     }
     img { max-width: 100%; height: auto; display: block; }
-    a { color: var(--accent); }
+    a { color: inherit; }
 
-    /* Masthead */
-    .masthead {
-      border-bottom: 1px solid var(--line);
-      padding: 0.65rem var(--pad);
+    .pag-bar {
+      background: #2c2c2c;
+      padding: 10px 0;
+      margin: 0 0 32px;
       text-align: center;
-      background: #fafafa;
     }
-    .masthead-inner {
-      max-width: var(--max);
-      margin: 0 auto;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.6875rem;
+    .pag-bar-title {
+      display: block;
+      color: #fff;
+      font-size: 15px;
       font-weight: 700;
-      letter-spacing: 0.14em;
+      letter-spacing: 2.5px;
       text-transform: uppercase;
-      color: var(--muted);
+      line-height: 1.4;
     }
-    .masthead-inner span {
-      color: var(--accent-dark);
+    .pag-bar-sub {
+      display: block;
+      color: rgba(255,255,255,.72);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
     }
 
-    .page-shell {
-      max-width: calc(var(--max) + var(--sidebar) + 3rem);
+    .pag-w {
+      max-width: 740px;
       margin: 0 auto;
-      padding: 0 var(--pad);
-      display: grid;
-      grid-template-columns: 1fr;
-      align-items: start;
-    }
-    .article-main { min-width: 0; max-width: var(--max); }
-    .wrap { padding: 0; }
-
-    .article-date {
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.8125rem;
-      color: var(--muted);
-      margin: 1rem 0 0.75rem;
+      padding: 0 16px 48px;
     }
 
-    /* Above-the-fold */
-    h1 {
-      font-size: clamp(1.35rem, 5.2vw, 1.85rem);
-      line-height: 1.22;
-      font-weight: 700;
-      margin: 0 0 1rem;
-      color: var(--text);
+    .pag-hero { padding-bottom: 4px; }
+
+    .pag-h1 {
+      margin: 0 0 20px;
+      font-size: 24px;
+      line-height: 31.2px;
+      font-weight: 800;
+      color: #1a1a1a;
     }
-    .hero-frame {
-      width: 100%;
-      max-width: 420px;
-      margin: 0 auto 1.25rem;
-      aspect-ratio: 4 / 5;
-      background: #eee;
-      border-radius: var(--radius);
+
+    .pag-quote {
+      margin: 0 0 16px;
+      font-size: 16px;
+      line-height: 28.8px;
+      color: #2c2c2c;
+    }
+
+    .pag-meta {
+      margin: 0 0 20px;
+      font-size: 16px;
+      line-height: 28.8px;
+      color: #2c2c2c;
+    }
+
+    .pag-img {
+      margin: 20px 0;
+      border-radius: 4px;
       overflow: hidden;
+      background: #e8e0cf;
     }
-    .hero-frame img {
+    .pag-img-atf {
+      aspect-ratio: 4 / 5;
+    }
+    .pag-img-atf img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .lead-handoff {
-      font-size: 1.0625rem;
-      margin: 0 0 1.25rem;
-      font-weight: 400;
-    }
-    .pullquote {
-      font-style: italic;
-      font-size: 1.05rem;
-      border-left: 3px solid var(--accent);
-      padding: 0.5rem 0 0.5rem 1rem;
-      margin: 0 0 1rem;
-      color: #333;
-    }
-    .byline {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.875rem;
-      color: var(--muted);
-      margin: 0 0 1.5rem;
-      line-height: 1.5;
-    }
-    .byline strong { color: var(--text); }
-
-    h2 {
-      font-size: clamp(1.15rem, 4vw, 1.4rem);
-      line-height: 1.3;
-      margin: 2rem 0 1rem;
-      font-weight: 700;
-    }
-    p { margin: 0 0 1rem; }
-    .short-line { margin-bottom: 0.35rem; }
-
-    .skip-link {
-      display: block;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.8125rem;
-      margin: 0 0 1.5rem;
-      color: var(--muted);
-    }
-    .skip-link a { font-weight: 600; }
-
-    .offer-banner {
-      background: var(--cream);
-      border: 1px solid #e0ddd6;
-      border-radius: var(--radius);
-      padding: 0.875rem 1rem;
-      margin: 1.5rem 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.9375rem;
-      text-align: center;
-    }
-    .offer-banner strong { color: var(--accent-dark); }
-
-    .btn {
-      display: block;
+    .pag-img-inline img {
       width: 100%;
-      max-width: 420px;
-      margin: 1.25rem auto;
-      text-align: center;
-      background: var(--cta);
+      border-radius: 4px;
+    }
+
+    .pag-lead {
+      margin: 0 0 16px;
+      font-size: 16px;
+      line-height: 28.8px;
+    }
+
+    .pag-body p {
+      margin: 0 0 16px;
+    }
+
+    .pag-h2 {
+      margin: 40px 0 16px;
+      font-size: 20px;
+      line-height: 26px;
+      font-weight: 800;
+      color: #1a1a1a;
+    }
+
+    .pag-skip {
+      display: inline-block;
+      background: #377359;
       color: #fff !important;
       text-decoration: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 25.2px;
+      padding: 10px 20px;
+      border-radius: 4px;
+      margin: 4px 0 28px;
+    }
+
+    .pag-fail-item { margin: 0 0 16px; }
+    .pag-fail-item strong { font-weight: 700; }
+    .pag-fail-word {
+      font-weight: 400;
+      margin: 0;
+    }
+
+    .pag-arrow {
+      margin: 0 0 16px;
+    }
+
+    ul.pag-list {
+      margin: 0 0 16px;
+      padding-left: 1.25rem;
+    }
+    ul.pag-list li { margin-bottom: 8px; }
+
+    .pag-cta-wrap {
+      margin: 28px 0;
+      text-align: center;
+    }
+    .pag-cta-btn {
+      display: block;
+      width: 100%;
+      background: #f97316;
+      color: #377359 !important;
+      text-decoration: none;
+      font-size: 16px;
       font-weight: 700;
-      font-size: 0.9375rem;
-      letter-spacing: 0.03em;
-      padding: 1rem 1.25rem;
-      border-radius: 6px;
-      line-height: 1.35;
+      line-height: 28.8px;
+      padding: 16px 24px;
+      border-radius: 4px;
+      text-align: center;
       border: none;
       cursor: pointer;
     }
-    .btn:hover, .btn:focus { background: var(--cta-hover); }
-    .btn-sub {
-      display: block;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin: -0.75rem auto 1.25rem;
-      max-width: 420px;
+    .pag-cta-sub {
+      margin: 12px 0 0;
+      font-size: 14px;
+      line-height: 22px;
+      color: #2c2c2c;
     }
 
-    .fail-block {
-      margin: 0.75rem 0;
-      padding-left: 0;
-    }
-    .fail-block .label {
-      font-weight: 700;
-      margin-bottom: 0.15rem;
-    }
-    .fail-block .result {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.875rem;
-      font-weight: 700;
-      color: #a33;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+    .pag-stock {
+      background: #fff8e6;
+      border: 1px solid #e8c96b;
+      border-radius: 4px;
+      padding: 12px 14px;
+      margin: 16px 0;
+      font-size: 14px;
+      line-height: 22px;
     }
 
-    ul.checklist {
-      margin: 0 0 1rem;
-      padding-left: 1.25rem;
+    .pag-testi {
+      margin: 16px 0;
+      padding: 14px 0;
+      border-top: 1px solid rgba(44,44,44,.12);
+      font-size: 15px;
+      line-height: 27px;
     }
-    ul.checklist li { margin-bottom: 0.4rem; }
+    .pag-testi:first-of-type { border-top: none; padding-top: 0; }
 
-    .product-inline {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      background: var(--cream);
-      border-radius: var(--radius);
-      padding: 1rem;
-      margin: 1.5rem 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .product-inline img { width: 96px; flex-shrink: 0; }
-    .product-inline strong { display: block; color: var(--accent-dark); }
-
-    .review-card {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 1rem;
-      margin-bottom: 1rem;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.9375rem;
-    }
-    .stars { color: #e8a317; letter-spacing: 2px; margin-bottom: 0.5rem; }
-
-    .ps-block {
-      background: #f9f9f9;
-      border-top: 2px solid var(--line);
-      padding: 1.5rem 0 0;
-      margin-top: 2rem;
+    .pag-div {
+      border: none;
+      border-top: 1px solid rgba(44,44,44,.15);
+      margin: 32px 0;
     }
 
-    /* Footer */
+    .pag-signoff {
+      margin: 24px 0 0;
+      font-size: 14px;
+      line-height: 22px;
+      color: #2c2c2c;
+    }
+
     .site-footer {
-      border-top: 1px solid var(--line);
-      margin-top: 2.5rem;
-      padding: 1.5rem var(--pad) 2rem;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 0.8125rem;
-      color: var(--muted);
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 0 16px 32px;
       text-align: center;
-      max-width: var(--max);
+      font-size: 12px;
+      line-height: 19px;
+      color: #666;
     }
-    .site-footer .disclaimer {
-      margin-bottom: 1rem;
-      line-height: 1.5;
+    .site-footer .vet-note {
       font-style: italic;
+      margin: 0 0 14px;
+      color: #2c2c2c;
+      font-size: 13px;
+      line-height: 20px;
     }
     .footer-links {
       list-style: none;
-      margin: 0 0 1rem;
+      margin: 0 0 12px;
       padding: 0;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 0.5rem 1.25rem;
+      gap: 6px 16px;
     }
     .footer-links a {
-      color: var(--muted);
+      color: #377359;
+      text-decoration: underline;
+      font-size: 12px;
+    }
+
+    .pag-disc-bar {
+      background: #2c2c2c;
+      color: rgba(255,255,255,.65);
+      padding: 20px 16px;
+      font-size: 11px;
+      line-height: 17px;
+      text-align: center;
+      margin-top: 24px;
+    }
+    .pag-disc-bar a {
+      color: rgba(255,255,255,.85);
       text-decoration: underline;
     }
-    .copyright { font-size: 0.75rem; }
 
-    /* Sticky mobile */
-    .sticky-bar {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 100;
-      background: #fff;
-      border-top: 1px solid var(--line);
-      box-shadow: 0 -4px 16px rgba(0,0,0,.08);
-      padding: 0.65rem var(--pad) calc(0.65rem + env(safe-area-inset-bottom));
-    }
-    .sticky-inner {
-      max-width: var(--max);
-      margin: 0 auto;
-      display: flex;
-      gap: 0.65rem;
-      align-items: center;
-    }
-    .sticky-inner img { width: 48px; border-radius: 6px; }
-    .sticky-copy { flex: 1; min-width: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    .sticky-copy strong { display: block; font-size: 0.8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sticky-copy span { font-size: 0.6875rem; color: var(--muted); }
-    .sticky-btn {
-      flex-shrink: 0;
-      background: var(--cta);
-      color: #fff;
-      text-decoration: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-weight: 700;
-      font-size: 0.75rem;
-      padding: 0.6rem 0.85rem;
-      border-radius: 6px;
-      white-space: nowrap;
-    }
-
-    /* Desktop sidebar */
-    .sidebar-product { display: none; }
-    .product-card {
-      background: #f7f7f7;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 1.25rem 1rem;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .product-card img { width: 70%; max-width: 180px; margin: 0 auto 0.75rem; }
-    .product-card h3 { margin: 0 0 0.35rem; font-size: 1.1rem; }
-    .product-card .tag { font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.75rem; }
-    .product-card .shop-btn {
-      display: block;
-      background: var(--cta);
-      color: #fff !important;
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 0.875rem;
-      padding: 0.85rem;
-      border-radius: 6px;
-      margin-top: 0.75rem;
-    }
-    .product-card .fine { font-size: 0.6875rem; color: var(--muted); margin-top: 0.5rem; }
-
-    @media (min-width: 960px) {
-      .page-shell {
-        grid-template-columns: minmax(0, var(--max)) var(--sidebar);
-        gap: 2rem;
-        padding-top: 0.5rem;
-      }
-      .sidebar-product {
-        display: block;
-        position: sticky;
-        top: 1rem;
-      }
-      .sticky-bar { display: none; }
-      body { padding-bottom: 1.5rem; }
+    @media (min-width: 750px) {
+      body { font-size: 16px; line-height: 28.8px; }
+      .pag-w { padding: 0 24px 56px; }
+      .pag-bar-title { font-size: 16px; }
+      .pag-h1 { font-size: 30px; line-height: 39px; }
+      .pag-quote, .pag-meta, .pag-lead { font-size: 17px; line-height: 30.6px; }
+      .pag-h2 { font-size: 24px; line-height: 31.2px; }
+      .pag-body p { margin-bottom: 16px; }
     }
   </style>
 </head>
 <body>
 
-  <header class="masthead sans" role="banner">
-    <p class="masthead-inner"><span>DIÁRIO DE SAÚDE CANINA</span> — Advertorial</p>
-  </header>
-
-  <div class="page-shell">
-    <main class="article-main">
-      <div class="wrap">
-
-        <p class="article-date sans" id="article-date">Carregando data...</p>
-
-        <!-- ATF: dynamic from URL ?h1= &hero= &lead= -->
-        <h1 id="dynamic-h1">[PLACEHOLDER] Cole aqui o gancho exato do anúncio — mesma frase do primary text.</h1>
-
-        <div class="hero-frame">
-          <img id="dynamic-hero" src="https://placehold.co/800x1000/e8e8e8/666?text=Imagem+4%3A5+do+an%C3%BAncio" alt="[PLACEHOLDER] Imagem do anúncio" width="800" height="1000" loading="eager" decoding="async">
-        </div>
-
-        <p class="lead-handoff" id="dynamic-lead">[PLACEHOLDER] Primeiro parágrafo após a imagem: continuação do anúncio ou repetição das 2–3 primeiras frases antes de expandir a história.</p>
-
-        <p class="pullquote" id="dynamic-quote">"[PLACEHOLDER] Se o seu cão tem cocô mole, coceira ou gases — pode haver uma causa que ninguém explicou."</p>
-
-        <p class="byline sans">— <strong>Juliana Da Silva</strong>, especialista em bem-estar canino<br>Publicado: <span id="byline-date">...</span></p>
-
-        <p class="skip-link sans">Quer ir direto ao ponto? <a href="#oferta">Veja o suporte intestinal que recomendo</a></p>
-
-        <p>[PLACEHOLDER] Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.</p>
-        <p class="short-line">Se comprou remédio para coceira...</p>
-        <p class="short-line">Se trocou de ração várias vezes...</p>
-        <p class="short-line">Se deu probiótico, calmante ou vermífugo...</p>
-        <p>E se ele ainda coça, arrasta o bumbum, tem cocô mole ou acorda a casa de madrugada... você não está sozinha.</p>
-
-        <h2>A maioria está lutando a batalha errada</h2>
-        <p>[PLACEHOLDER] No começo parece simples. Começa a coceira. O cocô fica mole. A energia cai.</p>
-        <p>Então você segue o que recomendam.</p>
-        <p><strong>Mas o que você recebe na prática:</strong></p>
-
-        <div class="fail-block">
-          <p class="label">Remédio para pele / coceira</p>
-          <p>Alivia por alguns dias. Não reconstrói o intestino por trás da inflamação.</p>
-          <p class="result sans">Insuficiente.</p>
-        </div>
-        <div class="fail-block">
-          <p class="label">Só probiótico</p>
-          <p>Joga bactéria nova num intestino bagunçado, sem comida para ela.</p>
-          <p class="result sans">Insuficiente.</p>
-        </div>
-        <div class="fail-block">
-          <p class="label">Só vermífugo</p>
-          <p>Mata adultos visíveis. Não reconstrói a barreira intestinal depois.</p>
-          <p class="result sans">Insuficiente.</p>
-        </div>
-
-        <p>Por isso melhora um pouco... e volta.</p>
-        <p>Porque o problema real não é só o sintoma.</p>
-
-        <a class="btn sans" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR DISPONIBILIDADE E GARANTIR 30% OFF</a>
-        <p class="btn-sub sans">Frete grátis · 2 potes com 30% de desconto</p>
-
-        <h2>Quando o caminho convencional falhou</h2>
-        <p>[PLACEHOLDER] História de caso — tutor(a) fez tudo "certo": ração cara, consultas, remédios. O cão continuou sofrendo.</p>
-        <p>"Por que ele ainda está mal... se fiz tudo que mandaram?"</p>
-        <p>[PLACEHOLDER] Foi aí que comecei a olhar para o intestino — não só para a pele ou o comportamento.</p>
-
-        <h2>A causa escondida: intestino comprometido</h2>
-        <p>[PLACEHOLDER] Setenta por cento do sistema imune do cão vive no intestino. Quando a mucosa está inflamada, o corpo reage na pele, no humor e nas fezes.</p>
-        <p>Tratar só a coceira é apagar o alarme enquanto o fogo continua por dentro.</p>
-        <p>[PLACEHOLDER] Estatística ou mecanismo — adaptar do anúncio vinculado (giardia, glândula, coprofagia, etc.).</p>
-
-        <div class="offer-banner sans">
-          <strong>Oferta Mimi &amp; Pipo:</strong> 2 potes com <strong>30% OFF</strong> + <strong>frete grátis</strong> (pedidos acima de R$ 199)
-        </div>
-
-        <h2>Por que as soluções comuns falham (e vão continuar falhando)</h2>
-        <p>[PLACEHOLDER] Lista comparativa — cada opção trata sintoma, não base intestinal.</p>
-
-        <h2 id="oferta">O protocolo que passou a fazer sentido</h2>
-        <p>[PLACEHOLDER] Prebiótico + fibra + botanicals em formato petisco — o cão come sem briga.</p>
-
-        <div class="product-inline">
-          <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Mimi &amp; Pipo Digestão Saudável" width="200" height="200" loading="lazy">
-          <div>
-            <strong>Mimi &amp; Pipo — Digestão Saudável</strong>
-            <span>Biscoitos funcionais · 250g · formulado por veterinários · feito no Brasil</span>
-          </div>
-        </div>
-
-        <ul class="checklist">
-          <li>[PLACEHOLDER] Levedura prebiótica — alimenta a flora boa</li>
-          <li>[PLACEHOLDER] Fibra + beterraba — firmeza nas fezes</li>
-          <li>[PLACEHOLDER] Gengibre, olíbano, yucca — suporte à mucosa</li>
-          <li>[PLACEHOLDER] Um petisco por dia — ritual simples</li>
-        </ul>
-
-        <a class="btn sans" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR ESTOQUE E APLICAR 30% OFF</a>
-        <p class="btn-sub sans">Garantia de 60 dias · Frete grátis em pedidos elegíveis</p>
-
-        <h2>Prova de que funciona</h2>
-        <p>[PLACEHOLDER] Semana 1 / 2 / 3 — timeline do anúncio.</p>
-
-        <div class="review-card">
-          <div class="stars" aria-label="5 estrelas">★★★★★</div>
-          <p>&ldquo;[PLACEHOLDER] Depoimento adaptado de avaliação real do PDP.&rdquo;</p>
-          <p style="color:var(--muted);font-size:0.8125rem;">— [PLACEHOLDER] Nome, cidade</p>
-        </div>
-        <div class="review-card">
-          <div class="stars" aria-label="5 estrelas">★★★★★</div>
-          <p>&ldquo;[PLACEHOLDER] Segundo depoimento.&rdquo;</p>
-          <p style="color:var(--muted);font-size:0.8125rem;">— [PLACEHOLDER] Nome, cidade</p>
-        </div>
-
-        <h2>Como deveria ser o normal</h2>
-        <p>[PLACEHOLDER] Cocô firme. Noite tranquila. Energia de volta. Não é "só da raça".</p>
-
-        <h2>Por que agir agora</h2>
-        <p>[PLACEHOLDER] Quanto mais tempo o intestino fica inflamado, mais difícil reverter só com remédio de sintoma.</p>
-        <p class="sans" style="font-size:0.9375rem;"><strong>Status:</strong> estoque limitado na loja oficial — verifique antes que acabe a promoção de 30%.</p>
-
-        <div class="ps-block">
-          <h2>P.S.</h2>
-          <p>[PLACEHOLDER] Depoimento curto estilo P.S. do anúncio CalmAxis.</p>
-          <p>&ldquo;[PLACEHOLDER] Citação de tutor.&rdquo;</p>
-          <p>&ldquo;[PLACEHOLDER] Segunda citação.&rdquo;</p>
-        </div>
-
-        <h2>Sua decisão</h2>
-        <p><strong>Opção 1:</strong> [PLACEHOLDER] Continuar só tratando sintoma.</p>
-        <p><strong>Opção 2:</strong> [PLACEHOLDER] Tentar mais um remédio isolado.</p>
-        <p><strong>Opção 3:</strong> Apoiar o intestino com suporte diário — Digestão Saudável.</p>
-        <p>A escolha é sua.</p>
-
-        <h2>Junte-se a tutores que reconstruíram a saúde intestinal do cão</h2>
-        <ol class="checklist">
-          <li>Clique no botão abaixo e verifique se ainda há estoque.</li>
-          <li>Escolha o pacote (2 potes = 30% off + frete grátis).</li>
-          <li>Dê os biscoitos diários como petisco.</li>
-          <li>Observe as primeiras mudanças nas primeiras semanas.</li>
-        </ol>
-        <p>Lembre-se: garantia de 60 dias. Se não funcionar, devolve.</p>
-
-        <a class="btn sans" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR DISPONIBILIDADE E GARANTIR 30% OFF</a>
-        <p class="btn-sub sans">Frete grátis · 30% OFF em 2 potes · Garantia 60 dias</p>
-
-      </div>
-    </main>
-
-    <aside class="sidebar-product" aria-label="Produto recomendado">
-      <div class="product-card">
-        <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Digestão Saudável" width="180" height="180" loading="lazy">
-        <h3>Digestão Saudável</h3>
-        <p class="tag">Suporte intestinal diário em biscoitos</p>
-        <div class="stars">★★★★★</div>
-        <p class="fine">30% OFF · 2 potes · Frete grátis</p>
-        <a class="shop-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">COMPRAR AGORA →</a>
-        <p class="fine">Garantia 60 dias</p>
-      </div>
-    </aside>
+  <div class="pag-bar">
+    <span class="pag-bar-title">Diário de Saúde Canina</span>
+    <span class="pag-bar-sub">Advertorial</span>
   </div>
 
-  <footer class="site-footer sans">
-    <p class="disclaimer">O conteúdo deste site não substitui a orientação veterinária.</p>
+  <div class="pag-w">
+
+    <div class="pag-hero">
+      <h1 class="pag-h1" id="dynamic-h1">A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)</h1>
+
+      <p class="pag-quote" id="dynamic-quote">&ldquo;Se o seu cão arrasta o bumbum, lambe a pata até ferir, tem cocô mole ou acorda a casa às 3 da manhã — costuma haver a mesma causa por trás.&rdquo;</p>
+
+      <p class="pag-meta" id="dynamic-meta">— Juliana Da Silva, especialista em bem-estar canino<br>Publicado: <span id="byline-date">...</span></p>
+
+      <div class="pag-img pag-img-atf">
+        <img id="dynamic-hero" src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&amp;h=1000&amp;fit=crop&amp;q=80" alt="Cão em casa — imagem padrão do advertorial" width="800" height="1000" loading="eager" decoding="async">
+      </div>
+
+      <p class="pag-lead" id="dynamic-lead">Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.</p>
+    </div>
+
+    <div class="pag-body">
+      <p>Se comprou remédio para coceira...</p>
+      <p>Se trocou de ração várias vezes...</p>
+      <p>Se deu probiótico, calmante ou vermífugo...</p>
+      <p>E se ele ainda coça, arrasta o bumbum, tem cocô mole ou acorda a casa de madrugada... você não está sozinha.</p>
+
+      <p>Passei anos ouvindo tutores descreverem exatamente isso. Muitos ouviram que era &ldquo;só alergia&rdquo;, &ldquo;só comportamento&rdquo; ou &ldquo;só da idade&rdquo;.</p>
+      <p>E o que vi repetir vezes demais: quase tudo que prescrevem para esses sintomas só mascara.</p>
+      <p>Não trata a causa escondida.</p>
+      <p>Não reconstrói nada.</p>
+      <p>E é por isso que o cão continua mal — não importa quanto você gaste.</p>
+
+      <h2 class="pag-h2">A maioria está lutando a batalha errada</h2>
+      <p>No começo parece simples.</p>
+      <p>Seu cão começa a arrastar o bumbum.</p>
+      <p>Começa a lamber a pata à noite.</p>
+      <p>O cocô fica mole.</p>
+      <p>Acorda a casa às 3 da manhã.</p>
+      <p>Então você segue o que recomendam.</p>
+      <p><strong>Mas o que você recebe na prática:</strong></p>
+
+      <p class="pag-arrow">Remédio para pele → alivia por alguns dias, não reconstrói o intestino por trás da inflamação.</p>
+      <p class="pag-arrow">Calmante / ansiolítico → seda por algumas horas, não explica por que o sistema nervoso ficou em alerta.</p>
+      <p class="pag-arrow">Treino / adestramento → corrige na hora, não trata a razão biológica do comportamento.</p>
+      <p class="pag-arrow">Ração especial → tira possíveis alérgenos, não repara a mucosa que deixa tudo passar.</p>
+      <p class="pag-arrow">Vermífugo comum → mata adultos visíveis, não reconstrói o intestino depois.</p>
+
+      <p>Por isso melhora um pouco... e volta.</p>
+      <p>Porque o problema real não é só o sintoma.</p>
+      <p>E essa percepção me veio num dos casos mais difíceis que acompanhei.</p>
+
+      <a class="pag-skip" href="#oferta">Quer ir direto ao ponto? Veja o suporte intestinal que recomendo</a>
+
+      <h2 class="pag-h2">Quando o caminho convencional falhou</h2>
+      <p>[PLACEHOLDER] História de caso — tutora fez tudo &ldquo;certo&rdquo;: ração cara, consultas, remédios. O cão continuou sofrendo.</p>
+      <p>&ldquo;Por que ele ainda está mal... se fiz tudo que mandaram?&rdquo;</p>
+      <p>Naquela noite fui atrás de respostas — e o que encontrei mudou meu jeito de olhar para intestino, pele e comportamento.</p>
+
+      <div class="pag-img pag-img-inline">
+        <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&amp;q=80" alt="[PLACEHOLDER] Cães ao ar livre" width="800" height="450" loading="lazy">
+      </div>
+
+      <h2 class="pag-h2">A causa escondida: intestino comprometido</h2>
+      <p>Estávamos pensando ao contrário.</p>
+      <p>❌ Não é &ldquo;só alergia grave&rdquo;. ❌ Não é &ldquo;só comportamento&rdquo;. ❌ Não é &ldquo;só ansiedade&rdquo;. ❌ Não é &ldquo;só da idade&rdquo;.</p>
+      <p><strong>A causa real:</strong> ração processada, antibióticos repetidos, vermífugos isolados e estresse quebram a mucosa intestinal — e o corpo reage na pele, no humor e nas fezes.</p>
+      <p>A parede intestinal é fina. Quando inflama, três coisas acontecem ao mesmo tempo.</p>
+      <p>Primeiro, a microbiota desorganiza. Segundo, a absorção cai. Terceiro, toxinas e irritantes vazam — e o corpo reage onde você vê: coceira, gases, cocô mole, noites mal dormidas.</p>
+      <p>Isso é a coceira crônica.</p>
+      <p>O arrastar de bumbum.</p>
+      <p>O cocô mole que não para.</p>
+      <p>A casa acordando às 3 da manhã.</p>
+      <p>Remédio de sintoma silencia cada alarme.</p>
+      <p>Mas não repara o intestino por trás de todos eles.</p>
+
+      <div class="pag-cta-wrap">
+        <a class="pag-cta-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR DISPONIBILIDADE E GARANTIR 30% OFF</a>
+        <p class="pag-cta-sub">Frete grátis em pedidos elegíveis · 2 potes com 30% de desconto</p>
+      </div>
+
+      <h2 class="pag-h2">Por que as soluções comuns falham (e vão continuar falhando)</h2>
+      <p>Testei mentalmente cada caminho contra essa realidade.</p>
+
+      <div class="pag-fail-item">
+        <p><strong>Remédio para coceira?</strong></p>
+        <p>Silencia a pele. Não reconstrói o intestino.</p>
+        <p class="pag-fail-word">Insuficiente.</p>
+      </div>
+      <div class="pag-fail-item">
+        <p><strong>Só probiótico?</strong></p>
+        <p>Joga bactéria nova num intestino bagunçado, sem prebiótico.</p>
+        <p class="pag-fail-word">Insuficiente.</p>
+      </div>
+      <div class="pag-fail-item">
+        <p><strong>Só vermífugo?</strong></p>
+        <p>Mata o surto da vez. Não apoia a mucosa depois.</p>
+        <p class="pag-fail-word">Insuficiente.</p>
+      </div>
+      <div class="pag-fail-item">
+        <p><strong>Óleo de peixe isolado?</strong></p>
+        <p>Ajuda na inflamação. Não trata a origem sozinho.</p>
+        <p class="pag-fail-word">Insuficiente.</p>
+      </div>
+
+      <p>Todos erram o mecanismo real: intestino comprometido + sintomas na superfície.</p>
+
+      <h2 class="pag-h2" id="oferta">O protocolo que passou a fazer sentido</h2>
+      <p>O intestino precisa de suporte diário — prebiótico, fibra, botanicals — em formato que o cão aceita.</p>
+      <p>Levedura prebiótica → alimenta a flora boa.</p>
+      <p>Fibra + beterraba → firmeza nas fezes.</p>
+      <p>Gengibre, olíbano, yucca → suporte à mucosa e trânsito.</p>
+      <p>Spirulina e ômega de microalgas → resposta inflamatória por dentro.</p>
+      <p>Falta um pedaço e o ciclo volta.</p>
+
+      <div class="pag-img pag-img-inline">
+        <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Mimi &amp; Pipo Digestão Saudável" width="692" height="692" loading="lazy">
+      </div>
+
+      <p>Encontrei isso no <strong>Digestão Saudável</strong> da Mimi &amp; Pipo — biscoitos funcionais que o cão come como petisco, formulados por veterinários, feitos no Brasil.</p>
+      <p>Um ritual simples por dia. Sem briga na hora do remédio.</p>
+
+      <h2 class="pag-h2">Prova de que funciona</h2>
+      <p>Quando tutores mantêm o protocolo por 2–4 semanas, o padrão se repete:</p>
+      <ul class="pag-list">
+        <li>Cocô firma nas primeiras semanas.</li>
+        <li>Coceira e gases diminuem.</li>
+        <li>Noites mais tranquilas.</li>
+        <li>Mais energia na porta, no passeio, no sofá.</li>
+      </ul>
+      <p>[PLACEHOLDER] Semana 1 / 2 / 3 — detalhar caso do anúncio vinculado.</p>
+
+      <div class="pag-testi">&ldquo;[PLACEHOLDER] Meu labrador voltou a correr no quintal depois de semanas com cocô mole.&rdquo;</div>
+      <div class="pag-testi">&ldquo;[PLACEHOLDER] Parei de acordar às 3 da manhã por causa da barriga dele.&rdquo;</div>
+
+      <h2 class="pag-h2">Como deveria ser o normal</h2>
+      <p>A maioria aceita sintomas crônicos como &ldquo;normal&rdquo;.</p>
+      <p>❌ O arrastar que pararam de notar. ❌ A coceira que virou mania. ❌ O cocô mole todo dia. ❌ A noite mal dormida.</p>
+      <p>Isso não é normal. É sofrimento evitável.</p>
+      <p>✅ Dormir a noite inteira. ✅ Cocô firme. ✅ Pele mais calma. ✅ Energia de volta.</p>
+
+      <h2 class="pag-h2">Por que agir agora</h2>
+      <p>Quanto mais tempo o intestino fica inflamado, mais difícil reverter só com remédio de sintoma.</p>
+      <p>A Mimi &amp; Pipo oferece <strong>30% OFF</strong> em 2 potes + <strong>frete grátis</strong> em pedidos elegíveis + <strong>garantia de 60 dias</strong>.</p>
+      <p class="pag-stock">⚠️ Status de estoque: verifique na loja oficial se a promoção ainda está ativa.</p>
+
+      <h2 class="pag-h2">P.S.</h2>
+      <p>Desde que comecei a recomendar suporte intestinal de verdade, ouço a mesma frase:</p>
+      <div class="pag-testi">&ldquo;[PLACEHOLDER] Gastei meses no remédio errado. Em três semanas de biscoito, finalmente entendi.&rdquo;</div>
+      <div class="pag-testi">&ldquo;[PLACEHOLDER] Meu cão parou de acordar a casa. Eu voltei a dormir.&rdquo;</div>
+
+      <h2 class="pag-h2">Sua decisão</h2>
+      <p><strong>Opção 1:</strong> Continuar só tratando sintoma.</p>
+      <p><strong>Opção 2:</strong> Tentar mais um remédio isolado e torcer.</p>
+      <p><strong>Opção 3:</strong> Apoiar o intestino com suporte diário — Digestão Saudável.</p>
+      <p>A escolha é sua.</p>
+
+      <h2 class="pag-h2">Junte-se a tutores que reconstruíram a saúde intestinal do cão</h2>
+      <ol class="pag-list">
+        <li>Clique no botão abaixo e verifique se ainda há estoque.</li>
+        <li>Escolha o pacote (2 potes = 30% off + frete grátis).</li>
+        <li>Dê os biscoitos diários como petisco.</li>
+        <li>Observe as mudanças nas primeiras semanas.</li>
+      </ol>
+      <p>Lembre-se: garantia de 60 dias. Se não funcionar, devolve.</p>
+
+      <div class="pag-cta-wrap">
+        <a class="pag-cta-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR DISPONIBILIDADE E GARANTIR 30% OFF</a>
+        <p class="pag-cta-sub">Clique acima para ver se a Mimi &amp; Pipo ainda está com frete grátis e 30% off.</p>
+      </div>
+
+      <p class="pag-signoff">Publicado: <span id="signoff-date">...</span> · Por Juliana Da Silva</p>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p class="vet-note">O conteúdo deste site não substitui a orientação veterinária.</p>
     <ul class="footer-links">
       <li><a href="https://mimiepipo.com.br/pages/termos-e-condicoes">Termos e Condições</a></li>
       <li><a href="https://mimiepipo.com.br/pages/politica-de-privacidade">Política de privacidade</a></li>
       <li><a href="https://mimiepipo.com.br/pages/regras-de-afiliados">Regras de afiliados</a></li>
     </ul>
-    <p class="copyright">&copy; <span id="footer-year"></span> Mimi &amp; Pipo. Todos os direitos reservados.</p>
+    <p>&copy; <span id="footer-year"></span> Mimi &amp; Pipo. Todos os direitos reservados.</p>
   </footer>
 
-  <div class="sticky-bar sans" role="complementary" aria-label="Oferta">
-    <div class="sticky-inner">
-      <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="" width="48" height="48">
-      <div class="sticky-copy">
-        <strong>30% OFF · Frete grátis</strong>
-        <span>Digestão Saudável</span>
-      </div>
-      <a class="sticky-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">COMPRAR</a>
-    </div>
+  <div class="pag-disc-bar">
+    Este produto não se destina a diagnosticar, tratar, curar ou prevenir doenças. Consulte um veterinário.
   </div>
 
   <script>
     (function () {
       var PDP = 'https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003';
 
+      var DEFAULTS = {
+        h1: 'A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)',
+        quote: '\u201cSe o seu c\u00e3o arrasta o bumbum, lambe a pata at\u00e9 ferir, tem coc\u00f4 mole ou acorda a casa \u00e0s 3 da manh\u00e3 \u2014 costuma haver a mesma causa por tr\u00e1s.\u201d',
+        hero: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=1000&fit=crop&q=80',
+        lead: 'Se o seu c\u00e3o tem problemas cr\u00f3nicos de pele, comportamento ou digest\u00e3o, voc\u00ea provavelmente j\u00e1 tentou o que a maioria tenta.'
+      };
+
       function getParam(name) {
         try {
-          var params = new URLSearchParams(window.location.search);
-          var v = params.get(name);
+          var v = new URLSearchParams(window.location.search).get(name);
           if (!v) return null;
           return decodeURIComponent(v.replace(/\+/g, ' ')).trim();
         } catch (e) {
@@ -542,64 +471,42 @@
         }
       }
 
-      function setText(id, value, fallback) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.textContent = value || fallback;
-      }
+      var h1 = getParam('h1') || DEFAULTS.h1;
+      var quote = getParam('quote') || DEFAULTS.quote;
+      var hero = getParam('hero') || DEFAULTS.hero;
+      var lead = getParam('lead') || DEFAULTS.lead;
 
-      function setHtml(id, value, fallback) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        var text = value || fallback;
-        el.innerHTML = text.replace(/\n/g, '<br>');
-      }
+      var h1El = document.getElementById('dynamic-h1');
+      if (h1El) h1El.textContent = h1;
 
-      var defaults = {
-        h1: '[PLACEHOLDER] Cole aqui o gancho exato do anúncio — mesma frase do primary text.',
-        hero: 'https://placehold.co/800x1000/e8e8e8/666?text=Imagem+4%3A5+do+an%C3%BAncio',
-        lead: '[PLACEHOLDER] Primeiro parágrafo após a imagem: continuação do anúncio ou repetição das 2–3 primeiras frases antes de expandir a história.',
-        quote: '"[PLACEHOLDER] Se o seu cão tem cocô mole, coceira ou gases — pode haver uma causa que ninguém explicou."'
-      };
+      var quoteEl = document.getElementById('dynamic-quote');
+      if (quoteEl) quoteEl.textContent = quote;
 
-      var h1 = getParam('h1');
-      var hero = getParam('hero');
-      var lead = getParam('lead');
-      var quote = getParam('quote');
-
-      setText('dynamic-h1', h1, defaults.h1);
+      var leadEl = document.getElementById('dynamic-lead');
+      if (leadEl) leadEl.textContent = lead;
 
       var heroEl = document.getElementById('dynamic-hero');
       if (heroEl) {
-        heroEl.src = hero || defaults.hero;
-        heroEl.alt = h1 ? h1.substring(0, 120) : 'Imagem do anúncio';
+        heroEl.src = hero;
+        heroEl.alt = h1.substring(0, 120);
       }
 
-      setHtml('dynamic-lead', lead, defaults.lead);
-
-      var quoteEl = document.getElementById('dynamic-quote');
-      if (quoteEl) {
-        quoteEl.textContent = quote || defaults.quote;
-      }
-
-      if (h1) {
-        document.title = h1.length > 60 ? h1.substring(0, 57) + '...' : h1;
-      }
+      document.title = h1.length > 55 ? h1.substring(0, 52) + '...' : h1;
 
       var now = new Date();
-      var dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
-      var dateStr = now.toLocaleDateString('pt-BR', dateOpts);
+      var dateStr = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-      setText('article-date', dateStr, dateStr);
-      setText('byline-date', dateStr, dateStr);
+      ['byline-date', 'signoff-date'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = dateStr;
+      });
 
       var yearEl = document.getElementById('footer-year');
       if (yearEl) yearEl.textContent = now.getFullYear();
 
-      document.querySelectorAll('a.btn, a.sticky-btn, a.shop-btn').forEach(function (a) {
-        if (!a.getAttribute('href') || a.getAttribute('href') === '#') {
-          a.setAttribute('href', PDP);
-        }
+      document.querySelectorAll('.pag-cta-btn, .pag-skip').forEach(function (a) {
+        if (a.classList.contains('pag-skip')) return;
+        a.setAttribute('href', PDP);
       });
     })();
   </script>
