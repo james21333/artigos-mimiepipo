@@ -66,26 +66,31 @@
 
     .pag-quote {
       margin: 0 0 16px;
-      font-size: 16px;
-      line-height: 28.8px;
+      font-size: 17px;
+      line-height: 30.6px;
       color: #2c2c2c;
     }
 
     .pag-meta {
-      margin: 0 0 20px;
+      margin: 0 0 16px;
       font-size: 16px;
       line-height: 28.8px;
       color: #2c2c2c;
     }
+    .pag-meta strong {
+      font-weight: 700;
+    }
 
     .pag-img {
-      margin: 20px 0;
+      margin: 16px 0 12px;
       border-radius: 4px;
       overflow: hidden;
       background: #e8e0cf;
     }
     .pag-img-atf {
-      aspect-ratio: 4 / 5;
+      width: 100%;
+      height: 260px;
+      max-height: 260px;
     }
     .pag-img-atf img {
       width: 100%;
@@ -135,7 +140,7 @@
       line-height: 28.8px;
       padding: 14px 20px;
       border-radius: 4px;
-      margin: 4px 0 28px;
+      margin: 0 0 20px;
       text-align: center;
     }
 
@@ -279,9 +284,11 @@
       .pag-w { padding: 0 24px 56px; }
       .pag-bar-title { font-size: 16px; }
       .pag-h1 { font-size: 30px; line-height: 39px; }
-      .pag-quote, .pag-meta, .pag-lead { font-size: 17px; line-height: 30.6px; }
+      .pag-quote { font-size: 18px; line-height: 32.4px; }
+      .pag-meta, .pag-lead { font-size: 17px; line-height: 30.6px; }
       .pag-h2 { font-size: 24px; line-height: 31.2px; }
       .pag-skip { font-size: 17px; line-height: 30.6px; }
+      .pag-img-atf { height: 280px; max-height: 280px; }
     }
   </style>
 </head>
@@ -299,11 +306,13 @@
 
       <p class="pag-quote" id="dynamic-quote">&ldquo;Se o seu cão arrasta o bumbum, lambe a pata até ferir, tem cocô mole ou acorda a casa às 3 da manhã — costuma haver a mesma causa por trás.&rdquo;</p>
 
-      <p class="pag-meta" id="dynamic-meta">— Juliana Da Silva, especialista em bem-estar canino<br>Publicado: <span id="byline-date">...</span></p>
+      <p class="pag-meta" id="dynamic-meta">&mdash; <strong>Juliana Da Silva, especialista em bem-estar canino</strong><br>Publicado: <span id="byline-date">...</span></p>
 
       <div class="pag-img pag-img-atf">
-        <img id="dynamic-hero" src="https://artigos.mimiepipo.com.br/creatives/01-itching-gut-skin/hero.jpg" alt="Cão em casa — imagem padrão do advertorial" width="800" height="1000" loading="eager" decoding="async">
+        <img id="dynamic-hero" src="https://artigos.mimiepipo.com.br/creatives/01-itching-gut-skin/hero.jpg" alt="Cão em casa — imagem padrão do advertorial" width="800" height="520" loading="eager" decoding="async">
       </div>
+
+      <a class="pag-skip" href="#oferta">Quer ir direto ao ponto? Clique para ver o protocolo que recomendo</a>
 
       <p class="pag-lead" id="dynamic-lead">Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.</p>
     </div>
@@ -339,10 +348,9 @@
       <p>Porque o problema real não é só o sintoma.</p>
       <p>E essa percepção me veio num dos casos mais difíceis que acompanhei.</p>
 
-      <a class="pag-skip" href="#oferta">Quer ir direto ao ponto? Veja o suporte intestinal que recomendo</a>
-
       <h2 class="pag-h2">Quando o caminho convencional falhou</h2>
-      <p>O Bruno tinha quatro anos, SRD resgatado. A tutora Clara fez tudo &ldquo;certo&rdquo;: ração premium, consultas, remédio para coceira, probiótico, vermífugo, troca de ração duas vezes.</p>
+      <p>O Bruno tinha quatro anos, SRD resgatado. A tutora Clara o adotou há dois anos.</p>
+      <p><strong>Clara fez tudo &ldquo;certo&rdquo;:</strong> ração premium, consultas, remédio para coceira, probiótico, vermífugo, troca de ração duas vezes.</p>
       <p>Mesmo assim, o Bruno coçava o flanco toda noite.</p>
       <p>Arrastava o bumbum três ou quatro vezes por dia.</p>
       <p>Tinha cocô mole quase toda manhã.</p>
@@ -495,10 +503,38 @@
 
       var DEFAULTS = {
         h1: 'A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)',
-        quote: '\u201cSe o seu c\u00e3o arrasta o bumbum, lambe a pata at\u00e9 ferir, tem coc\u00f4 mole ou acorda a casa \u00e0s 3 da manh\u00e3 \u2014 costuma haver a mesma causa por tr\u00e1s.\u201d',
         hero: 'https://artigos.mimiepipo.com.br/creatives/01-itching-gut-skin/hero.jpg',
-        lead: 'Se o seu c\u00e3o tem problemas cr\u00f4nicos de pele, comportamento ou digest\u00e3o, voc\u00ea provavelmente j\u00e1 tentou o que a maioria tenta.'
+        lead: 'Se o seu c\u00e3o tem problemas cr\u00f4nicos de pele, comportamento ou digest\u00e3o, voc\u00ea provavelmente j\u00e1 tentou o que a maioria tenta.',
+        problem: null
       };
+
+      var BASE_PROBLEMS = [
+        'arrasta o bumbum',
+        'lambe a pata at\u00e9 ferir',
+        'tem coc\u00f4 mole',
+        'acorda a casa \u00e0s 3 da manh\u00e3'
+      ];
+
+      function normalizeProblem(s) {
+        return s.toLowerCase().replace(/\s+/g, ' ').trim();
+      }
+
+      function buildQuote(customProblem) {
+        var problems = BASE_PROBLEMS.slice();
+        if (customProblem) {
+          var norm = normalizeProblem(customProblem);
+          var exists = problems.some(function (p) {
+            var pn = normalizeProblem(p);
+            return pn === norm || pn.indexOf(norm) !== -1 || norm.indexOf(pn) !== -1;
+          });
+          if (!exists) {
+            problems.splice(2, 0, customProblem);
+          }
+        }
+        var last = problems.pop();
+        var list = problems.join(', ') + ' ou ' + last;
+        return '\u201cSe o seu c\u00e3o ' + list + ' \u2014 costuma haver a mesma causa por tr\u00e1s.\u201d';
+      }
 
       function publishedDate() {
         var d = new Date();
@@ -517,9 +553,11 @@
       }
 
       var h1 = getParam('h1') || DEFAULTS.h1;
-      var quote = getParam('quote') || DEFAULTS.quote;
       var hero = getParam('hero') || DEFAULTS.hero;
       var lead = getParam('lead') || DEFAULTS.lead;
+      var problem = getParam('problem') || DEFAULTS.problem;
+      var quoteOverride = getParam('quote');
+      var quote = quoteOverride || buildQuote(problem);
 
       var h1El = document.getElementById('dynamic-h1');
       if (h1El) h1El.textContent = h1;
