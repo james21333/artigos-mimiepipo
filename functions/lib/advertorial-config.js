@@ -39,18 +39,28 @@ function normalizeProblem(s) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+function findCustomProblemRef(problems, customProblem) {
+  if (!customProblem) return null;
+  const norm = normalizeProblem(customProblem);
+  const match = problems.find((p) => {
+    const pn = normalizeProblem(p);
+    return pn === norm || pn.includes(norm) || norm.includes(pn);
+  });
+  if (match) return match;
+  problems.splice(2, 0, customProblem);
+  return customProblem;
+}
+
+function formatQuoteProblem(problem, boldRef) {
+  const text = escapeHtml(problem);
+  return problem === boldRef ? `<strong>${text}</strong>` : text;
+}
+
 export function buildQuote(customProblem) {
   const problems = BASE_PROBLEMS.slice();
-  if (customProblem) {
-    const norm = normalizeProblem(customProblem);
-    const exists = problems.some((p) => {
-      const pn = normalizeProblem(p);
-      return pn === norm || pn.includes(norm) || norm.includes(pn);
-    });
-    if (!exists) problems.splice(2, 0, customProblem);
-  }
+  const boldRef = findCustomProblemRef(problems, customProblem);
   const last = problems.pop();
-  const list = `${problems.join(', ')} ou ${last}`;
+  const list = `${problems.map((p) => formatQuoteProblem(p, boldRef)).join(', ')} ou ${formatQuoteProblem(last, boldRef)}`;
   return `“Se o seu cão ${list} — costuma haver a mesma causa por trás.”`;
 }
 
@@ -129,7 +139,7 @@ export function renderAdvertorial(template, searchParams, now = new Date()) {
     .replaceAll('__HERO__', escapeHtml(data.hero))
     .replaceAll('__HERO_ALT__', escapeHtml(data.heroAlt))
     .replaceAll('__LEAD__', escapeHtml(data.lead))
-    .replaceAll('__QUOTE__', escapeHtml(data.quote))
+    .replaceAll('__QUOTE__', data.quote)
     .replaceAll('__PAGE_TITLE__', escapeHtml(data.pageTitle))
     .replaceAll('__PUBLISHED_DATE__', escapeHtml(data.publishedDate))
     .replaceAll('__FOOTER_YEAR__', escapeHtml(data.footerYear))
