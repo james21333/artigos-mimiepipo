@@ -12,7 +12,6 @@ TEMPLATE = ROOT / "public/advertorial.template.html"
 OUTPUT = ROOT / "public/advertorial.html"
 PDP = "https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003"
 META_PIXEL_ID = "1960132154863603"
-PRODUCT_VARIANT_ID = "47890765775003"
 
 DEFAULTS = {
     "h1": "A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)",
@@ -89,21 +88,6 @@ src="https://www.facebook.com/tr?id={META_PIXEL_ID}&amp;ev=PageView&amp;noscript
   }}
   document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {{
     a.href = withAttribution(a.href);
-    a.addEventListener('click', function (e) {{
-      var dest = a.href;
-      if (typeof fbq !== 'function') return;
-      e.preventDefault();
-      fbq('track', 'ViewContent', {{
-        content_name: 'Digestão Saudável',
-        content_ids: ['{PRODUCT_VARIANT_ID}'],
-        content_type: 'product',
-        value: 142.0,
-        currency: 'BRL'
-      }});
-      setTimeout(function () {{
-        window.location.href = dest;
-      }}, 350);
-    }});
   }});
 }})();
 </script>"""

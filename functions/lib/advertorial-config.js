@@ -3,7 +3,6 @@ export const PDP =
 
 /** Same pixel as Shopify Facebook & Instagram channel (Web Pixels Manager). */
 export const META_PIXEL_ID = '1960132154863603';
-export const PRODUCT_VARIANT_ID = '47890765775003';
 
 const ATTRIBUTION_PARAMS = [
   'fbclid',
@@ -35,7 +34,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&amp;ev=PageView&amp;noscript=1"
 /></noscript>`;
 }
 
-export function buildAttributionScript(variantId) {
+export function buildAttributionScript() {
   const paramsJson = JSON.stringify(ATTRIBUTION_PARAMS);
   return `<script>
 (function () {
@@ -62,21 +61,6 @@ export function buildAttributionScript(variantId) {
   }
   document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {
     a.href = withAttribution(a.href);
-    a.addEventListener('click', function (e) {
-      var dest = a.href;
-      if (typeof fbq !== 'function') return;
-      e.preventDefault();
-      fbq('track', 'ViewContent', {
-        content_name: 'Digestão Saudável',
-        content_ids: ['${variantId}'],
-        content_type: 'product',
-        value: 142.0,
-        currency: 'BRL'
-      });
-      setTimeout(function () {
-        window.location.href = dest;
-      }, 350);
-    });
   });
 })();
 </script>`;
@@ -226,5 +210,5 @@ export function renderAdvertorial(template, searchParams, now = new Date()) {
     .replaceAll('__FOOTER_YEAR__', escapeHtml(data.footerYear))
     .replaceAll('__PDP__', escapeHtml(data.pdp))
     .replaceAll('__META_PIXEL_HEAD__', buildMetaPixelHead(META_PIXEL_ID))
-    .replaceAll('__META_PIXEL_SCRIPT__', buildAttributionScript(PRODUCT_VARIANT_ID));
+    .replaceAll('__META_PIXEL_SCRIPT__', buildAttributionScript());
 }
