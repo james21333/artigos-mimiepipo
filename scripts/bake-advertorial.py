@@ -14,7 +14,7 @@ PDP = "https://mimiepipo.com.br/products/digestao-saudavel?variant=4789076577500
 
 DEFAULTS = {
     "h1": "A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)",
-    "hero": "https://artigos.mimiepipo.com.br/creatives/01-itching-gut-skin/hero.jpg",
+    "hero": "https://artigos.mimiepipo.com.br/advertorial/images/inline-01-atf-hero.png",
     "lead": "Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.",
 }
 
