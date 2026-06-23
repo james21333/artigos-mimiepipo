@@ -238,23 +238,26 @@
       font-size: 15px;
     }
 
-    .site-footer {
-      max-width: 740px;
-      margin: 0 auto;
-      padding: 0 16px 32px;
+    .pag-disc-bar {
+      background: #2c2c2c;
+      color: rgba(255,255,255,.65);
+      padding: 24px 16px 28px;
+      font-size: 11px;
+      line-height: 17px;
       text-align: center;
-      font-size: 12px;
-      line-height: 19px;
-      color: #666;
+      margin-top: 0;
     }
-    .site-footer .vet-note {
+    .pag-disc-bar p {
+      margin: 0 0 12px;
+    }
+    .pag-disc-bar .vet-note {
       font-style: italic;
-      margin: 0 0 14px;
-      color: #2c2c2c;
-      font-size: 13px;
-      line-height: 20px;
+      color: rgba(255,255,255,.72);
+      font-size: 12px;
+      line-height: 18px;
+      margin-bottom: 14px;
     }
-    .footer-links {
+    .pag-disc-bar .footer-links {
       list-style: none;
       margin: 0 0 12px;
       padding: 0;
@@ -263,20 +266,20 @@
       justify-content: center;
       gap: 6px 16px;
     }
-    .footer-links a {
-      color: #377359;
+    .pag-disc-bar .footer-links a {
+      color: rgba(255,255,255,.85);
       text-decoration: underline;
-      font-size: 12px;
-    }
-
-    .pag-disc-bar {
-      background: #2c2c2c;
-      color: rgba(255,255,255,.65);
-      padding: 20px 16px;
       font-size: 11px;
-      line-height: 17px;
-      text-align: center;
-      margin-top: 24px;
+    }
+    .pag-disc-bar .footer-copy {
+      margin: 0 0 14px;
+      color: rgba(255,255,255,.55);
+    }
+    .pag-disc-bar .footer-legal {
+      margin: 0;
+      color: rgba(255,255,255,.5);
+      font-size: 10px;
+      line-height: 15px;
     }
     .pag-disc-bar a {
       color: rgba(255,255,255,.85);
@@ -572,19 +575,16 @@
     </div>
   </div>
 
-  <footer class="site-footer">
+  <footer class="pag-disc-bar">
     <p class="vet-note">O conteúdo deste site não substitui a orientação veterinária.</p>
     <ul class="footer-links">
       <li><a href="https://mimiepipo.com.br/pages/termos-e-condicoes">Termos e Condições</a></li>
       <li><a href="https://mimiepipo.com.br/pages/politica-de-privacidade">Política de privacidade</a></li>
       <li><a href="https://mimiepipo.com.br/pages/regras-de-afiliados">Regras de afiliados</a></li>
     </ul>
-    <p>&copy; <span id="footer-year"></span> Mimi &amp; Pipo. Todos os direitos reservados.</p>
+    <p class="footer-copy">&copy; <span id="footer-year"></span> Mimi &amp; Pipo. Todos os direitos reservados.</p>
+    <p class="footer-legal">Este produto não se destina a diagnosticar, tratar, curar ou prevenir doenças. Consulte um veterinário.</p>
   </footer>
-
-  <div class="pag-disc-bar">
-    Este produto não se destina a diagnosticar, tratar, curar ou prevenir doenças. Consulte um veterinário.
-  </div>
 
   <script>
     (function () {
