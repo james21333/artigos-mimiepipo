@@ -62,8 +62,10 @@ export function buildAttributionScript(variantId) {
   }
   document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {
     a.href = withAttribution(a.href);
-    a.addEventListener('click', function () {
+    a.addEventListener('click', function (e) {
+      var dest = a.href;
       if (typeof fbq !== 'function') return;
+      e.preventDefault();
       fbq('track', 'ViewContent', {
         content_name: 'Digestão Saudável',
         content_ids: ['${variantId}'],
@@ -71,7 +73,10 @@ export function buildAttributionScript(variantId) {
         value: 142.0,
         currency: 'BRL'
       });
-    }, { capture: true });
+      setTimeout(function () {
+        window.location.href = dest;
+      }, 350);
+    });
   });
 })();
 </script>`;

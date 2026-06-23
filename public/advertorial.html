@@ -681,8 +681,10 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
   }
   document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {
     a.href = withAttribution(a.href);
-    a.addEventListener('click', function () {
+    a.addEventListener('click', function (e) {
+      var dest = a.href;
       if (typeof fbq !== 'function') return;
+      e.preventDefault();
       fbq('track', 'ViewContent', {
         content_name: 'Digestão Saudável',
         content_ids: ['47890765775003'],
@@ -690,7 +692,10 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
         value: 142.0,
         currency: 'BRL'
       });
-    }, { capture: true });
+      setTimeout(function () {
+        window.location.href = dest;
+      }, 350);
+    });
   });
 })();
 </script>
