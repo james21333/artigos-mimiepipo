@@ -19,6 +19,11 @@ DEFAULTS = {
     "lead": "Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.",
 }
 
+DEFAULT_REMEDY_LINE = (
+    "Se comprou <strong>remédio para coceira</strong> ou fez "
+    "<strong>injeção anti-coceira</strong>..."
+)
+
 BASE_PROBLEMS = [
     "arrasta o bumbum",
     "lambe a pata até ferir",
@@ -105,6 +110,7 @@ def main() -> None:
         .replace("__HERO_ALT__", esc(h1[:120]))
         .replace("__LEAD__", esc(DEFAULTS["lead"]))
         .replace("__QUOTE__", esc(build_quote()))
+        .replace("__REMEDY_LINE__", DEFAULT_REMEDY_LINE)
         .replace("__PAGE_TITLE__", esc(title))
         .replace("__PUBLISHED_DATE__", esc(published_date()))
         .replace("__FOOTER_YEAR__", esc(str(datetime.now().year)))

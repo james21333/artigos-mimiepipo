@@ -129,6 +129,71 @@ export function buildQuote(customProblem) {
   return `“Se o seu cão ${list} — costuma haver a mesma causa por trás.”`;
 }
 
+/** First “Se comprou remédio…” line — keyed to each ad’s `problem` param. */
+const REMEDY_LINES = {
+  'reinfecta depois do vermífugo':
+    'Se comprou <strong>remédio</strong> por causa de <strong>reinfectar depois do vermífugo</strong>...',
+  'tem sangue nas fezes':
+    'Se comprou <strong>remédio</strong> por causa de <strong>sangue nas fezes</strong>...',
+  'perde peso e energia':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>perder peso e energia</strong>...',
+  'tem caroço perto do bumbum':
+    'Se comprou <strong>remédio</strong> por causa de <strong>caroço perto do bumbum</strong>...',
+  'vomita quase todo dia':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>vomitar quase todo dia</strong>...',
+  'coça sem parar':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>coçar sem parar</strong>...',
+  'arrasta o bumbum no tapete':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>arrastar o bumbum no tapete</strong>...',
+  'reinfecta com giardia':
+    'Se comprou <strong>remédio</strong> por causa de <strong>reinfectar com giardia</strong>...',
+  'tem cocô mole crônico':
+    'Se comprou <strong>remédio</strong> por causa de <strong>cocô mole crônico</strong>...',
+  'come grama e vomita':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>comer grama e vomitar</strong>...',
+  'precisa esvaziar glândula toda semana':
+    'Se comprou <strong>remédio</strong> por causa de <strong>precisar esvaziar glândula toda semana</strong>...',
+  'probiótico não resolve a barriga':
+    'Se comprou <strong>remédio</strong> ou <strong>probiótico</strong> e a <strong>barriga não resolve</strong>...',
+  'cocô mole mesmo com abóbora':
+    'Se comprou <strong>remédio</strong> por causa de <strong>cocô mole mesmo com abóbora</strong>...',
+  'come cocô no passeio':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>comer cocô no passeio</strong>...',
+  'cheira a peixe no sofá':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>cheirar a peixe no sofá</strong>...',
+  'fedor de cocô no apartamento':
+    'Se comprou <strong>remédio</strong> por causa de <strong>fedor de cocô no apartamento</strong>...',
+  'solta gases na hora do jantar':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>soltar gases na hora do jantar</strong>...',
+  'mancha o tapete arrastando o bumbum':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>manchar o tapete arrastando o bumbum</strong>...',
+  'acorda a casa de madrugada':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>acordar a casa de madrugada</strong>...',
+  'diarreia de madrugada':
+    'Se comprou <strong>remédio</strong> por causa de <strong>diarreia de madrugada</strong>...',
+  'cheiro forte impede carinho':
+    'Se comprou <strong>remédio</strong> por causa de <strong>cheiro forte que impede carinho</strong>...',
+  'coça a noite inteira':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>coçar a noite inteira</strong>...',
+  'não tem mais energia':
+    'Se comprou <strong>remédio</strong> por causa de ele <strong>não ter mais energia</strong>...',
+  'tem cocô mole':
+    'Se comprou <strong>remédio</strong> por causa de <strong>cocô mole</strong>...',
+  'pelo opaco e sem brilho':
+    'Se comprou <strong>remédio</strong> ou <strong>suplemento</strong> por causa de <strong>pelo opaco e sem brilho</strong>...',
+};
+
+const DEFAULT_REMEDY_LINE =
+  'Se comprou <strong>remédio para coceira</strong> ou fez <strong>injeção anti-coceira</strong>...';
+
+export function buildRemedyLine(customProblem) {
+  if (!customProblem) return DEFAULT_REMEDY_LINE;
+  const key = normalizeProblem(customProblem);
+  if (REMEDY_LINES[key]) return REMEDY_LINES[key];
+  const escaped = escapeHtml(customProblem);
+  return `Se comprou <strong>remédio</strong> por causa de <strong>${escaped}</strong>...`;
+}
+
 export function publishedDate(now = new Date()) {
   const d = new Date(now);
   d.setDate(d.getDate() - 35);
@@ -174,6 +239,7 @@ export function resolveAdvertorial(searchParams, now = new Date()) {
     pickParam(searchParams, 'problem') || angle?.problem || DEFAULTS.problem;
   const quoteOverride = pickParam(searchParams, 'quote');
   const quote = quoteOverride || buildQuote(problem);
+  const remedyLine = buildRemedyLine(problem);
 
   return {
     h1,
@@ -181,6 +247,7 @@ export function resolveAdvertorial(searchParams, now = new Date()) {
     heroAlt: h1.substring(0, 120),
     lead,
     quote,
+    remedyLine,
     pageTitle: pageTitle(h1),
     publishedDate: publishedDate(now),
     footerYear: String(now.getFullYear()),
@@ -205,6 +272,7 @@ export function renderAdvertorial(template, searchParams, now = new Date()) {
     .replaceAll('__HERO_ALT__', escapeHtml(data.heroAlt))
     .replaceAll('__LEAD__', escapeHtml(data.lead))
     .replaceAll('__QUOTE__', data.quote)
+    .replaceAll('__REMEDY_LINE__', data.remedyLine)
     .replaceAll('__PAGE_TITLE__', escapeHtml(data.pageTitle))
     .replaceAll('__PUBLISHED_DATE__', escapeHtml(data.publishedDate))
     .replaceAll('__FOOTER_YEAR__', escapeHtml(data.footerYear))
