@@ -9,6 +9,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Meta Pixel (prelander — same ID as Shopify PDP) -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1960132154863603');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscript=1"
+/></noscript>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; }
@@ -640,5 +656,43 @@
     <p class="footer-legal">Este produto não se destina a diagnosticar, tratar, curar ou prevenir doenças. Consulte um veterinário.</p>
   </footer>
 
+  <script>
+(function () {
+  var ATTR = ["fbclid","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_id"];
+  var landing = new URL(window.location.href);
+  var stored = {};
+  ATTR.forEach(function (k) {
+    var v = landing.searchParams.get(k);
+    if (v) {
+      stored[k] = v;
+      try { sessionStorage.setItem('mp_attr_' + k, v); } catch (e) {}
+    }
+  });
+  function withAttribution(href) {
+    try {
+      var u = new URL(href, window.location.origin);
+      Object.keys(stored).forEach(function (k) {
+        if (!u.searchParams.has(k)) u.searchParams.set(k, stored[k]);
+      });
+      return u.toString();
+    } catch (e) {
+      return href;
+    }
+  }
+  document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {
+    a.href = withAttribution(a.href);
+    a.addEventListener('click', function () {
+      if (typeof fbq !== 'function') return;
+      fbq('track', 'ViewContent', {
+        content_name: 'Digestão Saudável',
+        content_ids: ['47890765775003'],
+        content_type: 'product',
+        value: 142.0,
+        currency: 'BRL'
+      });
+    }, { capture: true });
+  });
+})();
+</script>
 </body>
 </html>

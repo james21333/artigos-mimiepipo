@@ -1,6 +1,82 @@
 export const PDP =
   'https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003';
 
+/** Same pixel as Shopify Facebook & Instagram channel (Web Pixels Manager). */
+export const META_PIXEL_ID = '1960132154863603';
+export const PRODUCT_VARIANT_ID = '47890765775003';
+
+const ATTRIBUTION_PARAMS = [
+  'fbclid',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'utm_id',
+];
+
+export function buildMetaPixelHead(pixelId) {
+  if (!pixelId) return '';
+  return `<!-- Meta Pixel (prelander — same ID as Shopify PDP) -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${pixelId}');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=${pixelId}&amp;ev=PageView&amp;noscript=1"
+/></noscript>`;
+}
+
+export function buildAttributionScript(variantId) {
+  const paramsJson = JSON.stringify(ATTRIBUTION_PARAMS);
+  return `<script>
+(function () {
+  var ATTR = ${paramsJson};
+  var landing = new URL(window.location.href);
+  var stored = {};
+  ATTR.forEach(function (k) {
+    var v = landing.searchParams.get(k);
+    if (v) {
+      stored[k] = v;
+      try { sessionStorage.setItem('mp_attr_' + k, v); } catch (e) {}
+    }
+  });
+  function withAttribution(href) {
+    try {
+      var u = new URL(href, window.location.origin);
+      Object.keys(stored).forEach(function (k) {
+        if (!u.searchParams.has(k)) u.searchParams.set(k, stored[k]);
+      });
+      return u.toString();
+    } catch (e) {
+      return href;
+    }
+  }
+  document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {
+    a.href = withAttribution(a.href);
+    a.addEventListener('click', function () {
+      if (typeof fbq !== 'function') return;
+      fbq('track', 'ViewContent', {
+        content_name: 'Digestão Saudável',
+        content_ids: ['${variantId}'],
+        content_type: 'product',
+        value: 142.0,
+        currency: 'BRL'
+      });
+    }, { capture: true });
+  });
+})();
+</script>`;
+}
+
 const IMG = 'https://artigos.mimiepipo.com.br/advertorial/images';
 
 export const DEFAULTS = {
@@ -143,5 +219,7 @@ export function renderAdvertorial(template, searchParams, now = new Date()) {
     .replaceAll('__PAGE_TITLE__', escapeHtml(data.pageTitle))
     .replaceAll('__PUBLISHED_DATE__', escapeHtml(data.publishedDate))
     .replaceAll('__FOOTER_YEAR__', escapeHtml(data.footerYear))
-    .replaceAll('__PDP__', escapeHtml(data.pdp));
+    .replaceAll('__PDP__', escapeHtml(data.pdp))
+    .replaceAll('__META_PIXEL_HEAD__', buildMetaPixelHead(META_PIXEL_ID))
+    .replaceAll('__META_PIXEL_SCRIPT__', buildAttributionScript(PRODUCT_VARIANT_ID));
 }
