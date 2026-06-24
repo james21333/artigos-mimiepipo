@@ -131,20 +131,55 @@ function isCtaParagraph(text) {
   return false;
 }
 
+function isGarantiaParagraph(text) {
+  return /garantia de 60 dias/i.test(String(text));
+}
+
+const RECOMMEND_BEFORE_CTA = `<p class="pag-adcopy pag-recommend">Eu recomendo melhorar a saúde intestinal com petiscos prebióticos naturais como o <strong>Digestão Saudável</strong> da Mimi e Pipo. Por tempo limitado, eles estão oferecendo <strong>30% de desconto</strong> e <strong>frete grátis</strong> para minhas leitoras.</p>`;
+
+const GUT_PROBLEMS_BLOCK = `<p class="pag-adcopy pag-gut-intro">Se o seu cachorro tem algum destes problemas, em cerca de duas semanas muita coisa pode melhorar quando você cuida do intestino dele — e, com isso, fortalece o sistema imune:</p>
+<ul class="pag-list pag-problems">
+<li>Coceira crônica, manchas na pele e hot spots</li>
+<li>Giardia e parasitas intestinais que voltam depois do vermífugo</li>
+<li>Arrastar o bumbum, glândula anal entupida e cheiro de peixe</li>
+<li>Diarreia, cocô mole ou sangue nas fezes</li>
+<li>Vômito frequente e vontade desesperada de comer grama</li>
+<li>Comer cocô no passeio</li>
+<li>Gases e cocô com cheiro forte demais</li>
+<li>Falta de energia e apatia</li>
+<li>Inquietação à noite e ansiedade</li>
+<li>Rigidez e dor nas articulações em cães idosos</li>
+<li>Intestino frágil depois de antibióticos ou probiótico que não resolveu</li>
+</ul>`;
+
 function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
   const slice = skipFirst ? paragraphs.slice(1) : paragraphs;
-  return slice
-    .map((raw) => {
-      const text = String(raw).trim();
-      if (!text) return '';
-      if (isCtaParagraph(text)) {
-        const href = extractUrl(text) || pdp;
-        return `<div class="pag-cta-wrap pag-cta-wrap--adcopy"><a class="pag-cta-btn pag-cta-btn--green" href="${escapeHtml(href)}">Ver Digestão Saudável — Garantia de 60 dias</a></div>`;
+  const parts = [];
+  let firstCtaDone = false;
+
+  for (const raw of slice) {
+    const text = String(raw).trim();
+    if (!text) continue;
+
+    if (isCtaParagraph(text)) {
+      if (!firstCtaDone) {
+        parts.push(RECOMMEND_BEFORE_CTA);
+        firstCtaDone = true;
       }
-      return `<p class="pag-adcopy">${escapeHtml(text)}</p>`;
-    })
-    .filter(Boolean)
-    .join('\n');
+      const href = extractUrl(text) || pdp;
+      parts.push(
+        `<div class="pag-cta-wrap pag-cta-wrap--adcopy"><a class="pag-cta-btn pag-cta-btn--green" href="${escapeHtml(href)}">Ver Digestão Saudável — Garantia de 60 dias</a></div>`,
+      );
+      continue;
+    }
+
+    parts.push(`<p class="pag-adcopy">${escapeHtml(text)}</p>`);
+    if (isGarantiaParagraph(text)) {
+      parts.push(GUT_PROBLEMS_BLOCK);
+    }
+  }
+
+  return parts.filter(Boolean).join('\n');
 }
 
 /** First line = headline; rest = body with original paragraph spacing. */

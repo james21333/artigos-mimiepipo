@@ -50,13 +50,44 @@ def extract_url(text: str) -> str:
     return m.group(0).rstrip(".,;:!?)")
 
 
+def is_garantia_paragraph(text: str) -> bool:
+    return "garantia de 60 dias" in text.lower()
+
+
+RECOMMEND_BEFORE_CTA = (
+    '<p class="pag-adcopy pag-recommend">Eu recomendo melhorar a saúde intestinal com '
+    "petiscos prebióticos naturais como o <strong>Digestão Saudável</strong> da Mimi e Pipo. "
+    "Por tempo limitado, eles estão oferecendo <strong>30% de desconto</strong> e "
+    "<strong>frete grátis</strong> para minhas leitoras.</p>"
+)
+
+GUT_PROBLEMS_BLOCK = """<p class="pag-adcopy pag-gut-intro">Se o seu cachorro tem algum destes problemas, em cerca de duas semanas muita coisa pode melhorar quando você cuida do intestino dele — e, com isso, fortalece o sistema imune:</p>
+<ul class="pag-list pag-problems">
+<li>Coceira crônica, manchas na pele e hot spots</li>
+<li>Giardia e parasitas intestinais que voltam depois do vermífugo</li>
+<li>Arrastar o bumbum, glândula anal entupida e cheiro de peixe</li>
+<li>Diarreia, cocô mole ou sangue nas fezes</li>
+<li>Vômito frequente e vontade desesperada de comer grama</li>
+<li>Comer cocô no passeio</li>
+<li>Gases e cocô com cheiro forte demais</li>
+<li>Falta de energia e apatia</li>
+<li>Inquietação à noite e ansiedade</li>
+<li>Rigidez e dor nas articulações em cães idosos</li>
+<li>Intestino frágil depois de antibióticos ou probiótico que não resolveu</li>
+</ul>"""
+
+
 def render_ad_copy(paragraphs: list[str]) -> str:
     parts: list[str] = []
+    first_cta_done = False
     for raw in paragraphs:
         text = raw.strip()
         if not text:
             continue
         if is_cta_paragraph(text):
+            if not first_cta_done:
+                parts.append(RECOMMEND_BEFORE_CTA)
+                first_cta_done = True
             href = extract_url(text)
             parts.append(
                 f'<div class="pag-cta-wrap pag-cta-wrap--adcopy">'
@@ -65,6 +96,8 @@ def render_ad_copy(paragraphs: list[str]) -> str:
             )
         else:
             parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
+            if is_garantia_paragraph(text):
+                parts.append(GUT_PROBLEMS_BLOCK)
     return "\n".join(parts)
 
 
