@@ -140,21 +140,39 @@ src="https://www.facebook.com/tr?id={META_PIXEL_ID}&amp;ev=PageView&amp;noscript
     return head, script
 
 
-def default_ad_copy_html() -> str:
+def render_ad_copy_body(paragraphs: list[str]) -> tuple[str, str]:
+    if not paragraphs:
+        h = DEFAULTS["headline"]
+        return esc(h), ""
+    headline = esc(paragraphs[0].strip())
+    body = render_ad_copy(paragraphs[1:])
+    return headline, body
+
+
+def default_ad_copy_sections() -> tuple[str, str]:
     sample = AD_COPY_DIR / "01-giardia-neighbor-fear.json"
     if sample.exists():
         data = json.loads(sample.read_text(encoding="utf-8"))
-        return render_ad_copy(data.get("paragraphs", []))
-    return f'<p class="pag-adcopy">{esc(DEFAULTS["headline"])}</p>'
+        return render_ad_copy_body(data.get("paragraphs", []))
+    h = esc(DEFAULTS["headline"])
+    return h, ""
 
 
 def main() -> None:
     tpl = TEMPLATE.read_text(encoding="utf-8")
     pixel_head, pixel_script = pixel_snippets()
+    headline_html, body_html = default_ad_copy_sections()
     headline = DEFAULTS["headline"]
+    sample = AD_COPY_DIR / "01-giardia-neighbor-fear.json"
+    if sample.exists():
+        data = json.loads(sample.read_text(encoding="utf-8"))
+        paras = data.get("paragraphs", [])
+        if paras:
+            headline = paras[0].strip()
     title = headline[:52] + "..." if len(headline) > 55 else headline
     out = (
-        tpl.replace("__AD_COPY__", default_ad_copy_html())
+        tpl.replace("__AD_HEADLINE__", headline_html)
+        .replace("__AD_COPY_BODY__", body_html)
         .replace("__HERO__", esc(DEFAULTS["hero"]))
         .replace("__HERO_ALT__", esc(headline[:120]))
         .replace("__INLINE_CTA_1__", inline_cta(PDP, "Verificar estoque — Digestão Saudável", "blue"))

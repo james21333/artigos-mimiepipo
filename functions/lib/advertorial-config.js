@@ -76,6 +76,18 @@ export const DEFAULTS = {
   hero: `${IMG}/inline-01-atf-hero.png`,
 };
 
+export function normalizeKey(value) {
+  if (!value) return '';
+  return String(value)
+    .toLowerCase()
+    .replace(/\u201c|\u201d/g, '"')
+    .replace(/\u2018|\u2019/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.,;:!?…]+$/g, '')
+    .trim();
+}
+
 export function publishedDate(now = new Date()) {
   const d = new Date(now);
   d.setDate(d.getDate() - 35);
@@ -101,7 +113,7 @@ function safeUrl(raw, fallback) {
   return fallback;
 }
 
-function pickParam(searchParams, key) {
+export function pickParam(searchParams, key) {
   const v = searchParams.get(key);
   if (!v) return null;
   return v.replace(/\+/g, ' ').trim();
@@ -119,12 +131,9 @@ function isCtaParagraph(text) {
   return false;
 }
 
-/** Render Facebook primary text — one <p> per blank-line break; PDP URLs become green CTAs. */
-export function renderAdCopyHtml(paragraphs, pdp = PDP) {
-  if (!paragraphs?.length) {
-    return `<p class="pag-adcopy">${escapeHtml(DEFAULTS.h1)}</p>`;
-  }
-  return paragraphs
+function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
+  const slice = skipFirst ? paragraphs.slice(1) : paragraphs;
+  return slice
     .map((raw) => {
       const text = String(raw).trim();
       if (!text) return '';
@@ -138,11 +147,22 @@ export function renderAdCopyHtml(paragraphs, pdp = PDP) {
     .join('\n');
 }
 
-export function inlineCtaHtml(
-  href,
-  label,
-  variant = 'green',
-) {
+/** First line = headline; rest = body with original paragraph spacing. */
+export function renderAdCopySections(paragraphs, pdp = PDP) {
+  if (!paragraphs?.length) {
+    const fallback = DEFAULTS.h1;
+    return {
+      headline: escapeHtml(fallback),
+      bodyHtml: '',
+    };
+  }
+  return {
+    headline: escapeHtml(String(paragraphs[0]).trim()),
+    bodyHtml: renderParagraphs(paragraphs, pdp, { skipFirst: true }),
+  };
+}
+
+export function inlineCtaHtml(href, label, variant = 'green') {
   const cls =
     variant === 'blue'
       ? 'pag-cta-btn pag-cta-btn--blue'
@@ -156,33 +176,117 @@ export function stickyCtaHtml(href) {
 </div>`;
 }
 
-export function resolveAdvertorial(searchParams, adCopyData = null, now = new Date()) {
-  const variantId = pickParam(searchParams, 'id');
-  const pdp = adCopyData?.pdp || PDP;
+function leadPrefixMatch(urlLead, storedLead) {
+  const a = normalizeKey(urlLead);
+  const b = normalizeKey(storedLead);
+  if (!a || !b) return false;
+  const n = Math.min(60, a.length, b.length);
+  return a.slice(0, n) === b.slice(0, n);
+}
 
-  let hero = safeUrl(pickParam(searchParams, 'hero'), DEFAULTS.hero);
-  let headline = DEFAULTS.h1;
-  let adCopyHtml = '';
+function pickAmbiguous(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return null;
+  if (ids.length === 1) return ids[0];
+  const plain = ids.filter((id) => !id.endsWith('-calmaxis'));
+  if (plain.length === 1) return plain[0];
+  if (plain.length) return plain.sort()[0];
+  return ids.sort()[0];
+}
 
-  if (adCopyData?.paragraphs?.length) {
-    headline = adCopyData.headline || adCopyData.paragraphs[0];
-    hero = safeUrl(adCopyData.hero, hero);
-    adCopyHtml = renderAdCopyHtml(adCopyData.paragraphs, pdp);
-  } else {
-    const h1 = pickParam(searchParams, 'h1') || DEFAULTS.h1;
-    headline = h1;
-    adCopyHtml = `<p class="pag-adcopy">${escapeHtml(h1)}</p>`;
-    if (pickParam(searchParams, 'lead')) {
-      adCopyHtml += `\n<p class="pag-adcopy">${escapeHtml(pickParam(searchParams, 'lead'))}</p>`;
+/** Resolve variant from live Meta URLs: ?id=, ?h1=&lead=&hero=, or ?h1=&hero=. */
+export function resolveVariantId(searchParams, lookup = null) {
+  const idParam = pickParam(searchParams, 'id');
+  if (idParam && /^[\w-]+$/.test(idParam)) return idParam;
+
+  const h1 = pickParam(searchParams, 'h1');
+  const lead = pickParam(searchParams, 'lead');
+  const hero = pickParam(searchParams, 'hero');
+  const problem = pickParam(searchParams, 'problem');
+
+  if (lookup && h1 && lead) {
+    const slug = hero ? (hero.match(/\/creatives\/([^/]+)\/hero/i) || [])[1] : '';
+    const paramKey = [
+      normalizeKey(h1),
+      normalizeKey(lead).slice(0, 150),
+      slug || '',
+      problem ? normalizeKey(problem) : '',
+    ]
+      .filter(Boolean)
+      .join('::');
+    if (lookup.byParams?.[paramKey]) return lookup.byParams[paramKey];
+
+    const exactKey = `${normalizeKey(h1)}::${normalizeKey(lead).slice(0, 150)}`;
+    if (lookup.byHeadlineLead?.[exactKey]) return lookup.byHeadlineLead[exactKey];
+
+    for (const [key, vid] of Object.entries(lookup.byHeadlineLead || {})) {
+      const [keyH1, keyLead] = key.split('::');
+      if (keyH1 !== normalizeKey(h1)) continue;
+      if (leadPrefixMatch(lead, keyLead)) return vid;
+    }
+
+    const all = lookup.byParamsAll?.[paramKey];
+    const picked = pickAmbiguous(all);
+    if (picked) return picked;
+  }
+
+  if (lookup && h1) {
+    const ids = lookup.byHeadline?.[normalizeKey(h1)];
+    if (typeof ids === 'string') return ids;
+    if (Array.isArray(ids) && ids.length === 1) return ids[0];
+  }
+
+  if (lookup && hero) {
+    const m = hero.match(/\/creatives\/([^/]+)\/hero/i);
+    if (m) {
+      const ids = lookup.byHero?.[m[1]];
+      if (typeof ids === 'string') return ids;
+      if (Array.isArray(ids) && ids.length === 1) return ids[0];
+      if (Array.isArray(ids) && ids.length > 1 && h1) {
+        const nh = normalizeKey(h1);
+        const match = ids.find((vid) =>
+          normalizeKey(lookup.variants?.[vid]?.headline || '') === nh,
+        );
+        if (match) return match;
+      }
+      return m[1];
     }
   }
 
+  return null;
+}
+
+export function resolveAdvertorial(
+  searchParams,
+  adCopyData = null,
+  now = new Date(),
+) {
+  const pdp = adCopyData?.pdp || PDP;
+  const urlHero = safeUrl(pickParam(searchParams, 'hero'), null);
+  const urlH1 = pickParam(searchParams, 'h1');
+
+  let headline = urlH1 || DEFAULTS.h1;
+  let hero = urlHero || adCopyData?.hero || DEFAULTS.hero;
+  let bodyHtml = '';
+
+  if (adCopyData?.paragraphs?.length) {
+    const sections = renderAdCopySections(adCopyData.paragraphs, pdp);
+    headline = String(adCopyData.paragraphs[0]).trim();
+    bodyHtml = sections.bodyHtml;
+    if (!urlHero && adCopyData.hero) hero = adCopyData.hero;
+  } else if (urlH1) {
+    bodyHtml = pickParam(searchParams, 'lead')
+      ? `<p class="pag-adcopy">${escapeHtml(pickParam(searchParams, 'lead'))}</p>`
+      : '';
+  } else {
+    bodyHtml = '';
+  }
+
   return {
-    variantId,
+    headlineHtml: escapeHtml(headline),
     headline,
     hero,
     heroAlt: headline.substring(0, 120),
-    adCopyHtml,
+    adCopyBodyHtml: bodyHtml,
     pageTitle: pageTitle(headline),
     publishedDate: publishedDate(now),
     footerYear: String(now.getFullYear()),
@@ -228,7 +332,8 @@ export function renderAdvertorial(
 ) {
   const data = resolveAdvertorial(searchParams, adCopyData, now);
   return template
-    .replaceAll('__AD_COPY__', data.adCopyHtml)
+    .replaceAll('__AD_HEADLINE__', data.headlineHtml)
+    .replaceAll('__AD_COPY_BODY__', data.adCopyBodyHtml)
     .replaceAll('__HERO__', escapeHtml(data.hero))
     .replaceAll('__HERO_ALT__', escapeHtml(data.heroAlt))
     .replaceAll('__INLINE_CTA_1__', data.inlineCta1)

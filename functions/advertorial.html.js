@@ -1,4 +1,19 @@
-import { renderAdvertorial } from './lib/advertorial-config.js';
+import {
+  renderAdvertorial,
+  resolveVariantId,
+} from './lib/advertorial-config.js';
+
+async function loadLookup(context) {
+  const res = await context.env.ASSETS.fetch(
+    new URL('/ad-copy/lookup.json', context.request.url),
+  );
+  if (!res.ok) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 async function loadAdCopy(context, variantId) {
   if (!variantId || !/^[\w-]+$/.test(variantId)) return null;
@@ -22,7 +37,8 @@ async function serveAdvertorial(context) {
   }
   const template = await templateRes.text();
   const url = new URL(context.request.url);
-  const variantId = url.searchParams.get('id');
+  const lookup = await loadLookup(context);
+  const variantId = resolveVariantId(url.searchParams, lookup);
   const adCopyData = await loadAdCopy(context, variantId);
   const html = renderAdvertorial(template, url.searchParams, adCopyData);
   return new Response(html, {
