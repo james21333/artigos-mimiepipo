@@ -56,9 +56,11 @@ def is_garantia_paragraph(text: str) -> bool:
 
 RECOMMEND_BEFORE_CTA = (
     '<p class="pag-adcopy pag-recommend">Eu recomendo melhorar a saúde intestinal com '
-    "petiscos prebióticos naturais como o <strong>Digestão Saudável</strong> da Mimi e Pipo. "
-    "Por tempo limitado, eles estão oferecendo <strong>30% de desconto</strong> e "
-    "<strong>frete grátis</strong> para minhas leitoras.</p>"
+    "petiscos prebióticos naturais como o <strong>Digestão Saudável</strong> da Mimi e Pipo.</p>"
+    '<div class="pag-adcopy-spacer" aria-hidden="true"></div>'
+    '<div class="pag-adcopy-spacer" aria-hidden="true"></div>'
+    '<p class="pag-adcopy pag-recommend pag-recommend-offer">Por tempo limitado, eles estão oferecendo '
+    "<strong>30% de desconto</strong> e <strong>frete grátis</strong> para minhas leitoras.</p>"
 )
 
 GUT_PROBLEMS_BLOCK = """<p class="pag-adcopy pag-gut-intro">Se o seu cachorro tem algum destes problemas, em cerca de duas semanas muita coisa pode melhorar quando você cuida do intestino dele — e, com isso, fortalece o sistema imune:</p>
