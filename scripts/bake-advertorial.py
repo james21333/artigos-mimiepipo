@@ -77,11 +77,50 @@ GUT_PROBLEMS_BLOCK = """<p class="pag-adcopy pag-gut-intro">Se o seu cachorro te
 </ul>"""
 
 
+def should_not_split(text: str) -> bool:
+    import re
+
+    t = text.strip()
+    if not t:
+        return True
+    if t.startswith("👉") or t.startswith("•"):
+        return True
+    if "http://" in t or "https://" in t:
+        return True
+    if re.match(r"^P\.?\s*P\.?\s*S", t, re.I):
+        return True
+    if t.endswith("..."):
+        return True
+    return False
+
+
+def split_into_display_lines(text: str) -> list[str]:
+    import re
+
+    t = text.strip()
+    if not t:
+        return []
+    if should_not_split(t):
+        return [t]
+    parts = re.split(r"(?<=[.!?…])\s+", t)
+    parts = [p.strip() for p in parts if p.strip()]
+    if len(parts) <= 1:
+        return [t]
+    return parts
+
+
+def expand_display_paragraphs_list(paragraphs: list[str]) -> list[str]:
+    out: list[str] = []
+    for block in paragraphs:
+        out.extend(split_into_display_lines(block))
+    return out
+
+
 def render_ad_copy(paragraphs: list[str]) -> str:
     parts: list[str] = []
     first_cta_done = False
     gut_problems_done = False
-    for raw in paragraphs:
+    for raw in expand_display_paragraphs_list(paragraphs):
         text = raw.strip()
         if not text:
             continue
@@ -97,8 +136,9 @@ def render_ad_copy(paragraphs: list[str]) -> str:
             )
         else:
             parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
-            if is_garantia_paragraph(text):
+            if is_garantia_paragraph(text) and not gut_problems_done:
                 parts.append(GUT_PROBLEMS_BLOCK)
+                gut_problems_done = True
     return "\n".join(parts)
 
 

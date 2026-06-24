@@ -37,7 +37,47 @@ def extract_pt_br_paragraphs(md_path: Path) -> list[str]:
     if not m:
         raise ValueError(f"No PT-BR section in {md_path}")
     body = m.group(1).strip()
-    return [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
+    return [p.strip() for p in re.split(r"\n\s*\n+", body) if p.strip()]
+
+
+def should_not_split(text: str) -> bool:
+    t = text.strip()
+    if not t:
+        return True
+    if t.startswith("👉") or t.startswith("•"):
+        return True
+    if re.search(r"https?://", t):
+        return True
+    if re.match(r"^P\.?\s*P\.?\s*S", t, re.I):
+        return True
+    if t.endswith("..."):
+        return True
+    return False
+
+
+def split_into_display_lines(text: str) -> list[str]:
+    t = text.strip()
+    if not t:
+        return []
+    if should_not_split(t):
+        return [t]
+    parts = re.split(r"(?<=[.!?…])\s+", t)
+    parts = [p.strip() for p in parts if p.strip()]
+    if len(parts) <= 1:
+        return [t]
+    return parts
+
+
+def expand_display_paragraphs(blocks: list[str]) -> list[str]:
+    out: list[str] = []
+    for block in blocks:
+        out.extend(split_into_display_lines(block))
+    return out
+
+
+def paragraphs_from_primary(primary: str) -> list[str]:
+    blocks = [p.strip() for p in re.split(r"\n\s*\n+", primary.strip()) if p.strip()]
+    return expand_display_paragraphs(blocks)
 
 
 def extract_headline(md: str) -> str | None:
@@ -165,9 +205,18 @@ def main() -> None:
         if not copy_path.is_file():
             raise FileNotFoundError(copy_path)
         md = copy_path.read_text(encoding="utf-8")
-        paragraphs = extract_pt_br_paragraphs(copy_path)
+        primary = ad.get("primary_text", "")
+        if primary:
+            blocks = [
+                p.strip()
+                for p in re.split(r"\n\s*\n+", primary.strip())
+                if p.strip()
+            ]
+        else:
+            blocks = extract_pt_br_paragraphs(copy_path)
+        paragraphs = expand_display_paragraphs(blocks)
         headline = extract_headline(md) or (paragraphs[0] if paragraphs else vid)
-        lead = pick_lead(headline, paragraphs)
+        lead = pick_lead(headline, blocks)
         hero = heroes.get(vid) or heroes.get(ad.get("image_variant_id", ""))
         problem = problems.get(vid, "")
         if not hero:

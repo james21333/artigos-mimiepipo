@@ -152,8 +152,36 @@ const GUT_PROBLEMS_BLOCK = `<p class="pag-adcopy pag-gut-intro">Se o seu cachorr
 <li>Intestino frágil depois de antibióticos ou probiótico que não resolveu</li>
 </ul>`;
 
+function shouldNotSplit(text) {
+  const t = String(text).trim();
+  if (!t) return true;
+  if (t.startsWith('👉') || t.startsWith('•')) return true;
+  if (URL_PATTERN.test(t)) return true;
+  if (/^P\.?\s*P\.?\s*S/i.test(t)) return true;
+  if (t.endsWith('...')) return true;
+  return false;
+}
+
+function expandDisplayLines(text) {
+  const t = String(text).trim();
+  if (!t) return [];
+  if (shouldNotSplit(t)) return [t];
+  const parts = t.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : [t];
+}
+
+function expandDisplayParagraphs(paragraphs) {
+  const out = [];
+  for (const raw of paragraphs) {
+    out.push(...expandDisplayLines(raw));
+  }
+  return out;
+}
+
 function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
-  const slice = skipFirst ? paragraphs.slice(1) : paragraphs;
+  const slice = expandDisplayParagraphs(
+    skipFirst ? paragraphs.slice(1) : paragraphs,
+  );
   const parts = [];
   let firstCtaDone = false;
   let gutProblemsDone = false;
