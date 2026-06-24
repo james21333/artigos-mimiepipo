@@ -75,6 +75,10 @@ def expand_display_paragraphs(blocks: list[str]) -> list[str]:
     return out
 
 
+def word_count(text: str) -> int:
+    return len(re.findall(r"\S+", text))
+
+
 def paragraphs_from_primary(primary: str) -> list[str]:
     blocks = [p.strip() for p in re.split(r"\n\s*\n+", primary.strip()) if p.strip()]
     return expand_display_paragraphs(blocks)
@@ -217,6 +221,7 @@ def main() -> None:
         paragraphs = expand_display_paragraphs(blocks)
         headline = extract_headline(md) or (paragraphs[0] if paragraphs else vid)
         lead = pick_lead(headline, blocks)
+        wc = word_count(primary) if primary else word_count(" ".join(blocks))
         hero = heroes.get(vid) or heroes.get(ad.get("image_variant_id", ""))
         problem = problems.get(vid, "")
         if not hero:
@@ -228,6 +233,7 @@ def main() -> None:
             "lead": lead,
             "hero": hero,
             "pdp": PDP,
+            "wordCount": wc,
             "paragraphs": paragraphs,
         }
         (OUT_DIR / f"{vid}.json").write_text(

@@ -122,11 +122,41 @@ def expand_display_paragraphs_list(paragraphs: list[str]) -> list[str]:
     return out
 
 
-def render_ad_copy(paragraphs: list[str]) -> str:
+AD_COPY_CTA_LABEL = "Ver Digestão Saudável — Garantia de 60 dias"
+
+
+def ad_copy_cta_html(href: str) -> str:
+    return (
+        f'<div class="pag-cta-wrap pag-cta-wrap--adcopy">'
+        f'<a class="pag-cta-btn pag-cta-btn--green" href="{esc(href)}">'
+        f"{AD_COPY_CTA_LABEL}</a></div>"
+    )
+
+
+def mid_cta_line_indices(slice_lines: list[str], word_count: int) -> set[int]:
+    if word_count <= 900:
+        return set()
+    body_end = next(
+        (i for i, raw in enumerate(slice_lines) if is_cta_paragraph(raw.strip())),
+        len(slice_lines),
+    )
+    if body_end < 45:
+        return set()
+    return {
+        i
+        for i in (int(body_end * 0.33), int(body_end * 0.66))
+        if 8 < i < body_end - 8
+    }
+
+
+def render_ad_copy(paragraphs: list[str], word_count: int = 0) -> str:
+    slice_lines = expand_display_paragraphs_list(paragraphs)
+    mid_cta_at = mid_cta_line_indices(slice_lines, word_count)
     parts: list[str] = []
     first_cta_done = False
     gut_problems_done = False
-    for raw in expand_display_paragraphs_list(paragraphs):
+    line_idx = 0
+    for raw in slice_lines:
         text = raw.strip()
         if not text:
             continue
@@ -134,21 +164,21 @@ def render_ad_copy(paragraphs: list[str]) -> str:
             if not first_cta_done:
                 parts.append(RECOMMEND_BEFORE_CTA)
                 first_cta_done = True
-            href = extract_url(text)
+            parts.append(ad_copy_cta_html(extract_url(text)))
+            line_idx += 1
+            continue
+        if line_idx in mid_cta_at:
+            parts.append(ad_copy_cta_html(PDP))
+        if is_garantia_paragraph(text) and not gut_problems_done:
             parts.append(
-                f'<div class="pag-cta-wrap pag-cta-wrap--adcopy">'
-                f'<a class="pag-cta-btn pag-cta-btn--green" href="{esc(href)}">'
-                f"Ver Digestão Saudável — Garantia de 60 dias</a></div>"
+                f'<h2 class="pag-h2 pag-adcopy-headline">{esc(GUT_HEALTH_HEADLINE)}</h2>'
             )
-        else:
-            if is_garantia_paragraph(text) and not gut_problems_done:
-                parts.append(
-                    f'<h2 class="pag-h2 pag-adcopy-headline">{esc(GUT_HEALTH_HEADLINE)}</h2>'
-                )
-                parts.append(GUT_PROBLEMS_BLOCK)
-                gut_problems_done = True
-                continue
-            parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
+            parts.append(GUT_PROBLEMS_BLOCK)
+            gut_problems_done = True
+            line_idx += 1
+            continue
+        parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
+        line_idx += 1
     return "\n".join(parts)
 
 
@@ -224,12 +254,12 @@ src="https://www.facebook.com/tr?id={META_PIXEL_ID}&amp;ev=PageView&amp;noscript
     return head, script
 
 
-def render_ad_copy_body(paragraphs: list[str]) -> tuple[str, str]:
+def render_ad_copy_body(paragraphs: list[str], word_count: int = 0) -> tuple[str, str]:
     if not paragraphs:
         h = DEFAULTS["headline"]
         return esc(h), ""
     headline = esc(paragraphs[0].strip())
-    body = render_ad_copy(paragraphs[1:])
+    body = render_ad_copy(paragraphs[1:], word_count)
     return headline, body
 
 
@@ -237,7 +267,10 @@ def default_ad_copy_sections() -> tuple[str, str]:
     sample = AD_COPY_DIR / "01-giardia-neighbor-fear.json"
     if sample.exists():
         data = json.loads(sample.read_text(encoding="utf-8"))
-        return render_ad_copy_body(data.get("paragraphs", []))
+        return render_ad_copy_body(
+            data.get("paragraphs", []),
+            data.get("wordCount", 0),
+        )
     h = esc(DEFAULTS["headline"])
     return h, ""
 

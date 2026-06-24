@@ -181,13 +181,33 @@ function expandDisplayParagraphs(paragraphs) {
   return out;
 }
 
-function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
+const AD_COPY_CTA_LABEL = 'Ver Digestão Saudável — Garantia de 60 dias';
+
+function adCopyCtaHtml(href) {
+  return `<div class="pag-cta-wrap pag-cta-wrap--adcopy"><a class="pag-cta-btn pag-cta-btn--green" href="${escapeHtml(href)}">${AD_COPY_CTA_LABEL}</a></div>`;
+}
+
+function midCtaLineIndices(slice, wordCount) {
+  if (wordCount <= 900) return new Set();
+  const bodyEnd = slice.findIndex((raw) => isCtaParagraph(String(raw).trim()));
+  const end = bodyEnd >= 0 ? bodyEnd : slice.length;
+  if (end < 45) return new Set();
+  const indices = [
+    Math.floor(end * 0.33),
+    Math.floor(end * 0.66),
+  ].filter((i) => i > 8 && i < end - 8);
+  return new Set(indices);
+}
+
+function renderParagraphs(paragraphs, pdp, { skipFirst = false, wordCount = 0 } = {}) {
   const slice = expandDisplayParagraphs(
     skipFirst ? paragraphs.slice(1) : paragraphs,
   );
+  const midCtaAt = midCtaLineIndices(slice, wordCount);
   const parts = [];
   let firstCtaDone = false;
   let gutProblemsDone = false;
+  let lineIdx = 0;
 
   for (const raw of slice) {
     const text = String(raw).trim();
@@ -198,11 +218,13 @@ function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
         parts.push(RECOMMEND_BEFORE_CTA);
         firstCtaDone = true;
       }
-      const href = extractUrl(text) || pdp;
-      parts.push(
-        `<div class="pag-cta-wrap pag-cta-wrap--adcopy"><a class="pag-cta-btn pag-cta-btn--green" href="${escapeHtml(href)}">Ver Digestão Saudável — Garantia de 60 dias</a></div>`,
-      );
+      parts.push(adCopyCtaHtml(extractUrl(text) || pdp));
+      lineIdx += 1;
       continue;
+    }
+
+    if (midCtaAt.has(lineIdx)) {
+      parts.push(adCopyCtaHtml(pdp));
     }
 
     if (isGarantiaParagraph(text) && !gutProblemsDone) {
@@ -211,17 +233,19 @@ function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
       );
       parts.push(GUT_PROBLEMS_BLOCK);
       gutProblemsDone = true;
+      lineIdx += 1;
       continue;
     }
 
     parts.push(`<p class="pag-adcopy">${escapeHtml(text)}</p>`);
+    lineIdx += 1;
   }
 
   return parts.filter(Boolean).join('\n');
 }
 
 /** First line = headline; rest = body with original paragraph spacing. */
-export function renderAdCopySections(paragraphs, pdp = PDP) {
+export function renderAdCopySections(paragraphs, pdp = PDP, wordCount = 0) {
   if (!paragraphs?.length) {
     const fallback = DEFAULTS.h1;
     return {
@@ -231,7 +255,7 @@ export function renderAdCopySections(paragraphs, pdp = PDP) {
   }
   return {
     headline: escapeHtml(String(paragraphs[0]).trim()),
-    bodyHtml: renderParagraphs(paragraphs, pdp, { skipFirst: true }),
+    bodyHtml: renderParagraphs(paragraphs, pdp, { skipFirst: true, wordCount }),
   };
 }
 
@@ -342,7 +366,11 @@ export function resolveAdvertorial(
   let bodyHtml = '';
 
   if (adCopyData?.paragraphs?.length) {
-    const sections = renderAdCopySections(adCopyData.paragraphs, pdp);
+    const sections = renderAdCopySections(
+      adCopyData.paragraphs,
+      pdp,
+      adCopyData.wordCount || 0,
+    );
     headline = String(adCopyData.paragraphs[0]).trim();
     bodyHtml = sections.bodyHtml;
     if (!urlHero && adCopyData.hero) hero = adCopyData.hero;
