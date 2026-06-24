@@ -291,26 +291,6 @@ export function resolveAdvertorial(
     publishedDate: publishedDate(now),
     footerYear: String(now.getFullYear()),
     pdp,
-    inlineCta1: inlineCtaHtml(
-      pdp,
-      'Verificar estoque — Digestão Saudável',
-      'blue',
-    ),
-    inlineCta2: inlineCtaHtml(
-      pdp,
-      'Quero 30% OFF + frete grátis para leitoras',
-      'green',
-    ),
-    inlineCta3: inlineCtaHtml(
-      pdp,
-      'Ver Digestão Saudável na loja oficial',
-      'blue',
-    ),
-    inlineCta4: inlineCtaHtml(
-      pdp,
-      'Garantir minha oferta de leitora agora',
-      'green',
-    ),
     stickyCta: stickyCtaHtml(pdp),
   };
 }
@@ -336,10 +316,6 @@ export function renderAdvertorial(
     .replaceAll('__AD_COPY_BODY__', data.adCopyBodyHtml)
     .replaceAll('__HERO__', escapeHtml(data.hero))
     .replaceAll('__HERO_ALT__', escapeHtml(data.heroAlt))
-    .replaceAll('__INLINE_CTA_1__', data.inlineCta1)
-    .replaceAll('__INLINE_CTA_2__', data.inlineCta2)
-    .replaceAll('__INLINE_CTA_3__', data.inlineCta3)
-    .replaceAll('__INLINE_CTA_4__', data.inlineCta4)
     .replaceAll('__STICKY_CTA__', data.stickyCta)
     .replaceAll('__PAGE_TITLE__', escapeHtml(data.pageTitle))
     .replaceAll('__PUBLISHED_DATE__', escapeHtml(data.publishedDate))
