@@ -137,6 +137,9 @@ function isGarantiaParagraph(text) {
 
 const RECOMMEND_BEFORE_CTA = `<p class="pag-adcopy pag-recommend">Eu recomendo melhorar a saúde intestinal com petiscos prebióticos naturais como o <strong>Digestão Saudável</strong> da Mimi e Pipo.</p><div class="pag-adcopy-spacer" aria-hidden="true"></div><div class="pag-adcopy-spacer" aria-hidden="true"></div><p class="pag-adcopy pag-recommend pag-recommend-offer">Por tempo limitado, eles estão oferecendo <strong>30% de desconto</strong> e <strong>frete grátis</strong> para minhas leitoras.</p>`;
 
+const GUT_HEALTH_HEADLINE =
+  'Você pode resolver vários problemas de saúde mantendo o intestino do seu cão saudável';
+
 const GUT_PROBLEMS_BLOCK = `<p class="pag-adcopy pag-gut-intro">Se o seu cachorro tem algum destes problemas, em cerca de duas semanas muita coisa pode melhorar quando você cuida do intestino dele — e, com isso, fortalece o sistema imune:</p>
 <ul class="pag-list pag-problems">
 <li>Coceira crônica, manchas na pele e hot spots</li>
@@ -202,11 +205,16 @@ function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
       continue;
     }
 
-    parts.push(`<p class="pag-adcopy">${escapeHtml(text)}</p>`);
     if (isGarantiaParagraph(text) && !gutProblemsDone) {
+      parts.push(
+        `<h2 class="pag-h2 pag-adcopy-headline">${escapeHtml(GUT_HEALTH_HEADLINE)}</h2>`,
+      );
       parts.push(GUT_PROBLEMS_BLOCK);
       gutProblemsDone = true;
+      continue;
     }
+
+    parts.push(`<p class="pag-adcopy">${escapeHtml(text)}</p>`);
   }
 
   return parts.filter(Boolean).join('\n');

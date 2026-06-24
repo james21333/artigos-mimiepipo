@@ -63,6 +63,10 @@ RECOMMEND_BEFORE_CTA = (
     "<strong>30% de desconto</strong> e <strong>frete grátis</strong> para minhas leitoras.</p>"
 )
 
+GUT_HEALTH_HEADLINE = (
+    "Você pode resolver vários problemas de saúde mantendo o intestino do seu cão saudável"
+)
+
 GUT_PROBLEMS_BLOCK = """<p class="pag-adcopy pag-gut-intro">Se o seu cachorro tem algum destes problemas, em cerca de duas semanas muita coisa pode melhorar quando você cuida do intestino dele — e, com isso, fortalece o sistema imune:</p>
 <ul class="pag-list pag-problems">
 <li>Coceira crônica, manchas na pele e hot spots</li>
@@ -137,10 +141,14 @@ def render_ad_copy(paragraphs: list[str]) -> str:
                 f"Ver Digestão Saudável — Garantia de 60 dias</a></div>"
             )
         else:
-            parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
             if is_garantia_paragraph(text) and not gut_problems_done:
+                parts.append(
+                    f'<h2 class="pag-h2 pag-adcopy-headline">{esc(GUT_HEALTH_HEADLINE)}</h2>'
+                )
                 parts.append(GUT_PROBLEMS_BLOCK)
                 gut_problems_done = True
+                continue
+            parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
     return "\n".join(parts)
 
 
