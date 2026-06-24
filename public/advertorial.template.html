@@ -20,6 +20,7 @@
       font-family: "DM Sans", system-ui, -apple-system, sans-serif;
       font-size: 16px;
       line-height: 28.8px;
+      padding-bottom: 88px;
     }
     img { max-width: 100%; height: auto; display: block; }
     a { color: inherit; }
@@ -57,32 +58,17 @@
 
     .pag-hero { padding-bottom: 4px; }
 
-    .pag-h1 {
-      margin: 0 0 20px;
-      font-size: 24px;
-      line-height: 31.2px;
-      font-weight: 800;
-      color: #1a1a1a;
+    .pag-adcopy-block {
+      margin: 0 0 24px;
     }
-
-    .pag-quote {
-      margin: 0 0 16px;
-      font-size: 17px;
-      line-height: 30.6px;
-      color: #2c2c2c;
-    }
-    .pag-quote strong {
-      font-weight: 700;
-    }
-
-    .pag-meta {
+    .pag-adcopy {
       margin: 0 0 16px;
       font-size: 16px;
       line-height: 28.8px;
       color: #2c2c2c;
     }
-    .pag-meta strong {
-      font-weight: 700;
+    .pag-adcopy:last-child {
+      margin-bottom: 0;
     }
 
     .pag-img {
@@ -117,13 +103,6 @@
     .pag-img-badge img {
       width: 100%;
       height: auto;
-    }
-
-    .pag-lead {
-      margin: 0 0 16px;
-      font-size: 16px;
-      line-height: 28.8px;
-      font-weight: 700;
     }
 
     .pag-viral {
@@ -196,20 +175,49 @@
       margin: 28px 0;
       text-align: center;
     }
+    .pag-cta-wrap--inline {
+      margin: 24px 0;
+    }
+    .pag-cta-wrap--adcopy {
+      margin: 20px 0;
+    }
     .pag-cta-btn {
       display: block;
       width: 100%;
-      background: #f97316;
-      color: #377359 !important;
+      background: #2d8659;
+      color: #fff !important;
       text-decoration: none;
       font-size: 16px;
       font-weight: 700;
-      line-height: 28.8px;
+      line-height: 1.35;
       padding: 16px 24px;
       border-radius: 4px;
       text-align: center;
       border: none;
       cursor: pointer;
+    }
+    .pag-cta-btn--green {
+      background: #2d8659;
+      color: #fff !important;
+    }
+    .pag-cta-btn--blue {
+      background: #5eb8bc;
+      color: #fff !important;
+    }
+    .pag-sticky-cta {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+      background: rgba(244, 236, 217, 0.96);
+      border-top: 1px solid rgba(45, 134, 89, 0.35);
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    }
+    .pag-sticky-cta-btn {
+      font-size: 14px;
+      padding: 14px 16px;
     }
     .pag-cta-sub {
       margin: 16px 0 0;
@@ -327,9 +335,8 @@
       .pag-cta-sub { font-size: 17px; line-height: 30.6px; }
       .pag-w { padding: 0 24px 56px; }
       .pag-bar-title { font-size: 16px; }
-      .pag-h1 { font-size: 30px; line-height: 39px; }
-      .pag-quote { font-size: 18px; line-height: 32.4px; }
-      .pag-meta, .pag-lead { font-size: 17px; line-height: 30.6px; }
+      .pag-adcopy { font-size: 17px; line-height: 30.6px; }
+      .pag-sticky-cta-btn { font-size: 15px; }
       .pag-h2 { font-size: 24px; line-height: 31.2px; }
       .pag-skip { font-size: 17px; line-height: 30.6px; }
     }
@@ -345,23 +352,16 @@
   <div class="pag-w">
 
     <div class="pag-hero">
-      <h1 class="pag-h1">__H1__</h1>
-
-      <p class="pag-quote">__QUOTE__</p>
-
-      <p class="pag-meta">&mdash; <strong>Juliana Da Silva, especialista em bem-estar canino</strong><br>Publicado: __PUBLISHED_DATE__</p>
+      <div class="pag-adcopy-block">__AD_COPY__</div>
 
       <div class="pag-img pag-img-atf">
         <img src="__HERO__" alt="__HERO_ALT__" width="1080" height="1350" loading="eager" decoding="async">
       </div>
 
-      <p class="pag-lead">__LEAD__</p>
-
       <a class="pag-skip" href="#oferta">Quer ir direto ao ponto? Clique para ver o protocolo que recomendo aos meus pacientes</a>
     </div>
 
     <div class="pag-body">
-      <p>__REMEDY_LINE__</p>
       <p>Se trocou para <strong>ração medicamentosa ou de ingrediente limitado</strong>...</p>
       <p>Se tentou <strong>petisco calmante, CBD, adestramento</strong> ou comportamentalista...</p>
       <p>E se ele ainda coça, lambe a pata até ferir, arrasta o bumbum no tapete, faz cocô dentro de casa ou fica inquieto entre 2 e 3 da manhã... <strong>você não está sozinha.</strong></p>
@@ -396,6 +396,8 @@
       <p>Por isso melhora um pouco... e volta.</p>
       <p>Porque o problema real não é só o sintoma.</p>
       <p>E essa percepção me veio num dos casos mais difíceis que acompanhei.</p>
+
+      __INLINE_CTA_1__
 
       <div class="pag-img pag-img-inline">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-03-wrong-battle.png" alt="Suplementos e remédios riscados — o que não funcionou" width="740" height="494" loading="lazy">
@@ -445,6 +447,8 @@
       <p>Os tratamentos nunca foram feitos para consertar isso.</p>
       <p><strong>E aqui é o que me deixou irritada:</strong></p>
       <p>Profissionais integrativos falam do eixo intestino-pele-comportamento há anos. Mas a clínica convencional quase não ensina isso na formação. Esse buraco de informação mantém tutores presas no ciclo de remédio, remédio, remédio.</p>
+
+      __INLINE_CTA_2__
 
       <div class="pag-img pag-img-inline">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-05-gut-diagram.png" alt="Diagrama: danos na barreira intestinal, alérgenos e umidade" width="740" height="494" loading="lazy">
@@ -539,6 +543,8 @@
       <p>&ldquo;Parece outro cachorro. Calmo. Dormindo. Não fez cocô dentro de casa. Eu não sabia que ele podia ser assim.&rdquo;</p>
       <p>E ela não estava sozinha.</p>
 
+      __INLINE_CTA_3__
+
       <div class="pag-img pag-img-inline">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-08-dog-bowl-product.png" alt="Cão com tigela de ração e biscoitos Digestão Saudável" width="740" height="494" loading="lazy">
       </div>
@@ -564,6 +570,8 @@
       <p>✅ Dormir a noite inteira — tutor e cão.<br>✅ Ter comportamento calmo no passeio e em casa.<br>✅ Parar de arrastar, parar de coçar, parar de fazer cocô dentro.<br>✅ Reduzir ou sair de remédios que só mascaram sintoma — com orientação veterinária.</p>
       <p>O sofrimento desnecessário é enorme.</p>
       <p>Milhões de cães estão medicados agora por sintomas de um intestino que ninguém investiga de verdade.</p>
+
+      __INLINE_CTA_4__
 
       <h2 class="pag-h2">Por que agir agora</h2>
       <p>Círculos de bem-estar canino finalmente falam abertamente sobre o eixo intestino-pele-comportamento.</p>
@@ -618,7 +626,7 @@
       <p>Lembre-se: você está protegida pela garantia de 60 dias. Você não tem nada a perder — exceto os sintomas que administra há anos.</p>
 
       <div class="pag-cta-wrap">
-        <a class="pag-cta-btn" href="__PDP__">VERIFICAR ESTOQUE EXCLUSIVO PARA LEITORAS</a>
+        <a class="pag-cta-btn pag-cta-btn--green" href="__PDP__">VERIFICAR ESTOQUE EXCLUSIVO PARA LEITORAS</a>
         <p class="pag-cta-sub">Clique no link acima para ver se a Mimi &amp; Pipo ainda está com a promoção limitada para leitoras.</p>
       </div>
 
@@ -640,6 +648,8 @@
     <p class="footer-copy">&copy; __FOOTER_YEAR__ Mimi &amp; Pipo. Todos os direitos reservados.</p>
     <p class="footer-legal">Este produto não se destina a diagnosticar, tratar, curar ou prevenir doenças. Consulte um veterinário.</p>
   </footer>
+
+  __STICKY_CTA__
 
   __META_PIXEL_SCRIPT__
 </body>

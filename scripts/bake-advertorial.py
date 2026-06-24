@@ -4,38 +4,21 @@
 from __future__ import annotations
 
 import html
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "public/advertorial.template.html"
 OUTPUT = ROOT / "public/advertorial.html"
+AD_COPY_DIR = ROOT / "public/ad-copy"
 PDP = "https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003"
 META_PIXEL_ID = "1960132154863603"
 
 DEFAULTS = {
-    "h1": "A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)",
+    "headline": "A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)",
     "hero": "https://artigos.mimiepipo.com.br/advertorial/images/inline-01-atf-hero.png",
-    "lead": "Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.",
 }
-
-DEFAULT_REMEDY_LINE = (
-    "Se comprou <strong>remédio para coceira</strong> ou fez "
-    "<strong>injeção anti-coceira</strong>..."
-)
-
-BASE_PROBLEMS = [
-    "arrasta o bumbum",
-    "lambe a pata até ferir",
-    "tem cocô mole",
-    "acorda a casa às 3 da manhã",
-]
-
-
-def build_quote() -> str:
-    problems = BASE_PROBLEMS[:]
-    last = problems.pop()
-    return f"“Se o seu cão {', '.join(problems)} ou {last} — costuma haver a mesma causa por trás.”"
 
 
 def published_date() -> str:
@@ -49,6 +32,64 @@ def published_date() -> str:
 
 def esc(s: str) -> str:
     return html.escape(s, quote=True)
+
+
+def is_cta_paragraph(text: str) -> bool:
+    t = text.strip()
+    return t.startswith("👉") or (
+        "mimiepipo.com.br" in t and ("http://" in t or "https://" in t)
+    )
+
+
+def extract_url(text: str) -> str:
+    import re
+
+    m = re.search(r"https?://[^\s]+", text)
+    if not m:
+        return PDP
+    return m.group(0).rstrip(".,;:!?)")
+
+
+def render_ad_copy(paragraphs: list[str]) -> str:
+    parts: list[str] = []
+    for raw in paragraphs:
+        text = raw.strip()
+        if not text:
+            continue
+        if is_cta_paragraph(text):
+            href = extract_url(text)
+            parts.append(
+                f'<div class="pag-cta-wrap pag-cta-wrap--adcopy">'
+                f'<a class="pag-cta-btn pag-cta-btn--green" href="{esc(href)}">'
+                f"Ver Digestão Saudável — Garantia de 60 dias</a></div>"
+            )
+        else:
+            parts.append(f'<p class="pag-adcopy">{esc(text)}</p>')
+    return "\n".join(parts)
+
+
+def inline_cta(href: str, label: str, variant: str) -> str:
+    cls = (
+        "pag-cta-btn pag-cta-btn--blue"
+        if variant == "blue"
+        else "pag-cta-btn pag-cta-btn--green"
+    )
+    return (
+        f'<div class="pag-cta-wrap pag-cta-wrap--inline">'
+        f'<a class="{cls}" href="{esc(href)}">{esc(label)}</a></div>'
+    )
+
+
+def sticky_cta(href: str) -> str:
+    label = (
+        "Ganhe 30% de desconto + frete grátis para leitoras — "
+        "Digestão Saudável da Mimi e Pipo"
+    )
+    return (
+        f'<div class="pag-sticky-cta" role="region" aria-label="Oferta para leitoras">'
+        f'<a class="pag-cta-btn pag-cta-btn--green pag-sticky-cta-btn" href="{esc(href)}">'
+        f"{esc(label)}</a></div>"
+    )
 
 
 def pixel_snippets() -> tuple[str, str]:
@@ -68,49 +109,59 @@ fbq('track', 'PageView');
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id={META_PIXEL_ID}&amp;ev=PageView&amp;noscript=1"
 /></noscript>"""
-    script = f"""<script>
-(function () {{
+    script = """<script>
+(function () {
   var ATTR = ["fbclid","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_id"];
   var landing = new URL(window.location.href);
-  var stored = {{}};
-  ATTR.forEach(function (k) {{
+  var stored = {};
+  ATTR.forEach(function (k) {
     var v = landing.searchParams.get(k);
-    if (v) {{
+    if (v) {
       stored[k] = v;
-      try {{ sessionStorage.setItem('mp_attr_' + k, v); }} catch (e) {{}}
-    }}
-  }});
-  function withAttribution(href) {{
-    try {{
+      try { sessionStorage.setItem('mp_attr_' + k, v); } catch (e) {}
+    }
+  });
+  function withAttribution(href) {
+    try {
       var u = new URL(href, window.location.origin);
-      Object.keys(stored).forEach(function (k) {{
+      Object.keys(stored).forEach(function (k) {
         if (!u.searchParams.has(k)) u.searchParams.set(k, stored[k]);
-      }});
+      });
       return u.toString();
-    }} catch (e) {{
+    } catch (e) {
       return href;
-    }}
-  }}
-  document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {{
+    }
+  }
+  document.querySelectorAll('a.pag-cta-btn[href]').forEach(function (a) {
     a.href = withAttribution(a.href);
-  }});
-}})();
+  });
+})();
 </script>"""
     return head, script
+
+
+def default_ad_copy_html() -> str:
+    sample = AD_COPY_DIR / "01-giardia-neighbor-fear.json"
+    if sample.exists():
+        data = json.loads(sample.read_text(encoding="utf-8"))
+        return render_ad_copy(data.get("paragraphs", []))
+    return f'<p class="pag-adcopy">{esc(DEFAULTS["headline"])}</p>'
 
 
 def main() -> None:
     tpl = TEMPLATE.read_text(encoding="utf-8")
     pixel_head, pixel_script = pixel_snippets()
-    h1 = DEFAULTS["h1"]
-    title = h1[:52] + "..." if len(h1) > 55 else h1
+    headline = DEFAULTS["headline"]
+    title = headline[:52] + "..." if len(headline) > 55 else headline
     out = (
-        tpl.replace("__H1__", esc(h1))
+        tpl.replace("__AD_COPY__", default_ad_copy_html())
         .replace("__HERO__", esc(DEFAULTS["hero"]))
-        .replace("__HERO_ALT__", esc(h1[:120]))
-        .replace("__LEAD__", esc(DEFAULTS["lead"]))
-        .replace("__QUOTE__", esc(build_quote()))
-        .replace("__REMEDY_LINE__", DEFAULT_REMEDY_LINE)
+        .replace("__HERO_ALT__", esc(headline[:120]))
+        .replace("__INLINE_CTA_1__", inline_cta(PDP, "Verificar estoque — Digestão Saudável", "blue"))
+        .replace("__INLINE_CTA_2__", inline_cta(PDP, "Quero 30% OFF + frete grátis para leitoras", "green"))
+        .replace("__INLINE_CTA_3__", inline_cta(PDP, "Ver Digestão Saudável na loja oficial", "blue"))
+        .replace("__INLINE_CTA_4__", inline_cta(PDP, "Garantir minha oferta de leitora agora", "green"))
+        .replace("__STICKY_CTA__", sticky_cta(PDP))
         .replace("__PAGE_TITLE__", esc(title))
         .replace("__PUBLISHED_DATE__", esc(published_date()))
         .replace("__FOOTER_YEAR__", esc(str(datetime.now().year)))

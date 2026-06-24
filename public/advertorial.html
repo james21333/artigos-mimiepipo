@@ -35,6 +35,7 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       font-family: "DM Sans", system-ui, -apple-system, sans-serif;
       font-size: 16px;
       line-height: 28.8px;
+      padding-bottom: 88px;
     }
     img { max-width: 100%; height: auto; display: block; }
     a { color: inherit; }
@@ -72,32 +73,17 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
 
     .pag-hero { padding-bottom: 4px; }
 
-    .pag-h1 {
-      margin: 0 0 20px;
-      font-size: 24px;
-      line-height: 31.2px;
-      font-weight: 800;
-      color: #1a1a1a;
+    .pag-adcopy-block {
+      margin: 0 0 24px;
     }
-
-    .pag-quote {
-      margin: 0 0 16px;
-      font-size: 17px;
-      line-height: 30.6px;
-      color: #2c2c2c;
-    }
-    .pag-quote strong {
-      font-weight: 700;
-    }
-
-    .pag-meta {
+    .pag-adcopy {
       margin: 0 0 16px;
       font-size: 16px;
       line-height: 28.8px;
       color: #2c2c2c;
     }
-    .pag-meta strong {
-      font-weight: 700;
+    .pag-adcopy:last-child {
+      margin-bottom: 0;
     }
 
     .pag-img {
@@ -132,13 +118,6 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
     .pag-img-badge img {
       width: 100%;
       height: auto;
-    }
-
-    .pag-lead {
-      margin: 0 0 16px;
-      font-size: 16px;
-      line-height: 28.8px;
-      font-weight: 700;
     }
 
     .pag-viral {
@@ -211,20 +190,49 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       margin: 28px 0;
       text-align: center;
     }
+    .pag-cta-wrap--inline {
+      margin: 24px 0;
+    }
+    .pag-cta-wrap--adcopy {
+      margin: 20px 0;
+    }
     .pag-cta-btn {
       display: block;
       width: 100%;
-      background: #f97316;
-      color: #377359 !important;
+      background: #2d8659;
+      color: #fff !important;
       text-decoration: none;
       font-size: 16px;
       font-weight: 700;
-      line-height: 28.8px;
+      line-height: 1.35;
       padding: 16px 24px;
       border-radius: 4px;
       text-align: center;
       border: none;
       cursor: pointer;
+    }
+    .pag-cta-btn--green {
+      background: #2d8659;
+      color: #fff !important;
+    }
+    .pag-cta-btn--blue {
+      background: #5eb8bc;
+      color: #fff !important;
+    }
+    .pag-sticky-cta {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+      background: rgba(244, 236, 217, 0.96);
+      border-top: 1px solid rgba(45, 134, 89, 0.35);
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    }
+    .pag-sticky-cta-btn {
+      font-size: 14px;
+      padding: 14px 16px;
     }
     .pag-cta-sub {
       margin: 16px 0 0;
@@ -342,9 +350,8 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       .pag-cta-sub { font-size: 17px; line-height: 30.6px; }
       .pag-w { padding: 0 24px 56px; }
       .pag-bar-title { font-size: 16px; }
-      .pag-h1 { font-size: 30px; line-height: 39px; }
-      .pag-quote { font-size: 18px; line-height: 32.4px; }
-      .pag-meta, .pag-lead { font-size: 17px; line-height: 30.6px; }
+      .pag-adcopy { font-size: 17px; line-height: 30.6px; }
+      .pag-sticky-cta-btn { font-size: 15px; }
       .pag-h2 { font-size: 24px; line-height: 31.2px; }
       .pag-skip { font-size: 17px; line-height: 30.6px; }
     }
@@ -360,23 +367,271 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
   <div class="pag-w">
 
     <div class="pag-hero">
-      <h1 class="pag-h1">A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)</h1>
-
-      <p class="pag-quote">“Se o seu cão arrasta o bumbum, lambe a pata até ferir, tem cocô mole ou acorda a casa às 3 da manhã — costuma haver a mesma causa por trás.”</p>
-
-      <p class="pag-meta">&mdash; <strong>Juliana Da Silva, especialista em bem-estar canino</strong><br>Publicado: 19 de maio de 2026</p>
+      <div class="pag-adcopy-block"><p class="pag-adcopy">O cachorro da minha vizinha morreu com seis anos.</p>
+<p class="pag-adcopy">Quando soube o motivo, entrei em casa e olhei a gengiva do Thor.</p>
+<p class="pag-adcopy">Foi numa terça de manhã.</p>
+<p class="pag-adcopy">A Sandra me contou por cima do muro.</p>
+<p class="pag-adcopy">O Bailey dela.</p>
+<p class="pag-adcopy">O cachorro mais docil da rua.</p>
+<p class="pag-adcopy">Sempre na veterinária.</p>
+<p class="pag-adcopy">Sempre tomando remédio.</p>
+<p class="pag-adcopy">Sempre tomando vermífugo a cada poucos meses, religiosamente.</p>
+<p class="pag-adcopy">Eu conhecia aquele cachorro desde filhote.</p>
+<p class="pag-adcopy">Ele vinha aqui brincar com o Thor.</p>
+<p class="pag-adcopy">Dois SRD bagunceiros.</p>
+<p class="pag-adcopy">Corriam pelo quintal.</p>
+<p class="pag-adcopy">Roubavam petisco da mesa.</p>
+<p class="pag-adcopy">Deitavam juntos no sol da tarde.</p>
+<p class="pag-adcopy">A Sandra cuidava daquele animal como se fosse filho.</p>
+<p class="pag-adcopy">Vacina em dia.</p>
+<p class="pag-adcopy">Ração cara.</p>
+<p class="pag-adcopy">Consulta a cada sinal estranho.</p>
+<p class="pag-adcopy">Ela me mandava foto do Bailey no grupo do condomínio.</p>
+<p class="pag-adcopy">Sorriso bobo.</p>
+<p class="pag-adcopy">Língua de fora.</p>
+<p class="pag-adcopy">Seis anos.</p>
+<p class="pag-adcopy">Morreu.</p>
+<p class="pag-adcopy">A giardia tinha destruído o intestino dele em silêncio por mais de um ano.</p>
+<p class="pag-adcopy">Não porque a Sandra não se importava.</p>
+<p class="pag-adcopy">Ela gastou milhares na clínica.</p>
+<p class="pag-adcopy">Mas o vermífugo comum mata os parasitas adultos.</p>
+<p class="pag-adcopy">Os cistos?</p>
+<p class="pag-adcopy">Voltavam.</p>
+<p class="pag-adcopy">Toda vez.</p>
+<p class="pag-adcopy">Quando o Bailey parou de comer, o estrago já estava feito.</p>
+<p class="pag-adcopy">A Sandra chorou na calçada.</p>
+<p class="pag-adcopy">Eu abracei ela.</p>
+<p class="pag-adcopy">Não tinha palavra.</p>
+<p class="pag-adcopy">Voltei pra dentro.</p>
+<p class="pag-adcopy">O Thor estava na caminha.</p>
+<p class="pag-adcopy">Deitado.</p>
+<p class="pag-adcopy">Olho meio fechado.</p>
+<p class="pag-adcopy">Fezes moles há semanas.</p>
+<p class="pag-adcopy">Eu ficava dizendo que era a ração nova.</p>
+<p class="pag-adcopy">Aí pensei no gás.</p>
+<p class="pag-adcopy">Na coceira.</p>
+<p class="pag-adcopy">No jeito dele ficar largado quando antes corria pra porta quando eu chegava.</p>
+<p class="pag-adcopy">Eu tinha ignorado cada sinal.</p>
+<p class="pag-adcopy">Meu nome é Ricardo.</p>
+<p class="pag-adcopy">Tenho quarenta e um anos.</p>
+<p class="pag-adcopy">Moro em Curitiba.</p>
+<p class="pag-adcopy">Trabalho em home office.</p>
+<p class="pag-adcopy">Passo o dia com o Thor do meu lado.</p>
+<p class="pag-adcopy">O Thor é SRD, três anos, uns dezoito quilos.</p>
+<p class="pag-adcopy">Ele deveria estar cheio de energia.</p>
+<p class="pag-adcopy">Estava apagado.</p>
+<p class="pag-adcopy">Naquela noite não dormi.</p>
+<p class="pag-adcopy">Ficava pensando: e se a mesma coisa estiver acontecendo dentro do meu cachorro agora e eu simplesmente não consigo ver?</p>
+<p class="pag-adcopy">Levantei três vezes.</p>
+<p class="pag-adcopy">Fui olhar ele dormindo.</p>
+<p class="pag-adcopy">Cheirei a caminha.</p>
+<p class="pag-adcopy">Tinha aquele cheiro de cocô mole.</p>
+<p class="pag-adcopy">Fraco.</p>
+<p class="pag-adcopy">Mas estava lá.</p>
+<p class="pag-adcopy">Liguei pro meu irmão.</p>
+<p class="pag-adcopy">Ele tem cachorro também.</p>
+<p class="pag-adcopy">Disse que vermífugo resolve tudo.</p>
+<p class="pag-adcopy">Eu não tinha certeza mais.</p>
+<p class="pag-adcopy">Passei a anotar cada cocô.</p>
+<p class="pag-adcopy">Cor.</p>
+<p class="pag-adcopy">Consistência.</p>
+<p class="pag-adcopy">Cheiro.</p>
+<p class="pag-adcopy">Padrão de moles toda manhã.</p>
+<p class="pag-adcopy">De manhã levei amostra na clínica.</p>
+<p class="pag-adcopy">A vet disse que podia ser giardia.</p>
+<p class="pag-adcopy">Fez exame.</p>
+<p class="pag-adcopy">Veio positivo.</p>
+<p class="pag-adcopy">Receitou vermífugo.</p>
+<p class="pag-adcopy">Thor tomou direitinho.</p>
+<p class="pag-adcopy">Melhorou uns dias.</p>
+<p class="pag-adcopy">Depois voltou tudo.</p>
+<p class="pag-adcopy">Cocô mole de novo.</p>
+<p class="pag-adcopy">Gases.</p>
+<p class="pag-adcopy">Coceira nas patas.</p>
+<p class="pag-adcopy">Energia baixa.</p>
+<p class="pag-adcopy">Voltei na clínica.</p>
+<p class="pag-adcopy">A mesma vet confirmou reinfecção.</p>
+<p class="pag-adcopy">Disse que isso é comum.</p>
+<p class="pag-adcopy">Muito comum.</p>
+<p class="pag-adcopy">Trabalho em casa.</p>
+<p class="pag-adcopy">Thor deitava aos meus pés.</p>
+<p class="pag-adcopy">Antes corria pela sala.</p>
+<p class="pag-adcopy">Agora mal levantava.</p>
+<p class="pag-adcopy">Colega mandou mensagem.</p>
+<p class="pag-adcopy">Como está o cachorro?</p>
+<p class="pag-adcopy">Respondi: bem.</p>
+<p class="pag-adcopy">Mentira pequena.</p>
+<p class="pag-adcopy">Não queria falar.</p>
+<p class="pag-adcopy">Guardei caixa de vermífugo na gaveta.</p>
+<p class="pag-adcopy">Contei quantas vezes usei.</p>
+<p class="pag-adcopy">Três em um ano.</p>
+<p class="pag-adcopy">Sempre voltava.</p>
+<p class="pag-adcopy">Bailey tinha tomado mais.</p>
+<p class="pag-adcopy">Mesmo assim morreu.</p>
+<p class="pag-adcopy">Esse pensamento me perseguia.</p>
+<p class="pag-adcopy">Comecei a pesquisar e achei algo que me deu náusea.</p>
+<p class="pag-adcopy">Li em fórum de tutores e num artigo traduzido que cerca de 85% dos cães reinfectam depois de um vermífugo padrão.</p>
+<p class="pag-adcopy">85%.</p>
+<p class="pag-adcopy">Porque o tratamento comum mira os adultos.</p>
+<p class="pag-adcopy">Os ovos sobrevivem.</p>
+<p class="pag-adcopy">As larvas sobrevivem.</p>
+<p class="pag-adcopy">Em poucas semanas o ciclo recomeça.</p>
+<p class="pag-adcopy">Pensei no Bailey.</p>
+<p class="pag-adcopy">Seis anos.</p>
+<p class="pag-adcopy">Morreu.</p>
+<p class="pag-adcopy">Com cuidado.</p>
+<p class="pag-adcopy">Com remédio.</p>
+<p class="pag-adcopy">Com vermífugo.</p>
+<p class="pag-adcopy">Li sobre ambientes favoráveis a reinfecção.</p>
+<p class="pag-adcopy">Pátio compartilhado.</p>
+<p class="pag-adcopy">Água parada.</p>
+<p class="pag-adcopy">Fezes mal recolhidas.</p>
+<p class="pag-adcopy">Thor e Bailey brincavam no mesmo quintal.</p>
+<p class="pag-adcopy">A vet explicou que o vermífugo resolve o surto.</p>
+<p class="pag-adcopy">Mas o intestino precisa de apoio depois.</p>
+<p class="pag-adcopy">A mucosa fica inflamada.</p>
+<p class="pag-adcopy">A flora fica desequilibrada.</p>
+<p class="pag-adcopy">O ambiente continua favorável pro parasita voltar.</p>
+<p class="pag-adcopy">Perguntei na clínica sobre yucca.</p>
+<p class="pag-adcopy">A vet disse que não substitui vermífugo.</p>
+<p class="pag-adcopy">Mas pode apoiar o intestino depois.</p>
+<p class="pag-adcopy">Foi o que eu precisava ouvir.</p>
+<p class="pag-adcopy">Foi aí que achei menção a um extrato de yucca que age diferente do vermífugo comum.</p>
+<p class="pag-adcopy">Li que os saponoides ligam na membrana do protozoário.</p>
+<p class="pag-adcopy">Não era promessa milagrosa.</p>
+<p class="pag-adcopy">Era mecanismo.</p>
+<p class="pag-adcopy">Li também sobre levedura prebiótica alimentando bactérias boas.</p>
+<p class="pag-adcopy">Sobre beterraba e fibra ajudando a firmar trânsito.</p>
+<p class="pag-adcopy">Sobre gengibre e olíbano apoiando a mucosa.</p>
+<p class="pag-adcopy">Entrei em grupo de tutores no Facebook.</p>
+<p class="pag-adcopy">Vários contavam a mesma história.</p>
+<p class="pag-adcopy">Vermífugo.</p>
+<p class="pag-adcopy">Melhora.</p>
+<p class="pag-adcopy">Volta.</p>
+<p class="pag-adcopy">Troquei a ração duas vezes.</p>
+<p class="pag-adcopy">Gastei dinheiro.</p>
+<p class="pag-adcopy">Nada fixava.</p>
+<p class="pag-adcopy">O problema não era o saco.</p>
+<p class="pag-adcopy">Era por dentro.</p>
+<p class="pag-adcopy">Desinfetei o pátio.</p>
+<p class="pag-adcopy">Recolhi fezes todo dia.</p>
+<p class="pag-adcopy">Medo de reinfectar.</p>
+<p class="pag-adcopy">Thor olhava confuso.</p>
+<p class="pag-adcopy">Como se soubesse que eu estava com medo.</p>
+<p class="pag-adcopy">A Sandra mandou mensagem no domingo.</p>
+<p class="pag-adcopy">Perguntou como o Thor estava.</p>
+<p class="pag-adcopy">Eu demorei pra responder.</p>
+<p class="pag-adcopy">Tinha vergonha de admitir que estava igual.</p>
+<p class="pag-adcopy">No terceiro dia de biscoito, postei foto.</p>
+<p class="pag-adcopy">Cocô firme na grama.</p>
+<p class="pag-adcopy">Sandra respondeu com emoji de coração.</p>
+<p class="pag-adcopy">Li sobre ciclo de vida da giardia.</p>
+<p class="pag-adcopy">Cistos resistem no ambiente.</p>
+<p class="pag-adcopy">Sobrevivem semanas.</p>
+<p class="pag-adcopy">Thor bebia água do mesmo potinho de sempre.</p>
+<p class="pag-adcopy">Lavei tudo.</p>
+<p class="pag-adcopy">Hipoclorito diluído.</p>
+<p class="pag-adcopy">A vet disse: higiene ajuda.</p>
+<p class="pag-adcopy">Mas intestino fraco puxa de volta.</p>
+<p class="pag-adcopy">Segundo exame positivo me quebrou.</p>
+<p class="pag-adcopy">Pensei: vou perder ele igual ao Bailey.</p>
+<p class="pag-adcopy">Chorei no carro.</p>
+<p class="pag-adcopy">Thor lambia minha mão.</p>
+<p class="pag-adcopy">Como se dissesse: estou aqui.</p>
+<p class="pag-adcopy">Pesquisei yucca em artigo veterinário.</p>
+<p class="pag-adcopy">Saponoides.</p>
+<p class="pag-adcopy">Membrana do protozoário.</p>
+<p class="pag-adcopy">Não entendi tudo.</p>
+<p class="pag-adcopy">Entendi o suficiente.</p>
+<p class="pag-adcopy">Prebiótico fazia sentido.</p>
+<p class="pag-adcopy">Bactérias boas ocupando espaço.</p>
+<p class="pag-adcopy">Menos lugar pro parasita voltar.</p>
+<p class="pag-adcopy">Dia 1 de biscoito: Thor comeu na hora.</p>
+<p class="pag-adcopy">Dia 2: cocô ainda mole.</p>
+<p class="pag-adcopy">Quase parei.</p>
+<p class="pag-adcopy">Dia 4: firme.</p>
+<p class="pag-adcopy">Tirei foto escondido.</p>
+<p class="pag-adcopy">Mandei pra Sandra.</p>
+<p class="pag-adcopy">Ela escreveu: continua.</p>
+<p class="pag-adcopy">Achei o Digestão Saudável da Mimi e Pipo numa busca por petisco com yucca e suporte intestinal.</p>
+<p class="pag-adcopy">Biscoito.</p>
+<p class="pag-adcopy">Quatro por dia pro peso do Thor.</p>
+<p class="pag-adcopy">Levedura prebiótica, beterraba, gengibre, olíbano.</p>
+<p class="pag-adcopy">Ele come achando que é petisco.</p>
+<p class="pag-adcopy">Primeiro dia cheirou.</p>
+<p class="pag-adcopy">Comeu.</p>
+<p class="pag-adcopy">Pediu mais.</p>
+<p class="pag-adcopy">Hoje Thor corre de novo.</p>
+<p class="pag-adcopy">Bailey não teve essa chance.</p>
+<p class="pag-adcopy">Penso nisso.</p>
+<p class="pag-adcopy">Cuido melhor agora.</p>
+<p class="pag-adcopy">Semana 1</p>
+<p class="pag-adcopy">Continuei o vermífugo que a vet tinha passado.</p>
+<p class="pag-adcopy">Adicionei os quatro biscoitos por dia.</p>
+<p class="pag-adcopy">Dia 3, menos gás.</p>
+<p class="pag-adcopy">Dia 4, fezes firmaram pela primeira vez em semanas.</p>
+<p class="pag-adcopy">Dia 5, menos coceira nas patas.</p>
+<p class="pag-adcopy">Semana 2</p>
+<p class="pag-adcopy">A coceira parou por volta do sexto dia.</p>
+<p class="pag-adcopy">Ele parou de se lamber as patas de madrugada.</p>
+<p class="pag-adcopy">Energia voltando devagar.</p>
+<p class="pag-adcopy">Voltei a levar ele na praça.</p>
+<p class="pag-adcopy">Semana 3</p>
+<p class="pag-adcopy">Sábado passado, pela primeira vez em meses, o Thor estava na porta quando voltei do mercado.</p>
+<p class="pag-adcopy">Rabo abanando.</p>
+<p class="pag-adcopy">Pulando.</p>
+<p class="pag-adcopy">Como antes.</p>
+<p class="pag-adcopy">Fiz novo exame de giardia.</p>
+<p class="pag-adcopy">Negativo.</p>
+<p class="pag-adcopy">A vet disse: continue o que está fazendo.</p>
+<p class="pag-adcopy">Thor merece correr.</p>
+<p class="pag-adcopy">Bailey merecia também.</p>
+<p class="pag-adcopy">Aprendi tarde demais pro vizinho.</p>
+<p class="pag-adcopy">A tempo pro meu.</p>
+<p class="pag-adcopy">Não vou perder meu cachorro do jeito que a Sandra perdeu o Bailey.</p>
+<p class="pag-adcopy">Não se existe algo que eu possa fazer.</p>
+<p class="pag-adcopy">Cuido do Thor diferente agora.</p>
+<p class="pag-adcopy">Olho o intestino.</p>
+<p class="pag-adcopy">Não só o vermífugo.</p>
+<p class="pag-adcopy">Fez diferença.</p>
+<p class="pag-adcopy">Grande diferença.</p>
+<p class="pag-adcopy">Bailey não teve essa chance.</p>
+<p class="pag-adcopy">Thor tem.</p>
+<p class="pag-adcopy">Cuido.</p>
+<p class="pag-adcopy">Se o seu cachorro tem fezes moles, gás ou anda sem energia...</p>
+<p class="pag-adcopy">E você já deu vermífugo e o problema voltou...</p>
+<p class="pag-adcopy">Vale olhar o que está acontecendo no intestino, não só matar o parasita da vez.</p>
+<div class="pag-cta-wrap pag-cta-wrap--adcopy"><a class="pag-cta-btn pag-cta-btn--green" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Ver Digestão Saudável — Garantia de 60 dias</a></div>
+<p class="pag-adcopy">Garantia de 60 dias se quiser testar sem risco.</p>
+<p class="pag-adcopy">Valeu.</p>
+<p class="pag-adcopy">AQUI ESTÁ O QUE APRENDI:</p>
+<p class="pag-adcopy">• Vermífugo comum mata adultos. Cistos e ovos podem voltar. Reinfecção é comum.</p>
+<p class="pag-adcopy">• Cerca de 85% dos cães reinfectam depois de tratamento padrão para giardia.</p>
+<p class="pag-adcopy">• Fezes moles, gás, coceira e falta de energia podem ser sinais intestinais, mesmo com vermífugo em dia.</p>
+<p class="pag-adcopy">• Depois do surto, o intestino precisa de apoio: mucosa, flora, trânsito.</p>
+<p class="pag-adcopy">• Yucca age por mecanismo diferente: saponoides ligam na membrana do protozoário.</p>
+<p class="pag-adcopy">• Prebiótico alimenta bactérias boas que já moram no intestino.</p>
+<p class="pag-adcopy">• Quatro biscoitos por dia pro peso do Thor. Resultados visíveis em três semanas.</p>
+<p class="pag-adcopy">P.S.</p>
+<p class="pag-adcopy">A Sandra ainda mora do lado.</p>
+<p class="pag-adcopy">Ontem ela viu o Thor correndo no quintal.</p>
+<p class="pag-adcopy">Disse: &quot;Ele parece outro.&quot;</p>
+<p class="pag-adcopy">Eu não contei tudo.</p>
+<p class="pag-adcopy">Só disse que aprendi a cuidar do intestino depois do vermífugo.</p>
+<p class="pag-adcopy">Ela pediu o nome do petisco.</p>
+<p class="pag-adcopy">P.P.S.</p>
+<p class="pag-adcopy">Se você está onde eu estava, com exame positivo e medo no peito, testa com calma.</p>
+<p class="pag-adcopy">Tem garantia de 60 dias.</p>
+<p class="pag-adcopy">Eu só queria ter olhado pro Thor antes de precisar ouvir a história do Bailey.</p></div>
 
       <div class="pag-img pag-img-atf">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-01-atf-hero.png" alt="A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)" width="1080" height="1350" loading="eager" decoding="async">
       </div>
 
-      <p class="pag-lead">Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.</p>
-
       <a class="pag-skip" href="#oferta">Quer ir direto ao ponto? Clique para ver o protocolo que recomendo aos meus pacientes</a>
     </div>
 
     <div class="pag-body">
-      <p>Se comprou <strong>remédio para coceira</strong> ou fez <strong>injeção anti-coceira</strong>...</p>
       <p>Se trocou para <strong>ração medicamentosa ou de ingrediente limitado</strong>...</p>
       <p>Se tentou <strong>petisco calmante, CBD, adestramento</strong> ou comportamentalista...</p>
       <p>E se ele ainda coça, lambe a pata até ferir, arrasta o bumbum no tapete, faz cocô dentro de casa ou fica inquieto entre 2 e 3 da manhã... <strong>você não está sozinha.</strong></p>
@@ -411,6 +666,8 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       <p>Por isso melhora um pouco... e volta.</p>
       <p>Porque o problema real não é só o sintoma.</p>
       <p>E essa percepção me veio num dos casos mais difíceis que acompanhei.</p>
+
+      <div class="pag-cta-wrap pag-cta-wrap--inline"><a class="pag-cta-btn pag-cta-btn--blue" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Verificar estoque — Digestão Saudável</a></div>
 
       <div class="pag-img pag-img-inline">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-03-wrong-battle.png" alt="Suplementos e remédios riscados — o que não funcionou" width="740" height="494" loading="lazy">
@@ -460,6 +717,8 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       <p>Os tratamentos nunca foram feitos para consertar isso.</p>
       <p><strong>E aqui é o que me deixou irritada:</strong></p>
       <p>Profissionais integrativos falam do eixo intestino-pele-comportamento há anos. Mas a clínica convencional quase não ensina isso na formação. Esse buraco de informação mantém tutores presas no ciclo de remédio, remédio, remédio.</p>
+
+      <div class="pag-cta-wrap pag-cta-wrap--inline"><a class="pag-cta-btn pag-cta-btn--green" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Quero 30% OFF + frete grátis para leitoras</a></div>
 
       <div class="pag-img pag-img-inline">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-05-gut-diagram.png" alt="Diagrama: danos na barreira intestinal, alérgenos e umidade" width="740" height="494" loading="lazy">
@@ -554,6 +813,8 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       <p>&ldquo;Parece outro cachorro. Calmo. Dormindo. Não fez cocô dentro de casa. Eu não sabia que ele podia ser assim.&rdquo;</p>
       <p>E ela não estava sozinha.</p>
 
+      <div class="pag-cta-wrap pag-cta-wrap--inline"><a class="pag-cta-btn pag-cta-btn--blue" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Ver Digestão Saudável na loja oficial</a></div>
+
       <div class="pag-img pag-img-inline">
         <img src="https://artigos.mimiepipo.com.br/advertorial/images/inline-08-dog-bowl-product.png" alt="Cão com tigela de ração e biscoitos Digestão Saudável" width="740" height="494" loading="lazy">
       </div>
@@ -579,6 +840,8 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       <p>✅ Dormir a noite inteira — tutor e cão.<br>✅ Ter comportamento calmo no passeio e em casa.<br>✅ Parar de arrastar, parar de coçar, parar de fazer cocô dentro.<br>✅ Reduzir ou sair de remédios que só mascaram sintoma — com orientação veterinária.</p>
       <p>O sofrimento desnecessário é enorme.</p>
       <p>Milhões de cães estão medicados agora por sintomas de um intestino que ninguém investiga de verdade.</p>
+
+      <div class="pag-cta-wrap pag-cta-wrap--inline"><a class="pag-cta-btn pag-cta-btn--green" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Garantir minha oferta de leitora agora</a></div>
 
       <h2 class="pag-h2">Por que agir agora</h2>
       <p>Círculos de bem-estar canino finalmente falam abertamente sobre o eixo intestino-pele-comportamento.</p>
@@ -633,14 +896,14 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
       <p>Lembre-se: você está protegida pela garantia de 60 dias. Você não tem nada a perder — exceto os sintomas que administra há anos.</p>
 
       <div class="pag-cta-wrap">
-        <a class="pag-cta-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR ESTOQUE EXCLUSIVO PARA LEITORAS</a>
+        <a class="pag-cta-btn pag-cta-btn--green" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">VERIFICAR ESTOQUE EXCLUSIVO PARA LEITORAS</a>
         <p class="pag-cta-sub">Clique no link acima para ver se a Mimi &amp; Pipo ainda está com a promoção limitada para leitoras.</p>
       </div>
 
       <div class="pag-signoff">
         <p class="pag-signoff-closing">Para a recuperação do seu cão,</p>
         <p class="pag-signoff-name">Juliana Da Silva, especialista em bem-estar canino</p>
-        <p class="pag-signoff-date">Publicado: 19 de maio de 2026</p>
+        <p class="pag-signoff-date">Publicado: 20 de maio de 2026</p>
       </div>
     </div>
   </div>
@@ -655,6 +918,8 @@ src="https://www.facebook.com/tr?id=1960132154863603&amp;ev=PageView&amp;noscrip
     <p class="footer-copy">&copy; 2026 Mimi &amp; Pipo. Todos os direitos reservados.</p>
     <p class="footer-legal">Este produto não se destina a diagnosticar, tratar, curar ou prevenir doenças. Consulte um veterinário.</p>
   </footer>
+
+  <div class="pag-sticky-cta" role="region" aria-label="Oferta para leitoras"><a class="pag-cta-btn pag-cta-btn--green pag-sticky-cta-btn" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Ganhe 30% de desconto + frete grátis para leitoras — Digestão Saudável da Mimi e Pipo</a></div>
 
   <script>
 (function () {

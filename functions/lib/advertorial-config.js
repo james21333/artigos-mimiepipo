@@ -14,6 +14,9 @@ const ATTRIBUTION_PARAMS = [
   'utm_id',
 ];
 
+const URL_PATTERN = /https?:\/\/[^\s]+/i;
+const SHOPIFY_HOST = /mimiepipo\.com\.br/i;
+
 export function buildMetaPixelHead(pixelId) {
   if (!pixelId) return '';
   return `<!-- Meta Pixel (prelander — same ID as Shopify PDP) -->
@@ -71,128 +74,7 @@ const IMG = 'https://artigos.mimiepipo.com.br/advertorial/images';
 export const DEFAULTS = {
   h1: 'A carga intestinal escondida por trás dos problemas do seu cão (e por que cada remédio falha de novo)',
   hero: `${IMG}/inline-01-atf-hero.png`,
-  lead:
-    'Se o seu cão tem problemas crônicos de pele, comportamento ou digestão, você provavelmente já tentou o que a maioria tenta.',
-  problem: null,
 };
-
-export const ANGLES = {
-  digestion: {
-    h1: 'Tentei de tudo para consertar a digestão do meu cão — até encontrar essa alternativa',
-    hero: 'https://artigos.mimiepipo.com.br/advertorial/angles/digestion-hero.jpg',
-    lead:
-      'Eu tentei remédio, troca de ração e probiótico. Nada segurava. Foi quando uma amiga me mostrou os biscoitos Digestão Saudável que o intestino dele finalmente mudou.',
-    problem: 'tem cocô mole',
-  },
-  shinycoat: {
-    h1: 'O pelo opaco do meu cão tinha solução — e não era só shampoo',
-    hero: 'https://artigos.mimiepipo.com.br/advertorial/angles/shinycoat-hero.jpg',
-    lead:
-      'Gastei com banho, shampoo e condicionador. O brilho só voltou quando parei de tratar só a superfície e cuidei do intestino dele por dentro.',
-    problem: 'pelo opaco e sem brilho',
-  },
-};
-
-const BASE_PROBLEMS = [
-  'arrasta o bumbum',
-  'lambe a pata até ferir',
-  'tem cocô mole',
-  'acorda a casa às 3 da manhã',
-];
-
-function normalizeProblem(s) {
-  return s.toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-function findCustomProblemRef(problems, customProblem) {
-  if (!customProblem) return null;
-  const norm = normalizeProblem(customProblem);
-  const match = problems.find((p) => {
-    const pn = normalizeProblem(p);
-    return pn === norm || pn.includes(norm) || norm.includes(pn);
-  });
-  if (match) return match;
-  problems.splice(2, 0, customProblem);
-  return customProblem;
-}
-
-function formatQuoteProblem(problem, boldRef) {
-  const text = escapeHtml(problem);
-  return problem === boldRef ? `<strong>${text}</strong>` : text;
-}
-
-export function buildQuote(customProblem) {
-  const problems = BASE_PROBLEMS.slice();
-  const boldRef = findCustomProblemRef(problems, customProblem);
-  const last = problems.pop();
-  const list = `${problems.map((p) => formatQuoteProblem(p, boldRef)).join(', ')} ou ${formatQuoteProblem(last, boldRef)}`;
-  return `“Se o seu cão ${list} — costuma haver a mesma causa por trás.”`;
-}
-
-/** First “Se comprou remédio…” line — keyed to each ad’s `problem` param. */
-const REMEDY_LINES = {
-  'reinfecta depois do vermífugo':
-    'Se comprou <strong>remédio</strong> por causa de <strong>reinfectar depois do vermífugo</strong>...',
-  'tem sangue nas fezes':
-    'Se comprou <strong>remédio</strong> por causa de <strong>sangue nas fezes</strong>...',
-  'perde peso e energia':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>perder peso e energia</strong>...',
-  'tem caroço perto do bumbum':
-    'Se comprou <strong>remédio</strong> por causa de <strong>caroço perto do bumbum</strong>...',
-  'vomita quase todo dia':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>vomitar quase todo dia</strong>...',
-  'coça sem parar':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>coçar sem parar</strong>...',
-  'arrasta o bumbum no tapete':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>arrastar o bumbum no tapete</strong>...',
-  'reinfecta com giardia':
-    'Se comprou <strong>remédio</strong> por causa de <strong>reinfectar com giardia</strong>...',
-  'tem cocô mole crônico':
-    'Se comprou <strong>remédio</strong> por causa de <strong>cocô mole crônico</strong>...',
-  'come grama e vomita':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>comer grama e vomitar</strong>...',
-  'precisa esvaziar glândula toda semana':
-    'Se comprou <strong>remédio</strong> por causa de <strong>precisar esvaziar glândula toda semana</strong>...',
-  'probiótico não resolve a barriga':
-    'Se comprou <strong>remédio</strong> ou <strong>probiótico</strong> e a <strong>barriga não resolve</strong>...',
-  'cocô mole mesmo com abóbora':
-    'Se comprou <strong>remédio</strong> por causa de <strong>cocô mole mesmo com abóbora</strong>...',
-  'come cocô no passeio':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>comer cocô no passeio</strong>...',
-  'cheira a peixe no sofá':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>cheirar a peixe no sofá</strong>...',
-  'fedor de cocô no apartamento':
-    'Se comprou <strong>remédio</strong> por causa de <strong>fedor de cocô no apartamento</strong>...',
-  'solta gases na hora do jantar':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>soltar gases na hora do jantar</strong>...',
-  'mancha o tapete arrastando o bumbum':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>manchar o tapete arrastando o bumbum</strong>...',
-  'acorda a casa de madrugada':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>acordar a casa de madrugada</strong>...',
-  'diarreia de madrugada':
-    'Se comprou <strong>remédio</strong> por causa de <strong>diarreia de madrugada</strong>...',
-  'cheiro forte impede carinho':
-    'Se comprou <strong>remédio</strong> por causa de <strong>cheiro forte que impede carinho</strong>...',
-  'coça a noite inteira':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>coçar a noite inteira</strong>...',
-  'não tem mais energia':
-    'Se comprou <strong>remédio</strong> por causa de ele <strong>não ter mais energia</strong>...',
-  'tem cocô mole':
-    'Se comprou <strong>remédio</strong> por causa de <strong>cocô mole</strong>...',
-  'pelo opaco e sem brilho':
-    'Se comprou <strong>remédio</strong> ou <strong>suplemento</strong> por causa de <strong>pelo opaco e sem brilho</strong>...',
-};
-
-const DEFAULT_REMEDY_LINE =
-  'Se comprou <strong>remédio para coceira</strong> ou fez <strong>injeção anti-coceira</strong>...';
-
-export function buildRemedyLine(customProblem) {
-  if (!customProblem) return DEFAULT_REMEDY_LINE;
-  const key = normalizeProblem(customProblem);
-  if (REMEDY_LINES[key]) return REMEDY_LINES[key];
-  const escaped = escapeHtml(customProblem);
-  return `Se comprou <strong>remédio</strong> por causa de <strong>${escaped}</strong>...`;
-}
 
 export function publishedDate(now = new Date()) {
   const d = new Date(now);
@@ -225,33 +107,107 @@ function pickParam(searchParams, key) {
   return v.replace(/\+/g, ' ').trim();
 }
 
-export function resolveAdvertorial(searchParams, now = new Date()) {
-  const angleKey = (pickParam(searchParams, 'angle') || '').toLowerCase();
-  const angle = ANGLES[angleKey] || null;
+function extractUrl(text) {
+  const m = text.match(URL_PATTERN);
+  return m ? m[0].replace(/[.,;:!?)]+$/, '') : null;
+}
 
-  const h1 = pickParam(searchParams, 'h1') || angle?.h1 || DEFAULTS.h1;
-  const hero = safeUrl(
-    pickParam(searchParams, 'hero'),
-    angle?.hero || DEFAULTS.hero,
-  );
-  const lead = pickParam(searchParams, 'lead') || angle?.lead || DEFAULTS.lead;
-  const problem =
-    pickParam(searchParams, 'problem') || angle?.problem || DEFAULTS.problem;
-  const quoteOverride = pickParam(searchParams, 'quote');
-  const quote = quoteOverride || buildQuote(problem);
-  const remedyLine = buildRemedyLine(problem);
+function isCtaParagraph(text) {
+  const t = text.trim();
+  if (t.startsWith('👉')) return true;
+  if (URL_PATTERN.test(t) && SHOPIFY_HOST.test(t)) return true;
+  return false;
+}
+
+/** Render Facebook primary text — one <p> per blank-line break; PDP URLs become green CTAs. */
+export function renderAdCopyHtml(paragraphs, pdp = PDP) {
+  if (!paragraphs?.length) {
+    return `<p class="pag-adcopy">${escapeHtml(DEFAULTS.h1)}</p>`;
+  }
+  return paragraphs
+    .map((raw) => {
+      const text = String(raw).trim();
+      if (!text) return '';
+      if (isCtaParagraph(text)) {
+        const href = extractUrl(text) || pdp;
+        return `<div class="pag-cta-wrap pag-cta-wrap--adcopy"><a class="pag-cta-btn pag-cta-btn--green" href="${escapeHtml(href)}">Ver Digestão Saudável — Garantia de 60 dias</a></div>`;
+      }
+      return `<p class="pag-adcopy">${escapeHtml(text)}</p>`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function inlineCtaHtml(
+  href,
+  label,
+  variant = 'green',
+) {
+  const cls =
+    variant === 'blue'
+      ? 'pag-cta-btn pag-cta-btn--blue'
+      : 'pag-cta-btn pag-cta-btn--green';
+  return `<div class="pag-cta-wrap pag-cta-wrap--inline"><a class="${cls}" href="${escapeHtml(href)}">${escapeHtml(label)}</a></div>`;
+}
+
+export function stickyCtaHtml(href) {
+  return `<div class="pag-sticky-cta" role="region" aria-label="Oferta para leitoras">
+  <a class="pag-cta-btn pag-cta-btn--green pag-sticky-cta-btn" href="${escapeHtml(href)}">Ganhe 30% de desconto + frete grátis para leitoras — Digestão Saudável da Mimi e Pipo</a>
+</div>`;
+}
+
+export function resolveAdvertorial(searchParams, adCopyData = null, now = new Date()) {
+  const variantId = pickParam(searchParams, 'id');
+  const pdp = adCopyData?.pdp || PDP;
+
+  let hero = safeUrl(pickParam(searchParams, 'hero'), DEFAULTS.hero);
+  let headline = DEFAULTS.h1;
+  let adCopyHtml = '';
+
+  if (adCopyData?.paragraphs?.length) {
+    headline = adCopyData.headline || adCopyData.paragraphs[0];
+    hero = safeUrl(adCopyData.hero, hero);
+    adCopyHtml = renderAdCopyHtml(adCopyData.paragraphs, pdp);
+  } else {
+    const h1 = pickParam(searchParams, 'h1') || DEFAULTS.h1;
+    headline = h1;
+    adCopyHtml = `<p class="pag-adcopy">${escapeHtml(h1)}</p>`;
+    if (pickParam(searchParams, 'lead')) {
+      adCopyHtml += `\n<p class="pag-adcopy">${escapeHtml(pickParam(searchParams, 'lead'))}</p>`;
+    }
+  }
 
   return {
-    h1,
+    variantId,
+    headline,
     hero,
-    heroAlt: h1.substring(0, 120),
-    lead,
-    quote,
-    remedyLine,
-    pageTitle: pageTitle(h1),
+    heroAlt: headline.substring(0, 120),
+    adCopyHtml,
+    pageTitle: pageTitle(headline),
     publishedDate: publishedDate(now),
     footerYear: String(now.getFullYear()),
-    pdp: PDP,
+    pdp,
+    inlineCta1: inlineCtaHtml(
+      pdp,
+      'Verificar estoque — Digestão Saudável',
+      'blue',
+    ),
+    inlineCta2: inlineCtaHtml(
+      pdp,
+      'Quero 30% OFF + frete grátis para leitoras',
+      'green',
+    ),
+    inlineCta3: inlineCtaHtml(
+      pdp,
+      'Ver Digestão Saudável na loja oficial',
+      'blue',
+    ),
+    inlineCta4: inlineCtaHtml(
+      pdp,
+      'Garantir minha oferta de leitora agora',
+      'green',
+    ),
+    stickyCta: stickyCtaHtml(pdp),
   };
 }
 
@@ -264,15 +220,22 @@ export function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-export function renderAdvertorial(template, searchParams, now = new Date()) {
-  const data = resolveAdvertorial(searchParams, now);
+export function renderAdvertorial(
+  template,
+  searchParams,
+  adCopyData = null,
+  now = new Date(),
+) {
+  const data = resolveAdvertorial(searchParams, adCopyData, now);
   return template
-    .replaceAll('__H1__', escapeHtml(data.h1))
+    .replaceAll('__AD_COPY__', data.adCopyHtml)
     .replaceAll('__HERO__', escapeHtml(data.hero))
     .replaceAll('__HERO_ALT__', escapeHtml(data.heroAlt))
-    .replaceAll('__LEAD__', escapeHtml(data.lead))
-    .replaceAll('__QUOTE__', data.quote)
-    .replaceAll('__REMEDY_LINE__', data.remedyLine)
+    .replaceAll('__INLINE_CTA_1__', data.inlineCta1)
+    .replaceAll('__INLINE_CTA_2__', data.inlineCta2)
+    .replaceAll('__INLINE_CTA_3__', data.inlineCta3)
+    .replaceAll('__INLINE_CTA_4__', data.inlineCta4)
+    .replaceAll('__STICKY_CTA__', data.stickyCta)
     .replaceAll('__PAGE_TITLE__', escapeHtml(data.pageTitle))
     .replaceAll('__PUBLISHED_DATE__', escapeHtml(data.publishedDate))
     .replaceAll('__FOOTER_YEAR__', escapeHtml(data.footerYear))
