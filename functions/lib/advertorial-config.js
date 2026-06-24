@@ -132,7 +132,7 @@ function isCtaParagraph(text) {
 }
 
 function isGarantiaParagraph(text) {
-  return /garantia de 60 dias/i.test(String(text));
+  return /^garantia de 60 dias/i.test(String(text).trim());
 }
 
 const RECOMMEND_BEFORE_CTA = `<p class="pag-adcopy pag-recommend">Eu recomendo melhorar a saúde intestinal com petiscos prebióticos naturais como o <strong>Digestão Saudável</strong> da Mimi e Pipo. Por tempo limitado, eles estão oferecendo <strong>30% de desconto</strong> e <strong>frete grátis</strong> para minhas leitoras.</p>`;
@@ -156,6 +156,7 @@ function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
   const slice = skipFirst ? paragraphs.slice(1) : paragraphs;
   const parts = [];
   let firstCtaDone = false;
+  let gutProblemsDone = false;
 
   for (const raw of slice) {
     const text = String(raw).trim();
@@ -174,8 +175,9 @@ function renderParagraphs(paragraphs, pdp, { skipFirst = false } = {}) {
     }
 
     parts.push(`<p class="pag-adcopy">${escapeHtml(text)}</p>`);
-    if (isGarantiaParagraph(text)) {
+    if (isGarantiaParagraph(text) && !gutProblemsDone) {
       parts.push(GUT_PROBLEMS_BLOCK);
+      gutProblemsDone = true;
     }
   }
 

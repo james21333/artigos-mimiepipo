@@ -51,7 +51,7 @@ def extract_url(text: str) -> str:
 
 
 def is_garantia_paragraph(text: str) -> bool:
-    return "garantia de 60 dias" in text.lower()
+    return text.strip().lower().startswith("garantia de 60 dias")
 
 
 RECOMMEND_BEFORE_CTA = (
@@ -80,6 +80,7 @@ GUT_PROBLEMS_BLOCK = """<p class="pag-adcopy pag-gut-intro">Se o seu cachorro te
 def render_ad_copy(paragraphs: list[str]) -> str:
     parts: list[str] = []
     first_cta_done = False
+    gut_problems_done = False
     for raw in paragraphs:
         text = raw.strip()
         if not text:
