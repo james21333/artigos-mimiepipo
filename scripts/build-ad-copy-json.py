@@ -18,7 +18,15 @@ PRELANDER_URLS = Path(
 UPLOAD_BATCHES = Path(
     "/Users/josh/Desktop/Facebook Ads/mimi and pipo/ads/creatives/pending-upload-jun23"
 )
+LAUNCH_MAP = Path(
+    "/Users/josh/Desktop/Facebook Ads/mimi and pipo/ads/creatives/launch-map-jun23.json"
+)
 PDP = "https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003"
+
+# Ad set 02 (cat-09-mechanism) → Paw-Life style prelander; all others → WolfRoots default.
+FOLDER_TEMPLATE = {
+    "cat-09-mechanism": "angle2",
+}
 
 
 def normalize(s: str) -> str:
@@ -173,6 +181,24 @@ def unquote_plus(value: str) -> str:
     return _u(value.replace("+", " ")).strip()
 
 
+def load_variant_meta() -> dict[str, dict]:
+    if not LAUNCH_MAP.is_file():
+        return {}
+    data = json.loads(LAUNCH_MAP.read_text(encoding="utf-8"))
+    meta: dict[str, dict] = {}
+    for ad in data.get("ads", []):
+        vid = ad.get("variant")
+        folder = ad.get("folder", "")
+        if not vid:
+            continue
+        meta[vid] = {
+            "folder": folder,
+            "template": FOLDER_TEMPLATE.get(folder, "default"),
+            "adset_id": ad.get("adset_id", ""),
+        }
+    return meta
+
+
 def prefer_variant_id(ids: list[str]) -> str:
     """When live Meta URLs collide (regular + CalmAxis), prefer the base variant."""
     plain = [i for i in ids if not i.endswith("-calmaxis")]
@@ -202,6 +228,7 @@ def main() -> None:
     by_hero: dict[str, list[str]] = {}
     by_params: dict[str, list[str]] = {}
     live_batch = load_live_batch_keys()
+    variant_meta = load_variant_meta()
 
     for ad in plan["ads"]:
         vid = ad["id"]
@@ -240,7 +267,14 @@ def main() -> None:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        index[vid] = {"headline": headline, "lead": lead, "hero": hero}
+        meta = variant_meta.get(vid, {"folder": "", "template": "default", "adset_id": ""})
+        index[vid] = {
+            "headline": headline,
+            "lead": lead,
+            "hero": hero,
+            "folder": meta.get("folder", ""),
+            "template": meta.get("template", "default"),
+        }
 
         hl = normalize(headline)
         ld = normalize(lead)[:150]
@@ -278,6 +312,7 @@ def main() -> None:
         json.dumps(
             {
                 "variants": index,
+                "variantMeta": variant_meta,
                 "byHeadlineLead": by_headline_lead,
                 "byHeadline": by_headline,
                 "byHero": by_hero,

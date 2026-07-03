@@ -1,6 +1,12 @@
 export const PDP =
   'https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003';
 
+/** Default = WolfRoots-style; angle2 = Paw-Life (ad set cat-09-mechanism). */
+export const TEMPLATE_PATHS = {
+  default: '/templates/wolfroots.template.html',
+  angle2: '/templates/pawlife.template.html',
+};
+
 /** Same pixel as Shopify Facebook & Instagram channel (Web Pixels Manager). */
 export const META_PIXEL_ID = '1960132154863603';
 
@@ -288,6 +294,17 @@ function pickAmbiguous(ids) {
   if (plain.length === 1) return plain[0];
   if (plain.length) return plain.sort()[0];
   return ids.sort()[0];
+}
+
+/** Pick prelander shell from resolved variant (lookup.variantMeta). */
+export function resolveTemplateId(variantId, lookup = null) {
+  const template = lookup?.variantMeta?.[variantId]?.template;
+  if (template === 'angle2') return 'angle2';
+  return 'default';
+}
+
+export function templatePath(templateId) {
+  return TEMPLATE_PATHS[templateId] || TEMPLATE_PATHS.default;
 }
 
 /** Resolve variant from live Meta URLs: ?id=, ?h1=&lead=&hero=, or ?h1=&hero=. */

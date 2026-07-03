@@ -1,6 +1,8 @@
 import {
   renderAdvertorial,
+  resolveTemplateId,
   resolveVariantId,
+  templatePath,
 } from './lib/advertorial-config.js';
 
 async function loadLookup(context) {
@@ -28,17 +30,30 @@ async function loadAdCopy(context, variantId) {
   }
 }
 
-async function serveAdvertorial(context) {
+async function loadTemplate(context, templateId) {
+  const path = templatePath(templateId);
   const templateRes = await context.env.ASSETS.fetch(
-    new URL('/advertorial.template.html', context.request.url),
+    new URL(path, context.request.url),
   );
   if (!templateRes.ok) {
-    return new Response('Advertorial template missing.', { status: 500 });
+    const fallback = await context.env.ASSETS.fetch(
+      new URL('/advertorial.template.html', context.request.url),
+    );
+    if (!fallback.ok) return null;
+    return fallback.text();
   }
-  const template = await templateRes.text();
+  return templateRes.text();
+}
+
+async function serveAdvertorial(context) {
   const url = new URL(context.request.url);
   const lookup = await loadLookup(context);
   const variantId = resolveVariantId(url.searchParams, lookup);
+  const templateId = resolveTemplateId(variantId, lookup);
+  const template = await loadTemplate(context, templateId);
+  if (!template) {
+    return new Response('Advertorial template missing.', { status: 500 });
+  }
   const adCopyData = await loadAdCopy(context, variantId);
   const html = renderAdvertorial(template, url.searchParams, adCopyData);
   return new Response(html, {
