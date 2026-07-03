@@ -54,8 +54,13 @@ async function serveAdvertorial(context) {
   if (!template) {
     return new Response('Advertorial template missing.', { status: 500 });
   }
-  const adCopyData = await loadAdCopy(context, variantId);
-  const html = renderAdvertorial(template, url.searchParams, adCopyData);
+  const html = renderAdvertorial(
+    template,
+    url.searchParams,
+    null,
+    new Date(),
+    templateId,
+  );
   return new Response(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',

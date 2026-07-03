@@ -369,47 +369,30 @@ export function resolveVariantId(searchParams, lookup = null) {
   return null;
 }
 
+export const STATIC_PAGE_META = {
+  default: {
+    pageTitle:
+      'A descoberta que milhares de tutores fizeram sobre a barriga do cão',
+  },
+  angle2: {
+    pageTitle:
+      'Por que 80% dos cães perdem anos de vida com a barriga quase normal',
+  },
+};
+
 export function resolveAdvertorial(
   searchParams,
-  adCopyData = null,
+  _adCopyData = null,
   now = new Date(),
+  templateId = 'default',
 ) {
-  const pdp = adCopyData?.pdp || PDP;
-  const urlHero = safeUrl(pickParam(searchParams, 'hero'), null);
-  const urlH1 = pickParam(searchParams, 'h1');
-
-  let headline = urlH1 || DEFAULTS.h1;
-  let hero = urlHero || adCopyData?.hero || DEFAULTS.hero;
-  let bodyHtml = '';
-
-  if (adCopyData?.paragraphs?.length) {
-    const sections = renderAdCopySections(
-      adCopyData.paragraphs,
-      pdp,
-      adCopyData.wordCount || 0,
-    );
-    headline = String(adCopyData.paragraphs[0]).trim();
-    bodyHtml = sections.bodyHtml;
-    if (!urlHero && adCopyData.hero) hero = adCopyData.hero;
-  } else if (urlH1) {
-    bodyHtml = pickParam(searchParams, 'lead')
-      ? `<p class="pag-adcopy">${escapeHtml(pickParam(searchParams, 'lead'))}</p>`
-      : '';
-  } else {
-    bodyHtml = '';
-  }
-
+  const meta = STATIC_PAGE_META[templateId] || STATIC_PAGE_META.default;
   return {
-    headlineHtml: escapeHtml(headline),
-    headline,
-    hero,
-    heroAlt: headline.substring(0, 120),
-    adCopyBodyHtml: bodyHtml,
-    pageTitle: pageTitle(headline),
+    pageTitle: meta.pageTitle,
     publishedDate: publishedDate(now),
     footerYear: String(now.getFullYear()),
-    pdp,
-    stickyCta: stickyCtaHtml(pdp),
+    pdp: PDP,
+    stickyCta: stickyCtaHtml(PDP),
   };
 }
 
@@ -425,15 +408,12 @@ export function escapeHtml(value) {
 export function renderAdvertorial(
   template,
   searchParams,
-  adCopyData = null,
+  _adCopyData = null,
   now = new Date(),
+  templateId = 'default',
 ) {
-  const data = resolveAdvertorial(searchParams, adCopyData, now);
+  const data = resolveAdvertorial(searchParams, null, now, templateId);
   return template
-    .replaceAll('__AD_HEADLINE__', data.headlineHtml)
-    .replaceAll('__AD_COPY_BODY__', data.adCopyBodyHtml)
-    .replaceAll('__HERO__', escapeHtml(data.hero))
-    .replaceAll('__HERO_ALT__', escapeHtml(data.heroAlt))
     .replaceAll('__STICKY_CTA__', data.stickyCta)
     .replaceAll('__PAGE_TITLE__', escapeHtml(data.pageTitle))
     .replaceAll('__PUBLISHED_DATE__', escapeHtml(data.publishedDate))
