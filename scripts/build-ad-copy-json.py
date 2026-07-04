@@ -23,10 +23,9 @@ LAUNCH_MAP = Path(
 )
 PDP = "https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003"
 
-# Ad set 02 (cat-09-mechanism) → Paw-Life style prelander; all others → WolfRoots default.
-FOLDER_TEMPLATE = {
-    "cat-09-mechanism": "angle2",
-}
+# All angles → Paw-Life prelander (WolfRoots paused).
+DEFAULT_TEMPLATE = "angle2"
+FOLDER_TEMPLATE: dict[str, str] = {}
 
 
 def normalize(s: str) -> str:
@@ -193,7 +192,7 @@ def load_variant_meta() -> dict[str, dict]:
             continue
         meta[vid] = {
             "folder": folder,
-            "template": FOLDER_TEMPLATE.get(folder, "default"),
+            "template": FOLDER_TEMPLATE.get(folder, DEFAULT_TEMPLATE),
             "adset_id": ad.get("adset_id", ""),
         }
     return meta
@@ -267,13 +266,13 @@ def main() -> None:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        meta = variant_meta.get(vid, {"folder": "", "template": "default", "adset_id": ""})
+        meta = variant_meta.get(vid, {"folder": "", "template": DEFAULT_TEMPLATE, "adset_id": ""})
         index[vid] = {
             "headline": headline,
             "lead": lead,
             "hero": hero,
             "folder": meta.get("folder", ""),
-            "template": meta.get("template", "default"),
+            "template": meta.get("template", DEFAULT_TEMPLATE),
         }
 
         hl = normalize(headline)

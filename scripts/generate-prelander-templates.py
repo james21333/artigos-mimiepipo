@@ -458,7 +458,7 @@ def main() -> None:
     paw = pawlife_template(serve)
     (OUT / "wolfroots.template.html").write_text(wolf, encoding="utf-8")
     (OUT / "pawlife.template.html").write_text(paw, encoding="utf-8")
-    (ROOT / "public/advertorial.template.html").write_text(wolf, encoding="utf-8")
+    (ROOT / "public/advertorial.template.html").write_text(paw, encoding="utf-8")
     print(f"Wrote static templates to {OUT}")
 
 
