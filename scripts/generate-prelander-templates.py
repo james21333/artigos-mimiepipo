@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from urllib.parse import quote
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from pawlife_render import CHECK, paw_img_class, render_pawlife_body
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "public" / "templates"
@@ -229,10 +233,25 @@ def img(
     filename: str,
     serve: dict[tuple[str, str], str],
     alt: str = "",
+    width: str | None = None,
+    original_only: bool = False,
 ) -> str:
-    src = serve.get((prelander, filename), f"{BASE}/prelander/{prelander}/{quote(filename, safe='._-()')}")
+    if original_only:
+        src = f"{BASE}/prelander/{prelander}/{quote(filename, safe='._-()')}"
+    else:
+        repl = replacement_file(prelander, filename)
+        if repl:
+            src = f"{BASE}/prelander/mimiepipo/replacements/{quote(repl.name, safe='._-()')}"
+        else:
+            src = serve.get(
+                (prelander, filename),
+                f"{BASE}/prelander/{prelander}/{quote(filename, safe='._-()')}",
+            )
     alt_attr = f' alt="{alt}"' if alt else ""
-    cls = img_class(prelander, filename)
+    if prelander == "pawlife" and width:
+        cls = paw_img_class(filename, width)
+    else:
+        cls = img_class(prelander, filename)
     dims = img_dims(prelander, filename)
     size_attr = ""
     if dims:
@@ -323,52 +342,17 @@ def wolfroots_template(serve: dict[tuple[str, str], str]) -> str:
 
 
 def pawlife_template(serve: dict[tuple[str, str], str]) -> str:
-    i = iter(PAW_IMG_ORDER)
-    g = lambda alt="": img("pawlife", next(i), serve, alt)
+    def paw_img(filename: str, width: str, alt: str = "") -> str:
+        return img(
+            "pawlife",
+            filename,
+            serve,
+            alt,
+            width=width,
+            original_only=(filename == CHECK and width == "35px"),
+        )
 
-    main = f"""
-    {g("Ilustração saúde intestinal")}
-    {g("Avaliações")}
-    {g("Apresentação do produto")}
-    <div class="pl-author">
-      {img("pawlife", next(i), serve, "Dr. Rafael Mendes")}
-      <div>
-        <div class="pl-author-name">Dr. Rafael Mendes, MV</div>
-        <div class="pl-author-title">Especialista em nutrição e microbiota canina · __PUBLISHED_DATE__</div>
-      </div>
-    </div>
-
-    <h1 class="pl-title">"É por isso que 80% dos cães perdem anos de vida com a barriga quase normal"</h1>
-    <p class="pl-subtitle">Quando a maioria dos tutores percebe, o dano intestinal já está instalado há meses. E quase sempre dava para prevenir.</p>
-
-    {g("Cão idoso")}
-    {g("Gráfico mecanismo")}
-    {g("Diagrama lateral")}
-    {g("Cão descansando")}
-    {g("Oferta exclusiva")}
-    {g("Banner promocional")}
-    {g("Cão bebendo água")}
-    {g("Produto lifestyle")}
-    {g("Cão recuperado")}
-    {g("Veterinário")}
-    {g("Captura de tela estudo")}
-    {g("Cinco estrelas")}
-    {g("Depoimento")}
-
-    <h2>Os 4 sinais silenciosos</h2>
-    {g("Oferta rodapé")}
-    {g("Sinal 1")}
-    {g("Sinal 2")}
-    {g("Sinal 3")}
-    {g("Sinal 4")}
-    {g("Foto tutora")}
-
-    <p>Prebiótico diário nutre a flora que já mora no intestino — diferente de probiótico “visitante” que some em dias.</p>
-    {cta_block("pl-cta")}
-    <p>Oferta exclusiva: <strong>30% de desconto</strong> + <strong>frete grátis</strong> + garantia de 60 dias.</p>
-    {cta_block("pl-cta")}
-    """
-
+    main = render_pawlife_body(paw_img, lambda: cta_block("pl-cta"))
     sidebar_product = f"{BASE}/prelander/mimiepipo/product-jar.png"
 
     return shell(
@@ -443,9 +427,36 @@ def shell(
     .pl-cta{{display:block;background:#2d8659;color:#fff!important;font-weight:800;padding:18px 22px;border-radius:8px;text-align:center;font-size:17px}}
     .pl-cta-note{{margin-top:12px;font-size:15px;color:#444;text-align:center}}
     .pl-author{{display:flex;gap:14px;align-items:center;margin:20px 0;padding-bottom:16px;border-bottom:1px solid #eee}}
+    .pl-author .pl-img{{margin:0}}
     .pl-author img{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
     .pl-author-name{{font-weight:700}}
     .pl-author-title{{font-size:14px;color:#555}}
+    .pl-quote{{font-size:18px;font-style:italic;color:#444;border-left:4px solid #2d8659;padding-left:16px;margin:16px 0 24px;line-height:1.5}}
+    .pl-ratings{{display:flex;align-items:center;gap:10px;margin:12px 0 20px;font-weight:700;color:#207185}}
+    .pl-ratings .pl-img{{margin:0}}
+    .pl-img--bitmap img{{width:51px;height:24px;object-fit:contain}}
+    .pl-img--stars img{{width:113px;height:auto;object-fit:contain}}
+    .pl-img--arrow img{{width:24px;height:24px;object-fit:contain}}
+    .pl-img--check img{{width:35px;height:35px;object-fit:contain}}
+    .pl-img--avatar-inline img{{width:51px;height:51px;border-radius:50%;object-fit:cover}}
+    .pl-img--inline img{{width:100%;max-width:374px;height:auto;margin:0 auto}}
+    .pl-img--hero img{{width:100%;height:auto}}
+    .pl-icon-list{{margin:16px 0 24px;padding-left:8px}}
+    .pl-icon-row{{display:flex;align-items:flex-start;gap:10px;margin:6px 0}}
+    .pl-icon-row .pl-img{{margin:0;flex-shrink:0}}
+    .pl-icon-row p{{margin:0;padding-top:2px}}
+    .pl-signs-row{{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:24px 0}}
+    .pl-signs-row .pl-img{{margin:0}}
+    .pl-img--sign img{{width:80px;height:auto;object-fit:contain}}
+    .pl-review{{display:flex;gap:12px;margin:24px 0;padding:16px;border:1px solid #eee;border-radius:8px}}
+    .pl-review .pl-img--review-avatar{{margin:0;flex-shrink:0}}
+    .pl-img--review-avatar img{{width:52px;height:52px;border-radius:50%;object-fit:cover}}
+    .pl-img--review-stars img{{width:127px;height:auto;object-fit:contain}}
+    .pl-review-name{{margin:0 0 6px}}
+    .pl-review-title{{margin:8px 0 4px}}
+    .pl-review-meta{{margin:0 0 4px;font-size:14px;color:#666}}
+    .pl-review-helpful{{font-size:13px;color:#666;margin-top:8px}}
+    .pl-urgency{{text-align:center;margin:16px 0}}
     .pl-sidebar-card{{background:#f7f7f7;border:1px solid #e5e5e5;border-radius:8px;padding:18px;text-align:center;position:sticky;top:16px}}
     .pl-sidebar-card img{{max-width:180px;margin:0 auto 12px}}
     .pl-sidebar-title{{font-weight:800;margin:0 0 8px}}
