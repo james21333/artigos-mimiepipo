@@ -89,15 +89,42 @@ PAW_IMG_ORDER = [
 ]
 
 
+REPLACEMENT_SLUGS: dict[tuple[str, str], str] = {
+    ("pawlife", "1747602782-Untitled%20design%20%286%29.png"): "pawlife-01-offer-hero.png",
+    ("pawlife", "1757939915-Untitled%20design.jpg"): "pawlife-02-promo-banner.jpg",
+    ("pawlife", "1757940390-Untitled%20design%20%284%29%20%281%29.png"): "pawlife-03-bottom-cta.png",
+    ("pawlife", "1754784687-FureverPets_Presentation_1.webp"): "pawlife-04-presentation.webp",
+    ("pawlife", "1754784742-image_1.webp"): "pawlife-05-product-scene.webp",
+    ("pawlife", "1754785420-FureverPets_7.webp"): "pawlife-06-lifestyle-product.webp",
+    ("wolfroots", "1686154966-1680512956-1677235652-1669739415.webp"): "wolfroots-01-product-card.webp",
+    ("wolfroots", "1685138549-1670950692-1__1_.webp"): "wolfroots-02-wide-banner-a.webp",
+    ("wolfroots", "1685138542-1670950707-2__1_.webp"): "wolfroots-03-wide-banner-b.webp",
+    ("wolfroots", "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg"): "wolfroots-04-thumbnail.jpg",
+    ("wolfroots", "1686156553-1662477222-dmcaz.webp"): "wolfroots-05-logo-strip.webp",
+}
+
+
+def replacement_file(prelander: str, filename: str) -> Path | None:
+    repl_dir = ROOT / "public/prelander/mimiepipo/replacements"
+    slug = REPLACEMENT_SLUGS.get((prelander, filename))
+    for name in (slug, filename):
+        if not name:
+            continue
+        path = repl_dir / name
+        if path.is_file():
+            return path
+    return None
+
+
 def load_serve_map() -> dict[tuple[str, str], str]:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     out: dict[tuple[str, str], str] = {}
     for asset in data["assets"]:
         key = (asset["prelander"], asset["file"])
         if asset.get("product"):
-            repl = ROOT / "public/prelander/mimiepipo/replacements" / asset["file"]
-            if repl.is_file():
-                out[key] = f"{BASE}/prelander/mimiepipo/replacements/{quote(asset['file'], safe='._-()')}"
+            repl = replacement_file(asset["prelander"], asset["file"])
+            if repl:
+                out[key] = f"{BASE}/prelander/mimiepipo/replacements/{quote(repl.name, safe='._-()')}"
             else:
                 out[key] = f"{BASE}/prelander/mimiepipo/product-jar.png"
         else:
@@ -187,7 +214,8 @@ def wolfroots_template(serve: dict[tuple[str, str], str]) -> str:
     {g("Avatar avaliação")}
     {g("Avatar avaliação")}
     {g("Avatar avaliação")}
-    {g("Logo Digestão Saudável")}
+    {g("Marca Digestão Saudável")}
+    {g("Logo parceiro")}
 
     <p><strong>⚠ Estoque limitado:</strong> 30% OFF + frete grátis nesta página para leitoras.</p>
     {cta_block("pl-cta")}
