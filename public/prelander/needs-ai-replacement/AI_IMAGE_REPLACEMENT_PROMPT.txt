@@ -1,0 +1,127 @@
+MIMI & PIPO — PRELANDER PRODUCT IMAGE REPLACEMENT
+=================================================
+
+Use the reference images in the "references" folder. Replace ONLY the competitor product 
+with our product jar (see our-product-jar.png). Keep the same layout, background, lighting, 
+composition, and graphic style as each reference.
+
+OUR PRODUCT
+-----------
+Brand: Mimi & Pipo
+Product name: Digestão Saudável
+Product type: Prebiotic dog biscuit jar (petisco/biscoitos for gut health)
+Use the attached jar photo as the exact product to insert.
+
+OFFER TEXT (when text appears on the graphic)
+---------------------------------------------
+Portuguese (Brazil):
+- 30% de desconto + frete grátis
+- NOT 40%, NOT 57% — always 30% OFF
+
+Do NOT show competitor brand names (WolfRoots, Kalmio, Furever Pets, Paw-Life, etc.).
+Replace with: Digestão Saudável / Mimi & Pipo where a brand/logo is needed.
+
+GLOBAL RULES
+------------
+1. Match reference dimensions EXACTLY (width × height in pixels).
+2. Save each output with the EXACT filename listed below.
+3. Keep everything else in the image the same unless it shows competitor product/branding.
+4. Product jar label should read Digestão Saudável (Mimi & Pipo style — warm, clean, Brazilian pet brand).
+5. For wolfroots-05-logo-strip: create a horizontal logo strip saying "Digestão Saudável" / "Mimi & Pipo" (150×30 px).
+
+================================================================================
+PAW-LIFE PRELANDER — 6 images
+================================================================================
+
+1) pawlife-01-offer-hero.png
+   Size: 2048 × 2048 px | Format: PNG
+   What it is: Full offer hero graphic with product
+   Task: Same layout as reference. Swap competitor product for our jar. 
+         Any discount text = "30% OFF + frete grátis" in Portuguese.
+
+2) pawlife-02-promo-banner.jpg
+   Size: 1080 × 1080 px | Format: JPG
+   What it is: Promo banner with product
+   Task: Same banner design. Our jar instead of competitor. 30% OFF messaging.
+
+3) pawlife-03-bottom-cta.png
+   Size: 1080 × 1080 px | Format: PNG
+   What it is: Bottom offer / CTA block
+   Task: Same CTA layout. Our product. "30% de desconto + frete grátis".
+
+4) pawlife-04-presentation.webp
+   Size: 1280 × 720 px | Format: WEBP (or PNG if WEBP not supported)
+   What it is: Product presentation slide / infographic
+   Task: Same slide structure. Replace product shots and brand with Digestão Saudável.
+
+5) pawlife-05-product-scene.webp
+   Size: 1240 × 689 px | Format: WEBP (or PNG)
+   What it is: Product in a lifestyle/scene composition
+   Task: Same scene. Our jar in place of competitor product.
+
+6) pawlife-06-lifestyle-product.webp
+   Size: 550 × 550 px | Format: WEBP (or PNG)
+   What it is: Square lifestyle product shot
+   Task: Same composition. Our Digestão Saudável jar.
+
+================================================================================
+WOLFROOTS PRELANDER — 5 images
+================================================================================
+
+7) wolfroots-01-product-card.webp
+   Size: 500 × 412 px | Format: WEBP (or PNG)
+   What it is: Product card with jar/pack shot
+   Task: Same card frame. Our jar + Mimi & Pipo branding.
+
+8) wolfroots-02-wide-banner-a.webp
+   Size: 1267 × 381 px | Format: WEBP (or PNG)
+   What it is: Wide horizontal banner with product
+   Task: Same banner layout. Swap product for our jar.
+
+9) wolfroots-03-wide-banner-b.webp
+   Size: 1256 × 327 px | Format: WEBP (or PNG)
+   What it is: Wide horizontal banner (variant B)
+   Task: Same as above — our product only.
+
+10) wolfroots-04-thumbnail.jpg
+    Size: 100 × 100 px | Format: JPG
+    What it is: Small square product thumbnail
+    Task: Tiny jar thumbnail, readable at 100px. Clean cutout on matching background.
+
+11) wolfroots-05-logo-strip.webp
+    Size: 150 × 30 px | Format: WEBP (or PNG)
+    What it is: Horizontal brand/logo strip
+    Task: Replace with "Digestão Saudável" / Mimi & Pipo text logo strip (green/warm brand colors).
+
+================================================================================
+ONE-SHOT PROMPT (paste into your AI image tool)
+================================================================================
+
+I am uploading reference images from competitor pet prelanders and one photo of my product 
+jar (Digestão Saudável by Mimi & Pipo — prebiotic dog biscuits).
+
+For EACH reference image, generate a replacement that:
+- Keeps the exact same layout, background, colors, and composition
+- Replaces ONLY the competitor product/packaging with my jar (from our-product-jar.png)
+- Removes all competitor branding
+- Uses Portuguese offer text "30% de desconto + frete grátis" where discount text appears (never 40% or 57%)
+- Outputs exact pixel dimensions and filenames listed in AI_IMAGE_REPLACEMENT_PROMPT.txt
+
+Process all 11 files in the references folder and name outputs exactly as specified.
+
+================================================================================
+DELIVERY
+================================================================================
+
+Return 11 files named exactly:
+  pawlife-01-offer-hero.png
+  pawlife-02-promo-banner.jpg
+  pawlife-03-bottom-cta.png
+  pawlife-04-presentation.webp
+  pawlife-05-product-scene.webp
+  pawlife-06-lifestyle-product.webp
+  wolfroots-01-product-card.webp
+  wolfroots-02-wide-banner-a.webp
+  wolfroots-03-wide-banner-b.webp
+  wolfroots-04-thumbnail.jpg
+  wolfroots-05-logo-strip.webp
