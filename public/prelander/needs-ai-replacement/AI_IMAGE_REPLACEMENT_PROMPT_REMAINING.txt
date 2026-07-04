@@ -1,0 +1,106 @@
+MIMI & PIPO — REMAINING PRELANDER PRODUCT IMAGE REPLACEMENTS (7 images)
+=======================================================================
+
+These are the images STILL needing a real Digestão Saudável product swap.
+The first batch of 11 is done — do NOT redo pawlife-02, pawlife-03, wolfroots-01–05
+unless we ask separately.
+
+Use each file in references/ plus our-product-jar.png.
+
+OUR PRODUCT
+-----------
+Brand: Mimi & Pipo
+Product name: Digestão Saudável
+Product type: Prebiotic dog biscuit jar (petisco/biscoitos for gut health)
+Use our-product-jar.png as the exact product to insert.
+
+OFFER TEXT (when text appears on the graphic)
+---------------------------------------------
+Portuguese (Brazil):
+- "30% de Desconto" only
+- Do NOT add "+ frete grátis"
+- NOT 40%, NOT 57%
+
+Do NOT show competitor brand names (WolfRoots, Kalmio, Furever Pets, Paw-Life, etc.).
+Replace with: Digestão Saudável / Mimi & Pipo where a brand/logo is needed.
+
+GLOBAL RULES
+------------
+1. Match reference dimensions EXACTLY (width × height in pixels).
+2. Save each output with the EXACT filename listed below.
+3. Only replace their product, brand, or logo IF there is a competitor product/brand/logo in the image. If none, leave unchanged.
+4. Adapt on-image text to digestion petisco context (PT-BR): cocô firme, barriga sensível, gases, coceira ligada ao intestino, etc. Do NOT keep dental-only or organ-meat claims unless adapted to gut health.
+5. Jar label should read Digestão Saudável when our product appears.
+
+================================================================================
+PAW-LIFE — 4 images (redo: competitor product still visible)
+================================================================================
+
+1) pawlife-01-offer-hero.png
+   Size: 2048 × 2048 px | Format: PNG
+   What it is: Full offer hero graphic with competitor product jar
+   Task: Same layout. Swap competitor jar for Digestão Saudável. Discount text: "30% de Desconto".
+
+2) pawlife-04-presentation.webp
+   Size: 1280 × 720 px | Format: WEBP (or PNG)
+   What it is: Product presentation slide / infographic with competitor branding
+   Task: Same slide structure. Replace product shots and brand with Digestão Saudável / Mimi & Pipo.
+
+3) pawlife-05-product-scene.webp
+   Size: 1240 × 689 px | Format: WEBP (or PNG)
+   What it is: Product in lifestyle/scene with competitor jar
+   Task: Same scene. Our jar instead of competitor product.
+
+4) pawlife-06-lifestyle-product.webp
+   Size: 550 × 550 px | Format: WEBP (or PNG)
+   What it is: Square lifestyle product shot
+   Task: Same composition. Digestão Saudável jar instead of competitor.
+
+================================================================================
+WOLFROOTS — 3 images (new UGC / product shots)
+================================================================================
+
+5) wolfroots-06-ugc-kitchen.jpg
+   Size: 1080 × 1080 px | Format: JPG
+   What it is: UGC kitchen photo — hand holding competitor jar, dog on floor
+   Task: Same photo composition, lighting, and background. Replace WolfRoots jar with Digestão Saudável jar in the hand. Keep dog and kitchen scene unchanged.
+
+6) wolfroots-07-ugc-hand.jpg
+   Size: 1080 × 1080 px | Format: JPG
+   What it is: UGC close-up — hand holding competitor jar, dog looking up
+   Task: Same angle and scene. Our Digestão Saudável jar instead of WolfRoots. Keep hand, dog, kitchen.
+
+7) wolfroots-08-product-hero.webp
+   Size: 1080 × 1080 px | Format: WEBP (or PNG)
+   What it is: Clean product hero shot on white — competitor jar pack
+   Task: Same studio layout and shadow. Digestão Saudável jar on white background. No WolfRoots branding.
+
+================================================================================
+ONE-SHOT PROMPT (paste into your AI image tool)
+================================================================================
+
+I am uploading 7 reference images from pet prelanders and one photo of my product jar
+(Digestão Saudável by Mimi & Pipo — prebiotic dog biscuits).
+
+For EACH reference, generate a replacement that:
+- Keeps the exact same layout, background, colors, and composition
+- Only replaces competitor product/brand/logo where present
+- Uses our jar from our-product-jar.png
+- Adapts text to gut/digestion context in Portuguese (BR)
+- Uses "30% de Desconto" where discount text appears (not "+ frete grátis")
+- Outputs exact filenames listed above
+
+================================================================================
+DELIVERY
+================================================================================
+
+Return 7 files named exactly:
+  pawlife-01-offer-hero.png
+  pawlife-04-presentation.webp
+  pawlife-05-product-scene.webp
+  pawlife-06-lifestyle-product.webp
+  wolfroots-06-ugc-kitchen.jpg
+  wolfroots-07-ugc-hand.jpg
+  wolfroots-08-product-hero.webp
+
+NOTE: Any size/format is OK on delivery — we fix before publish.
