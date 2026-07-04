@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pawlife_render import CHECK, paw_img_class, render_pawlife_body
+from wolfroots_render import render_wolfroots_body, wolf_img_class
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "public" / "templates"
@@ -180,6 +181,9 @@ IMG_CLASS: dict[tuple[str, str], str] = {
     ("wolfroots", "1685138549-1670950692-1__1_.webp"): "pl-img--wide",
     ("wolfroots", "1685138542-1670950707-2__1_.webp"): "pl-img--wide",
     ("wolfroots", "1686156553-1662477222-dmcaz.webp"): "pl-img--logo",
+    ("wolfroots", "1686153820-1663266021-check_2.webp"): "pl-img--check",
+    ("wolfroots", "1662480996-amazon-5-stars-png-1-.png"): "pl-img--stars",
+    ("wolfroots", "1756983946-AS_SEEN_ON__1_.gif"): "pl-img--logo",
     ("wolfroots", "1.jpg"): "pl-img--photo",
     ("wolfroots", "9.jpg"): "pl-img--photo",
     ("wolfroots", "1756982254-4X_MORE_CoQ10_than_fish__5_.webp"): "pl-img--photo",
@@ -250,6 +254,8 @@ def img(
     alt_attr = f' alt="{alt}"' if alt else ""
     if prelander == "pawlife" and width:
         cls = paw_img_class(filename, width)
+    elif prelander == "wolfroots" and width:
+        cls = wolf_img_class(filename, width)
     else:
         cls = img_class(prelander, filename)
     dims = img_dims(prelander, filename)
@@ -280,58 +286,14 @@ def cta_block(cls: str = "pl-cta") -> str:
 
 
 def wolfroots_template(serve: dict[tuple[str, str], str]) -> str:
-    i = iter(WOLF_MAIN_IMAGES)
-    g = lambda alt="": img("wolfroots", next(i), serve, alt)
+    def wolf_img(filename: str, width: str = "100%", alt: str = "") -> str:
+        return img("wolfroots", filename, serve, alt, width=width)
 
-    body = f"""
-    <p class="pl-stars">⭐ ⭐ ⭐ ⭐ ⭐ 4,7/5 — 635+ avaliações</p>
-    {g("Como visto em")}
-    <p class="pl-byline">Por Dra. Camila Rocha, MV | __PUBLISHED_DATE__</p>
-
-    <h1 class="pl-title">A descoberta que milhares de tutores brasileiros fizeram sobre por que a barriga do cão nunca estabiliza de verdade</h1>
-    <p class="pl-subtitle">E o petisco diário de 30 segundos que devolve cocô firme, menos coceira e mais energia — sem trocar a ração</p>
-
-    <p>A Dra. Camila viu a mesma cena centenas de vezes: cães com barriga sensível, cocô irregular, coceira que volta — e tutores exaustos depois de probiótico que só funciona por alguns dias.</p>
-    <p>O veterinário dizia: “É stress, é idade.” Mas cães jovens pioravam rápido. A conta subia todo mês.</p>
-
-    <h2>O momento em que tudo mudou</h2>
-    {g("Conferência de nutrição veterinária")}
-    {g("Palestrante veterinário")}
-    <p>Num congresso, ela ouviu: <em>“O intestino moderno está faminto — não de comida, mas do que alimenta a flora certa.”</em></p>
-    {g("Comparativo nutrição")}
-    <p>Cães compartilham quase todo o DNA com lobos. A diferença é o que entra na tigela: ultraprocessado, antibióticos repetidos, zero prebiótico real.</p>
-
-    <h2>Por que seu cão está perdendo 30% do suporte intestinal que o corpo espera</h2>
-    {g("Dieta natural vs ração")}
-    {g("Órgãos e nutrientes")}
-    {g("CoQ10 e micronutrientes")}
-    {g("Comparativo absorção")}
-    {g("Gráfico nutricional")}
-    {g("Dados comparativos")}
-    {g("Infográfico intestinal")}
-    {g("Mecanismo de absorção")}
-    {g("Nutrientes prebióticos")}
-    {g("Suporte à mucosa")}
-    {g("Flora intestinal")}
-    {g("Comparativo prebiótico")}
-    {g("Produto Digestão Saudável")}
-    {g("Antes e depois")}
-    {g("Fórmula prebiótica")}
-    {g("Benefícios do protocolo")}
-    {g("Avaliações")}
-    {g("Lista de benefícios")}
-
-    <p>Quando a parede intestinal fica permeável, toxinas escapam. A pele coça. A glândula anal entope. Giardia volta. O cão come grama de desespero.</p>
-
-    <h2>A solução que a Dra. Camila passou a recomendar</h2>
-    <p>Prebiótico estruturado + Boswellia + gengibre + Yucca — em petisco palatável, formulado por veterinários, sem maltodextrina.</p>
-    {cta_block("pl-cta")}
-
-    {wolfroots_testimonials(serve)}
-    <p><strong>⚠ Estoque limitado:</strong> 30% OFF + frete grátis nesta página para leitoras.</p>
-    {cta_block("pl-cta")}
-    <p>Garantia de 60 dias. Se não notar melhora, devolve.</p>
-    """
+    body = render_wolfroots_body(
+        wolf_img,
+        lambda: cta_block("pl-cta"),
+        wolfroots_testimonials(serve),
+    )
 
     return shell(
         title="A descoberta que milhares de tutores fizeram sobre a barriga do cão",
