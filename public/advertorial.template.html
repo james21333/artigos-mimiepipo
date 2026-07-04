@@ -25,6 +25,20 @@
     .pl-body h2{font-size:24px;font-weight:800;margin:32px 0 14px;color:#111}
     .pl-body p{margin:0 0 16px}
     .pl-img{margin:18px 0}
+    .pl-img img{max-width:100%;height:auto}
+    .pl-img--content img{width:100%;height:auto}
+    .pl-img--wide img{width:100%;height:auto}
+    .pl-img--photo{text-align:center}
+    .pl-img--photo img{width:100%;max-width:540px;height:auto;margin:0 auto}
+    .pl-img--badge{text-align:center;margin:24px auto}
+    .pl-img--badge img{width:250px;max-width:72vw;height:auto;margin:0 auto;object-fit:contain}
+    .pl-img--logo{text-align:center;margin:12px auto}
+    .pl-img--logo img{width:150px;max-width:50vw;height:auto;margin:0 auto;object-fit:contain}
+    .pl-img--offer img{width:100%;max-width:640px;height:auto;margin:0 auto}
+    .pl-testimonials{margin:8px 0 24px}
+    .pl-testimonials-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;max-width:420px;margin:0 auto 20px}
+    .pl-testimonials-grid .pl-img{margin:0}
+    .pl-img--avatar img{width:100%;aspect-ratio:1/1;height:auto;border-radius:50%;object-fit:cover}
     .pl-cta-wrap{margin:28px 0;text-align:center}
     .pl-cta{display:block;background:#2d8659;color:#fff!important;font-weight:800;padding:18px 22px;border-radius:8px;text-align:center;font-size:17px}
     .pl-cta-note{margin-top:12px;font-size:15px;color:#444;text-align:center}
@@ -43,7 +57,8 @@
     .pag-sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:1000;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid rgba(45,134,89,.35)}
     .pag-cta-btn{display:block;width:100%;background:#2d8659;color:#fff!important;font-weight:700;padding:14px 16px;border-radius:6px;text-align:center;font-size:14px}
     @media(min-width:960px){.pl-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:32px;align-items:start}.pl-main{margin:0}.pl-sidebar{display:block}}
-    @media(max-width:600px){.pl-title{font-size:24px}}
+    @media(min-width:760px){.pl-img--badge img{width:500px;max-width:100%}}
+    @media(max-width:600px){.pl-title{font-size:24px}.pl-testimonials-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-width:100%}}
   </style>
 </head>
 <body>
@@ -51,7 +66,7 @@
   <div class="pl-shell pl-body">
     
     <p class="pl-stars">⭐ ⭐ ⭐ ⭐ ⭐ 4,7/5 — 635+ avaliações</p>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1756983946-AS_SEEN_ON__1_.gif" alt="Como visto em" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1756983946-AS_SEEN_ON__1_.gif" alt="Como visto em" loading="lazy"></div>
     <p class="pl-byline">Por Dra. Camila Rocha, MV | __PUBLISHED_DATE__</p>
 
     <h1 class="pl-title">A descoberta que milhares de tutores brasileiros fizeram sobre por que a barriga do cão nunca estabiliza de verdade</h1>
@@ -61,31 +76,31 @@
     <p>O veterinário dizia: “É stress, é idade.” Mas cães jovens pioravam rápido. A conta subia todo mês.</p>
 
     <h2>O momento em que tudo mudou</h2>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757063800-_200__5_.webp" alt="Conferência de nutrição veterinária" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757063934-_200__6_.webp" alt="Palestrante veterinário" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757063800-_200__5_.webp" alt="Conferência de nutrição veterinária" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757063934-_200__6_.webp" alt="Palestrante veterinário" loading="lazy"></div>
     <p>Num congresso, ela ouviu: <em>“O intestino moderno está faminto — não de comida, mas do que alimenta a flora certa.”</em></p>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757064247-_200__7_.webp" alt="Comparativo nutrição" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757064247-_200__7_.webp" alt="Comparativo nutrição" loading="lazy"></div>
     <p>Cães compartilham quase todo o DNA com lobos. A diferença é o que entra na tigela: ultraprocessado, antibióticos repetidos, zero prebiótico real.</p>
 
     <h2>Por que seu cão está perdendo 30% do suporte intestinal que o corpo espera</h2>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757064616-_200__8_.webp" alt="Dieta natural vs ração" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757064757-_200__10_.webp" alt="Órgãos e nutrientes" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065279-15.webp" alt="CoQ10 e micronutrientes" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065282-16.webp" alt="Comparativo absorção" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065284-17.webp" alt="Gráfico nutricional" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065653-_200__11_.webp" alt="Dados comparativos" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065857-_200__12_.webp" alt="Infográfico intestinal" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757104337-4X_MORE_CoQ10_than_fish__6_.webp" alt="Mecanismo de absorção" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065983-_200__13_.webp" alt="Nutrientes prebióticos" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757105886-4X_MORE_CoQ10_than_fish__7_.webp" alt="Suporte à mucosa" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Flora intestinal" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Comparativo prebiótico" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Produto Digestão Saudável" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1756982254-4X_MORE_CoQ10_than_fish__5_.webp" alt="Antes e depois" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1662480996-amazon-5-stars-png-1-.png" alt="Fórmula prebiótica" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1686153820-1663266021-check_2.webp" alt="Benefícios do protocolo" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1.jpg" alt="Avaliações" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/2.jpg" alt="Lista de benefícios" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757064616-_200__8_.webp" alt="Dieta natural vs ração" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757064757-_200__10_.webp" alt="Órgãos e nutrientes" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065279-15.webp" alt="CoQ10 e micronutrientes" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065282-16.webp" alt="Comparativo absorção" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065284-17.webp" alt="Gráfico nutricional" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065653-_200__11_.webp" alt="Dados comparativos" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065857-_200__12_.webp" alt="Infográfico intestinal" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757104337-4X_MORE_CoQ10_than_fish__6_.webp" alt="Mecanismo de absorção" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757065983-_200__13_.webp" alt="Nutrientes prebióticos" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1757105886-4X_MORE_CoQ10_than_fish__7_.webp" alt="Suporte à mucosa" loading="lazy"></div>
+    <div class="pl-img pl-img--badge"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/wolfroots-01-product-card.webp" alt="Flora intestinal" width="500" height="412" loading="lazy"></div>
+    <div class="pl-img pl-img--wide"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/wolfroots-02-wide-banner-a.webp" alt="Comparativo prebiótico" width="1267" height="381" loading="lazy"></div>
+    <div class="pl-img pl-img--wide"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/wolfroots-03-wide-banner-b.webp" alt="Produto Digestão Saudável" width="1256" height="327" loading="lazy"></div>
+    <div class="pl-img pl-img--photo"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Antes e depois" width="1080" height="1080" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1662480996-amazon-5-stars-png-1-.png" alt="Fórmula prebiótica" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1686153820-1663266021-check_2.webp" alt="Benefícios do protocolo" loading="lazy"></div>
+    <div class="pl-img pl-img--photo"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Avaliações" width="1080" height="1080" loading="lazy"></div>
+    <div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/2.jpg" alt="Lista de benefícios" loading="lazy"></div>
 
     <p>Quando a parede intestinal fica permeável, toxinas escapam. A pele coça. A glândula anal entope. Giardia volta. O cão come grama de desespero.</p>
 
@@ -97,29 +112,11 @@
 </div>
 
     <h2>Depoimentos de tutores</h2>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/9_1.jpg" alt="Tutora com cão" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/4.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/5.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/9.jpg" alt="Produto em uso" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/7.jpg" alt="Cão feliz" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/8.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/2_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/4_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/13.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/3_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/5_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/16.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/6_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/18.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/19.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/20.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/21.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/7_1.jpg" alt="Avatar avaliação" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/8_1.jpg" alt="Marca Digestão Saudável" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Logo parceiro" loading="lazy"></div>
-
+<div class="pl-testimonials">
+  <div class="pl-img pl-img--photo"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/product-jar.png" alt="Depoimento com produto" width="1080" height="1080" loading="lazy"></div>
+  <div class="pl-testimonials-grid"><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/9_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/4.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/5.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/7.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/8.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/1_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/2_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/4_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/13.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/3_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/5_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/16.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/6_1.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/18.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/19.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/20.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/21.jpg" alt="Avaliação" loading="lazy"></div><div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/7_1.jpg" alt="Avaliação" loading="lazy"></div></div>
+  <div class="pl-img pl-img--avatar"><img src="https://artigos.mimiepipo.com.br/prelander/wolfroots/8_1.jpg" alt="Marca" loading="lazy"></div><div class="pl-img pl-img--logo"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/wolfroots-05-logo-strip.webp" alt="Marca" width="150" height="30" loading="lazy"></div>
+</div>
     <p><strong>⚠ Estoque limitado:</strong> 30% OFF + frete grátis nesta página para leitoras.</p>
     <div class="pl-cta-wrap">
   <a class="pl-cta" href="__PDP__">VERIFICAR ESTOQUE EXCLUSIVO PARA LEITORAS</a>

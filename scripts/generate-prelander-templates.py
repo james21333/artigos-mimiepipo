@@ -101,6 +101,88 @@ REPLACEMENT_SLUGS: dict[tuple[str, str], str] = {
     ("wolfroots", "1685138542-1670950707-2__1_.webp"): "wolfroots-03-wide-banner-b.webp",
     ("wolfroots", "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg"): "wolfroots-04-thumbnail.jpg",
     ("wolfroots", "1686156553-1662477222-dmcaz.webp"): "wolfroots-05-logo-strip.webp",
+    ("wolfroots", "1.jpg"): "wolfroots-06-ugc-kitchen.jpg",
+    ("wolfroots", "9.jpg"): "wolfroots-07-ugc-hand.jpg",
+    ("wolfroots", "1756982254-4X_MORE_CoQ10_than_fish__5_.webp"): "wolfroots-08-product-hero.webp",
+}
+
+# Intrinsic display sizes (matches reference prelander layout).
+IMG_DIMS: dict[tuple[str, str], tuple[int, int]] = {
+    ("wolfroots", "1686154966-1680512956-1677235652-1669739415.webp"): (500, 412),
+    ("wolfroots", "1685138549-1670950692-1__1_.webp"): (1267, 381),
+    ("wolfroots", "1685138542-1670950707-2__1_.webp"): (1256, 327),
+    ("wolfroots", "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg"): (100, 100),
+    ("wolfroots", "1686156553-1662477222-dmcaz.webp"): (150, 30),
+    ("wolfroots", "1.jpg"): (1080, 1080),
+    ("wolfroots", "9.jpg"): (1080, 1080),
+    ("wolfroots", "1756982254-4X_MORE_CoQ10_than_fish__5_.webp"): (1080, 1080),
+}
+
+WOLF_AVATAR_FILES = {
+    "9_1.jpg",
+    "4.jpg",
+    "5.jpg",
+    "7.jpg",
+    "8.jpg",
+    "1_1.jpg",
+    "2_1.jpg",
+    "4_1.jpg",
+    "13.jpg",
+    "3_1.jpg",
+    "5_1.jpg",
+    "16.jpg",
+    "6_1.jpg",
+    "18.jpg",
+    "19.jpg",
+    "20.jpg",
+    "21.jpg",
+    "7_1.jpg",
+    "8_1.jpg",
+    "2.jpg",
+    "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg",
+}
+
+WOLF_TESTIMONIAL_HERO = ["9.jpg"]
+WOLF_TESTIMONIAL_AVATARS = [
+    "9_1.jpg",
+    "4.jpg",
+    "5.jpg",
+    "7.jpg",
+    "8.jpg",
+    "1_1.jpg",
+    "2_1.jpg",
+    "4_1.jpg",
+    "13.jpg",
+    "3_1.jpg",
+    "5_1.jpg",
+    "16.jpg",
+    "6_1.jpg",
+    "18.jpg",
+    "19.jpg",
+    "20.jpg",
+    "21.jpg",
+    "7_1.jpg",
+]
+WOLF_TESTIMONIAL_FOOTER = [
+    "8_1.jpg",
+    "1686156553-1662477222-dmcaz.webp",
+]
+
+WOLF_MAIN_IMAGES = WOLF_IMG_ORDER[:24]
+WOLF_TESTIMONIAL_IMAGES = set(WOLF_IMG_ORDER[21:])
+
+IMG_CLASS: dict[tuple[str, str], str] = {
+    ("wolfroots", "1686154966-1680512956-1677235652-1669739415.webp"): "pl-img--badge",
+    ("wolfroots", "1685138549-1670950692-1__1_.webp"): "pl-img--wide",
+    ("wolfroots", "1685138542-1670950707-2__1_.webp"): "pl-img--wide",
+    ("wolfroots", "1686156553-1662477222-dmcaz.webp"): "pl-img--logo",
+    ("wolfroots", "1.jpg"): "pl-img--photo",
+    ("wolfroots", "9.jpg"): "pl-img--photo",
+    ("wolfroots", "1756982254-4X_MORE_CoQ10_than_fish__5_.webp"): "pl-img--photo",
+    ("wolfroots", "8_1.jpg"): "pl-img--logo",
+    ("pawlife", "1747602782-Untitled%20design%20%286%29.png"): "pl-img--offer",
+    ("pawlife", "1757939915-Untitled%20design.jpg"): "pl-img--offer",
+    ("pawlife", "1757940390-Untitled%20design%20%284%29%20%281%29.png"): "pl-img--offer",
 }
 
 
@@ -132,10 +214,43 @@ def load_serve_map() -> dict[tuple[str, str], str]:
     return out
 
 
-def img(prelander: str, filename: str, serve: dict[tuple[str, str], str], alt: str = "") -> str:
+def img_class(prelander: str, filename: str) -> str:
+    if prelander == "wolfroots" and filename in WOLF_AVATAR_FILES:
+        return "pl-img--avatar"
+    return IMG_CLASS.get((prelander, filename), "pl-img--content")
+
+
+def img_dims(prelander: str, filename: str) -> tuple[int, int] | None:
+    return IMG_DIMS.get((prelander, filename))
+
+
+def img(
+    prelander: str,
+    filename: str,
+    serve: dict[tuple[str, str], str],
+    alt: str = "",
+) -> str:
     src = serve.get((prelander, filename), f"{BASE}/prelander/{prelander}/{quote(filename, safe='._-()')}")
     alt_attr = f' alt="{alt}"' if alt else ""
-    return f'<div class="pl-img"><img src="{src}"{alt_attr} loading="lazy"></div>'
+    cls = img_class(prelander, filename)
+    dims = img_dims(prelander, filename)
+    size_attr = ""
+    if dims:
+        w, h = dims
+        size_attr = f' width="{w}" height="{h}"'
+    return f'<div class="pl-img {cls}"><img src="{src}"{alt_attr}{size_attr} loading="lazy"></div>'
+
+
+def wolfroots_testimonials(serve: dict[tuple[str, str], str]) -> str:
+    heroes = "".join(img("wolfroots", name, serve, "Depoimento com produto") for name in WOLF_TESTIMONIAL_HERO)
+    avatars = "".join(img("wolfroots", name, serve, "Avaliação") for name in WOLF_TESTIMONIAL_AVATARS)
+    footer = "".join(img("wolfroots", name, serve, "Marca") for name in WOLF_TESTIMONIAL_FOOTER)
+    return f"""<h2>Depoimentos de tutores</h2>
+<div class="pl-testimonials">
+  {heroes}
+  <div class="pl-testimonials-grid">{avatars}</div>
+  {footer}
+</div>"""
 
 
 def cta_block(cls: str = "pl-cta") -> str:
@@ -146,7 +261,7 @@ def cta_block(cls: str = "pl-cta") -> str:
 
 
 def wolfroots_template(serve: dict[tuple[str, str], str]) -> str:
-    i = iter(WOLF_IMG_ORDER)
+    i = iter(WOLF_MAIN_IMAGES)
     g = lambda alt="": img("wolfroots", next(i), serve, alt)
 
     body = f"""
@@ -193,30 +308,7 @@ def wolfroots_template(serve: dict[tuple[str, str], str]) -> str:
     <p>Prebiótico estruturado + Boswellia + gengibre + Yucca — em petisco palatável, formulado por veterinários, sem maltodextrina.</p>
     {cta_block("pl-cta")}
 
-    <h2>Depoimentos de tutores</h2>
-    {g("Tutora com cão")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Produto em uso")}
-    {g("Cão feliz")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Avatar avaliação")}
-    {g("Marca Digestão Saudável")}
-    {g("Logo parceiro")}
-
+    {wolfroots_testimonials(serve)}
     <p><strong>⚠ Estoque limitado:</strong> 30% OFF + frete grátis nesta página para leitoras.</p>
     {cta_block("pl-cta")}
     <p>Garantia de 60 dias. Se não notar melhora, devolve.</p>
@@ -333,6 +425,20 @@ def shell(
     .pl-body h2{{font-size:24px;font-weight:800;margin:32px 0 14px;color:#111}}
     .pl-body p{{margin:0 0 16px}}
     .pl-img{{margin:18px 0}}
+    .pl-img img{{max-width:100%;height:auto}}
+    .pl-img--content img{{width:100%;height:auto}}
+    .pl-img--wide img{{width:100%;height:auto}}
+    .pl-img--photo{{text-align:center}}
+    .pl-img--photo img{{width:100%;max-width:540px;height:auto;margin:0 auto}}
+    .pl-img--badge{{text-align:center;margin:24px auto}}
+    .pl-img--badge img{{width:250px;max-width:72vw;height:auto;margin:0 auto;object-fit:contain}}
+    .pl-img--logo{{text-align:center;margin:12px auto}}
+    .pl-img--logo img{{width:150px;max-width:50vw;height:auto;margin:0 auto;object-fit:contain}}
+    .pl-img--offer img{{width:100%;max-width:640px;height:auto;margin:0 auto}}
+    .pl-testimonials{{margin:8px 0 24px}}
+    .pl-testimonials-grid{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;max-width:420px;margin:0 auto 20px}}
+    .pl-testimonials-grid .pl-img{{margin:0}}
+    .pl-img--avatar img{{width:100%;aspect-ratio:1/1;height:auto;border-radius:50%;object-fit:cover}}
     .pl-cta-wrap{{margin:28px 0;text-align:center}}
     .pl-cta{{display:block;background:#2d8659;color:#fff!important;font-weight:800;padding:18px 22px;border-radius:8px;text-align:center;font-size:17px}}
     .pl-cta-note{{margin-top:12px;font-size:15px;color:#444;text-align:center}}
@@ -351,7 +457,8 @@ def shell(
     .pag-sticky-cta{{position:fixed;left:0;right:0;bottom:0;z-index:1000;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid rgba(45,134,89,.35)}}
     .pag-cta-btn{{display:block;width:100%;background:#2d8659;color:#fff!important;font-weight:700;padding:14px 16px;border-radius:6px;text-align:center;font-size:14px}}
     @media(min-width:960px){{.pl-layout{{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:32px;align-items:start}}.pl-main{{margin:0}}.pl-sidebar{{display:block}}}}
-    @media(max-width:600px){{.pl-title{{font-size:24px}}}}
+    @media(min-width:760px){{.pl-img--badge img{{width:500px;max-width:100%}}}}
+    @media(max-width:600px){{.pl-title{{font-size:24px}}.pl-testimonials-grid{{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-width:100%}}}}
   </style>
 </head>
 <body>

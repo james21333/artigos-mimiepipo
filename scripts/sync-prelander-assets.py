@@ -25,6 +25,9 @@ WOLF_PRODUCT = {
     "1685138549-1670950692-1__1_.webp",
     "1686154966-1680512956-1677235652-1669739415.webp",
     "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg",
+    "1.jpg",
+    "9.jpg",
+    "1756982254-4X_MORE_CoQ10_than_fish__5_.webp",
 }
 
 PAW_PRODUCT = {
@@ -52,6 +55,9 @@ REPLACEMENT_SLUGS = {
     ("wolfroots", "1685138542-1670950707-2__1_.webp"): "wolfroots-03-wide-banner-b.webp",
     ("wolfroots", "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg"): "wolfroots-04-thumbnail.jpg",
     ("wolfroots", "1686156553-1662477222-dmcaz.webp"): "wolfroots-05-logo-strip.webp",
+    ("wolfroots", "1.jpg"): "wolfroots-06-ugc-kitchen.jpg",
+    ("wolfroots", "9.jpg"): "wolfroots-07-ugc-hand.jpg",
+    ("wolfroots", "1756982254-4X_MORE_CoQ10_than_fish__5_.webp"): "wolfroots-08-product-hero.webp",
 }
 
 

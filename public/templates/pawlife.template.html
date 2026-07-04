@@ -25,6 +25,20 @@
     .pl-body h2{font-size:24px;font-weight:800;margin:32px 0 14px;color:#111}
     .pl-body p{margin:0 0 16px}
     .pl-img{margin:18px 0}
+    .pl-img img{max-width:100%;height:auto}
+    .pl-img--content img{width:100%;height:auto}
+    .pl-img--wide img{width:100%;height:auto}
+    .pl-img--photo{text-align:center}
+    .pl-img--photo img{width:100%;max-width:540px;height:auto;margin:0 auto}
+    .pl-img--badge{text-align:center;margin:24px auto}
+    .pl-img--badge img{width:250px;max-width:72vw;height:auto;margin:0 auto;object-fit:contain}
+    .pl-img--logo{text-align:center;margin:12px auto}
+    .pl-img--logo img{width:150px;max-width:50vw;height:auto;margin:0 auto;object-fit:contain}
+    .pl-img--offer img{width:100%;max-width:640px;height:auto;margin:0 auto}
+    .pl-testimonials{margin:8px 0 24px}
+    .pl-testimonials-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;max-width:420px;margin:0 auto 20px}
+    .pl-testimonials-grid .pl-img{margin:0}
+    .pl-img--avatar img{width:100%;aspect-ratio:1/1;height:auto;border-radius:50%;object-fit:cover}
     .pl-cta-wrap{margin:28px 0;text-align:center}
     .pl-cta{display:block;background:#2d8659;color:#fff!important;font-weight:800;padding:18px 22px;border-radius:8px;text-align:center;font-size:17px}
     .pl-cta-note{margin-top:12px;font-size:15px;color:#444;text-align:center}
@@ -43,18 +57,19 @@
     .pag-sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:1000;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid rgba(45,134,89,.35)}
     .pag-cta-btn{display:block;width:100%;background:#2d8659;color:#fff!important;font-weight:700;padding:14px 16px;border-radius:6px;text-align:center;font-size:14px}
     @media(min-width:960px){.pl-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:32px;align-items:start}.pl-main{margin:0}.pl-sidebar{display:block}}
-    @media(max-width:600px){.pl-title{font-size:24px}}
+    @media(min-width:760px){.pl-img--badge img{width:500px;max-width:100%}}
+    @media(max-width:600px){.pl-title{font-size:24px}.pl-testimonials-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-width:100%}}
   </style>
 </head>
 <body>
   <div class="pl-topbar">Início &gt; Pets &gt; Saúde</div>
   <div class="pl-shell pl-body">
     <div class="pl-layout"><div class="pl-main">
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1749939499-1713183115-1711366759829_bitmap.webp" alt="Ilustração saúde intestinal" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751321630-1713201807-1711369581080_stars.webp" alt="Avaliações" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-04-presentation.webp" alt="Apresentação do produto" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1749939499-1713183115-1711366759829_bitmap.webp" alt="Ilustração saúde intestinal" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751321630-1713201807-1711369581080_stars.webp" alt="Avaliações" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-04-presentation.webp" alt="Apresentação do produto" loading="lazy"></div>
     <div class="pl-author">
-      <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1752793241-1731498747-dr%2520blane%2520square2.webp" alt="Dr. Rafael Mendes" loading="lazy"></div>
+      <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1752793241-1731498747-dr%2520blane%2520square2.webp" alt="Dr. Rafael Mendes" loading="lazy"></div>
       <div>
         <div class="pl-author-name">Dr. Rafael Mendes, MV</div>
         <div class="pl-author-title">Especialista em nutrição e microbiota canina · __PUBLISHED_DATE__</div>
@@ -64,27 +79,27 @@
     <h1 class="pl-title">"É por isso que 80% dos cães perdem anos de vida com a barriga quase normal"</h1>
     <p class="pl-subtitle">Quando a maioria dos tutores percebe, o dano intestinal já está instalado há meses. E quase sempre dava para prevenir.</p>
 
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754785228-shutterstock_1898468044.avif" alt="Cão idoso" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-05-product-scene.webp" alt="Gráfico mecanismo" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1752794760-1734623169-1715414398-right.webp" alt="Diagrama lateral" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784766-Chihuahua-dog-lying-down-on-white-cloth-with-dog-food-bowl-beside-it.webp" alt="Cão descansando" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-01-offer-hero.png" alt="Oferta exclusiva" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-02-promo-banner.jpg" alt="Banner promocional" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784931-dog-drinking-water-from-elevated-metal-bowl_Soho-A-Studio_Shutterstock.webp" alt="Cão bebendo água" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-06-lifestyle-product.webp" alt="Produto lifestyle" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751286169-a1048d0d-d555-433c-9e08-1ec644f2d9d3.jpg" alt="Cão recuperado" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754785044-u7246313863_Veterinarians_arms_in_white_coat_sleeves_carefull_65d91b51-721b-43a3-89fd-8c55889494ae_0.webp" alt="Veterinário" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784481-1731502777-Screenshot%25202024-11-13%2520at%252014.59.25.webp" alt="Captura de tela estudo" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1753915787-1713240664-1711393011636_4_5_star_2x.webp" alt="Cinco estrelas" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784489-1736513873-review2.webp" alt="Depoimento" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754785228-shutterstock_1898468044.avif" alt="Cão idoso" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-05-product-scene.webp" alt="Gráfico mecanismo" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1752794760-1734623169-1715414398-right.webp" alt="Diagrama lateral" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784766-Chihuahua-dog-lying-down-on-white-cloth-with-dog-food-bowl-beside-it.webp" alt="Cão descansando" loading="lazy"></div>
+    <div class="pl-img pl-img--offer"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-01-offer-hero.png" alt="Oferta exclusiva" loading="lazy"></div>
+    <div class="pl-img pl-img--offer"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-02-promo-banner.jpg" alt="Banner promocional" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784931-dog-drinking-water-from-elevated-metal-bowl_Soho-A-Studio_Shutterstock.webp" alt="Cão bebendo água" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-06-lifestyle-product.webp" alt="Produto lifestyle" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751286169-a1048d0d-d555-433c-9e08-1ec644f2d9d3.jpg" alt="Cão recuperado" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754785044-u7246313863_Veterinarians_arms_in_white_coat_sleeves_carefull_65d91b51-721b-43a3-89fd-8c55889494ae_0.webp" alt="Veterinário" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784481-1731502777-Screenshot%25202024-11-13%2520at%252014.59.25.webp" alt="Captura de tela estudo" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1753915787-1713240664-1711393011636_4_5_star_2x.webp" alt="Cinco estrelas" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1754784489-1736513873-review2.webp" alt="Depoimento" loading="lazy"></div>
 
     <h2>Os 4 sinais silenciosos</h2>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-03-bottom-cta.png" alt="Oferta rodapé" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220960-1713245435-1711461897636_4.png" alt="Sinal 1" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220968-1713245469-1711461923065_2.png" alt="Sinal 2" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220977-1713245487-1711461935757_3.png" alt="Sinal 3" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220987-1713245504-1711461945141_1.png" alt="Sinal 4" loading="lazy"></div>
-    <div class="pl-img"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751822293-74439263_3083194501694153_7842910741228158976_n.jpg" alt="Foto tutora" loading="lazy"></div>
+    <div class="pl-img pl-img--offer"><img src="https://artigos.mimiepipo.com.br/prelander/mimiepipo/replacements/pawlife-03-bottom-cta.png" alt="Oferta rodapé" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220960-1713245435-1711461897636_4.png" alt="Sinal 1" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220968-1713245469-1711461923065_2.png" alt="Sinal 2" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220977-1713245487-1711461935757_3.png" alt="Sinal 3" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751220987-1713245504-1711461945141_1.png" alt="Sinal 4" loading="lazy"></div>
+    <div class="pl-img pl-img--content"><img src="https://artigos.mimiepipo.com.br/prelander/pawlife/1751822293-74439263_3083194501694153_7842910741228158976_n.jpg" alt="Foto tutora" loading="lazy"></div>
 
     <p>Prebiótico diário nutre a flora que já mora no intestino — diferente de probiótico “visitante” que some em dias.</p>
     <div class="pl-cta-wrap">

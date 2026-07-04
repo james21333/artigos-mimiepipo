@@ -111,7 +111,8 @@
       "prelander": "wolfroots",
       "file": "1756982254-4X_MORE_CoQ10_than_fish__5_.webp",
       "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/1756982254-4X_MORE_CoQ10_than_fish__5_.webp",
-      "product": false
+      "product": true,
+      "serveAs": "mimiepipo/product-jar.png"
     },
     {
       "prelander": "wolfroots",
@@ -129,9 +130,10 @@
       "prelander": "wolfroots",
       "file": "1.jpg",
       "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/1.jpg",
-      "product": false,
+      "product": true,
       "width": 1080,
-      "height": 1080
+      "height": 1080,
+      "serveAs": "mimiepipo/product-jar.png"
     },
     {
       "prelander": "wolfroots",
@@ -176,9 +178,10 @@
       "prelander": "wolfroots",
       "file": "9.jpg",
       "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/9.jpg",
-      "product": false,
+      "product": true,
       "width": 1080,
-      "height": 1080
+      "height": 1080,
+      "serveAs": "mimiepipo/product-jar.png"
     },
     {
       "prelander": "wolfroots",
@@ -540,6 +543,26 @@
     },
     {
       "prelander": "wolfroots",
+      "file": "1756982254-4X_MORE_CoQ10_than_fish__5_.webp",
+      "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/1756982254-4X_MORE_CoQ10_than_fish__5_.webp",
+      "product": true,
+      "referenceForAI": "https://artigos.mimiepipo.com.br/prelander/needs-ai-replacement/wolfroots-1756982254-4X_MORE_CoQ10_than_fish__5_.webp",
+      "deliverAs": "wolfroots-1756982254-4X_MORE_CoQ10_than_fish__5_-mimiepipo.webp",
+      "notes": "Replace competitor product with Digestão Saudável jar; keep layout/background."
+    },
+    {
+      "prelander": "wolfroots",
+      "file": "1.jpg",
+      "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/1.jpg",
+      "product": true,
+      "width": 1080,
+      "height": 1080,
+      "referenceForAI": "https://artigos.mimiepipo.com.br/prelander/needs-ai-replacement/wolfroots-1.jpg",
+      "deliverAs": "wolfroots-1-mimiepipo.jpg",
+      "notes": "Replace competitor product with Digestão Saudável jar; keep layout/background."
+    },
+    {
+      "prelander": "wolfroots",
       "file": "11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg",
       "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg",
       "product": true,
@@ -547,6 +570,17 @@
       "height": 100,
       "referenceForAI": "https://artigos.mimiepipo.com.br/prelander/needs-ai-replacement/wolfroots-11_1_e6e55863-e013-422e-9e25-afa449269b8a.jpg",
       "deliverAs": "wolfroots-11_1_e6e55863-e013-422e-9e25-afa449269b8a-mimiepipo.jpg",
+      "notes": "Replace competitor product with Digestão Saudável jar; keep layout/background."
+    },
+    {
+      "prelander": "wolfroots",
+      "file": "9.jpg",
+      "url": "https://artigos.mimiepipo.com.br/prelander/wolfroots/9.jpg",
+      "product": true,
+      "width": 1080,
+      "height": 1080,
+      "referenceForAI": "https://artigos.mimiepipo.com.br/prelander/needs-ai-replacement/wolfroots-9.jpg",
+      "deliverAs": "wolfroots-9-mimiepipo.jpg",
       "notes": "Replace competitor product with Digestão Saudável jar; keep layout/background."
     },
     {
