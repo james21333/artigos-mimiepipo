@@ -5,6 +5,10 @@ SHARED RULES — include in every image prompt
 
 - Change any text in the image so it fits dog treats (petiscos/biscoitos) for digestion problems: barriga sensível, cocô firme, gases, coceira ligada ao intestino, etc. Do not leave dental-only or unrelated health claims unless adapted to gut health.
 
-- Offer text (when applicable): "30% de desconto + frete grátis" — never 40% or 57%.
+- Offer text (when discount text appears on the graphic): "30% de Desconto" only — NOT "+ frete grátis", NOT 40%, NOT 57%.
 
 - Language: Portuguese (Brazil).
+
+WHEN YOU SEND IMAGES BACK
+-------------------------
+Do not worry about exact pixel size, file type, or filename. Send what the AI gives you — we will check and fix dimensions, format (PNG/JPG/WEBP), and rename each file before deploying to the prelander.

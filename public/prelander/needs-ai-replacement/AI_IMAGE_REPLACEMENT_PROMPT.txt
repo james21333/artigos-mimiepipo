@@ -15,8 +15,9 @@ Use the attached jar photo as the exact product to insert.
 OFFER TEXT (when text appears on the graphic)
 ---------------------------------------------
 Portuguese (Brazil):
-- 30% de desconto + frete grátis
-- NOT 40%, NOT 57% — always 30% OFF
+- "30% de Desconto" only
+- Do NOT add "+ frete grátis"
+- NOT 40%, NOT 57%
 
 Do NOT show competitor brand names (WolfRoots, Kalmio, Furever Pets, Paw-Life, etc.).
 Replace with: Digestão Saudável / Mimi & Pipo where a brand/logo is needed.
@@ -38,17 +39,17 @@ PAW-LIFE PRELANDER — 6 images
    Size: 2048 × 2048 px | Format: PNG
    What it is: Full offer hero graphic with product
    Task: Same layout as reference. Swap competitor product for our jar. 
-         Any discount text = "30% OFF + frete grátis" in Portuguese.
+         Any discount text = "30% de Desconto" in Portuguese (not + frete grátis).
 
 2) pawlife-02-promo-banner.jpg
    Size: 1080 × 1080 px | Format: JPG
    What it is: Promo banner with product
-   Task: Same banner design. Our jar instead of competitor. 30% OFF messaging.
+   Task: Same banner design. Our jar instead of competitor. Discount text: "30% de Desconto".
 
 3) pawlife-03-bottom-cta.png
    Size: 1080 × 1080 px | Format: PNG
    What it is: Bottom offer / CTA block
-   Task: Same CTA layout. Our product. "30% de desconto + frete grátis".
+   Task: Same CTA layout. Our product. Discount text: "30% de Desconto".
 
 4) pawlife-04-presentation.webp
    Size: 1280 × 720 px | Format: WEBP (or PNG if WEBP not supported)
@@ -106,7 +107,7 @@ For EACH reference image, generate a replacement that:
 - Only replaces competitor product, brand, or logo IF another company's product/brand/logo appears in the image; otherwise leave those areas unchanged
 - Replaces competitor product/packaging with our jar (from our-product-jar.png) only where a competitor product is shown
 - Adapts any on-image text to gut/digestion context (petiscos para saúde intestinal — cocô, barriga, coceira, gases) in Portuguese (BR)
-- Uses Portuguese offer text "30% de desconto + frete grátis" where discount text appears (never 40% or 57%)
+- Uses Portuguese offer text "30% de Desconto" where discount text appears (not "+ frete grátis"; never 40% or 57%)
 - Outputs exact pixel dimensions and filenames listed in AI_IMAGE_REPLACEMENT_PROMPT.txt
 
 Process all 11 files in the references folder and name outputs exactly as specified.
@@ -127,3 +128,5 @@ Return 11 files named exactly:
   wolfroots-03-wide-banner-b.webp
   wolfroots-04-thumbnail.jpg
   wolfroots-05-logo-strip.webp
+
+NOTE: If sizes or formats differ slightly, that is OK — send them anyway. We will check and fix pixel dimensions, file type, and filename before publishing.
