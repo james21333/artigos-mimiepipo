@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quiz — Saúde intestinal do seu cão | Mimi &amp; Pipo</title>
+  <meta name="description" content="Descubra em menos de 1 minuto como o Digestão Saudável pode apoiar o intestino do seu cão. Quiz gratuito Mimi &amp; Pipo.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://mimiepipo.com.br">
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --card: #ffffff;
+      --text: #1a2e1f;
+      --muted: #5a6d5f;
+      --green: #255d3d;
+      --green-dark: #0d4635;
+      --green-soft: #e8f2ec;
+      --cream: #fff9f0;
+      --gold: #c9a66b;
+      --radius: 14px;
+      --shadow: 0 8px 32px rgba(13, 70, 53, 0.08);
+      --max: 440px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100dvh;
+    }
+    button, input { font: inherit; }
+    img { max-width: 100%; height: auto; display: block; }
+    a { color: var(--green); }
+
+    .app {
+      max-width: var(--max);
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      padding: 0 1rem calc(1.25rem + var(--safe-bottom));
+    }
+
+    .trust-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      justify-content: center;
+      padding: 0.75rem 0 0.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .trust-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      white-space: nowrap;
+    }
+
+    .progress-wrap {
+      padding: 0.75rem 0 0.25rem;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .progress-wrap.visible { opacity: 1; }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .progress-track {
+      height: 6px;
+      background: #dde5df;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--green), #3d8b5c);
+      border-radius: 99px;
+      transition: width 0.35s ease;
+    }
+
+    .screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      animation: fadeIn 0.3s ease;
+    }
+    .screen.active { display: flex; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo {
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.9375rem;
+      letter-spacing: 0.04em;
+      color: var(--green-dark);
+      padding: 0.5rem 0 0.25rem;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 6vw, 1.85rem);
+      line-height: 1.2;
+      color: var(--green-dark);
+      margin: 0.75rem 0 0.5rem;
+      font-weight: 800;
+      text-align: center;
+    }
+    h2 {
+      font-size: clamp(1.2rem, 5vw, 1.45rem);
+      line-height: 1.25;
+      color: var(--green-dark);
+      margin: 0.5rem 0 1rem;
+      font-weight: 700;
+    }
+    .sub {
+      text-align: center;
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+      font-size: 1.05rem;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin: -0.5rem 0 1rem;
+    }
+
+    .hero-dog {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 1rem;
+      border-radius: 50%;
+      background: var(--green-soft);
+      display: grid;
+      place-items: center;
+      font-size: 3.5rem;
+    }
+
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+    }
+    .option {
+      width: 100%;
+      text-align: left;
+      padding: 1rem 1.1rem;
+      border: 2px solid #dde5df;
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .option:active { transform: scale(0.98); }
+    .option:hover { border-color: #a8c4b0; }
+    .option.selected {
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+    .option .icon {
+      flex-shrink: 0;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      background: var(--green-soft);
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+    }
+    .option.selected .icon { background: var(--green); color: #fff; }
+    .option .label { font-weight: 600; line-height: 1.35; }
+    .option .sublabel {
+      display: block;
+      font-weight: 400;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .insight-card {
+      background: var(--cream);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin: 0.5rem 0 1.25rem;
+      border: 1px solid #f0e4d0;
+    }
+    .insight-kicker {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gold);
+      margin-bottom: 0.5rem;
+    }
+    .insight-stat {
+      font-size: clamp(2rem, 10vw, 2.75rem);
+      font-weight: 800;
+      color: var(--green-dark);
+      line-height: 1;
+      margin: 0.25rem 0 0.5rem;
+    }
+    .insight-body { margin: 0; font-size: 1rem; }
+    .insight-cite {
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .btn-row {
+      margin-top: auto;
+      padding-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 1rem 1.25rem;
+      border: none;
+      border-radius: var(--radius);
+      font-weight: 700;
+      font-size: 1.0625rem;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: var(--green);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .btn-primary:hover { background: var(--green-dark); }
+    .btn-primary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      padding: 0.5rem;
+    }
+    .btn-back {
+      align-self: flex-start;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.25rem 0;
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-hero {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .result-hero img {
+      width: 160px;
+      margin: 0 auto 1rem;
+    }
+    .result-badge {
+      display: inline-block;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      padding: 0.35rem 0.75rem;
+      border-radius: 99px;
+      margin-bottom: 0.75rem;
+    }
+    .benefit-list {
+      list-style: none;
+      margin: 0 0 1.25rem;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .benefit-list li {
+      background: var(--card);
+      border: 1px solid #e8ede9;
+      border-radius: var(--radius);
+      padding: 0.9rem 1rem;
+      font-size: 0.9375rem;
+    }
+    .benefit-list strong { color: var(--green-dark); }
+    .dose-box {
+      background: var(--green-soft);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      margin: 0 0 1rem;
+      font-size: 0.9375rem;
+    }
+    .price-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0.5rem 0 0;
+      font-size: 0.9375rem;
+    }
+    .price-row .price {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--green-dark);
+    }
+    .reviews {
+      text-align: center;
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin: 0.75rem 0;
+    }
+    .reviews .stars { color: var(--gold); letter-spacing: 0.05em; }
+    .disclaimer {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 1rem;
+      line-height: 1.45;
+    }
+
+    .features {
+      display: grid;
+      gap: 0.75rem;
+      margin: 1.25rem 0;
+    }
+    .feature {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      font-size: 0.9rem;
+    }
+    .feature-icon {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 8px;
+      background: var(--green-soft);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="trust-strip" aria-hidden="true">
+      <span class="trust-pill">🔒 60 dias para devolver</span>
+      <span class="trust-pill">📦 Frete grátis R$199+</span>
+      <span class="trust-pill">⭐ 4,7 · 635 avaliações</span>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-meta">
+        <span id="stepLabel">Passo 1 de 5</span>
+        <span id="pctLabel">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <!-- Welcome -->
+    <section class="screen active" id="screen-welcome" data-step="0">
+      <div class="logo">MIMI &amp; PIPO</div>
+      <div class="hero-dog" aria-hidden="true">🐾</div>
+      <h1>O intestino do seu cão pode estar por trás disso</h1>
+      <p class="sub">Responda 5 perguntas rápidas e veja como o <strong>Digestão Saudável</strong> pode ajudar — em menos de 1 minuto.</p>
+      <div class="features">
+        <div class="feature"><div class="feature-icon">🌿</div><div><strong>Petiscos diários</strong> com prebióticos, ômega-3 e extratos botânicos — formulado por veterinários.</div></div>
+        <div class="feature"><div class="feature-icon">🎯</div><div><strong>Resultado personalizado</strong> com base nos sintomas que você marcar.</div></div>
+        <div class="feature"><div class="feature-icon">✨</div><div><strong>Sem cadastro</strong> — direto ao ponto, no celular.</div></div>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="btnStart">Começar o quiz</button>
+      </div>
+    </section>
+
+    <!-- Q1: main problem -->
+    <section class="screen" id="screen-q1" data-step="1">
+      <button type="button" class="btn-back" data-back>← Voltar</button>
+      <h2>Qual é o maior problema do seu cão hoje?</h2>
+      <p class="hint">Toque na opção que mais se encaixa.</p>
+      <div class="options" id="opts-q1"></div>
+    </section>
+
+    <!-- Insight -->
+    <section class="screen" id="screen-insight" data-step="2">
+      <button type="button" class="btn-back" data-back>← Voltar</button>
+      <div class="insight-card" id="insightCard"></div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="btnInsightNext">Continuar</button>
+      </div>
+    </section>
+
+    <!-- Q2: secondary -->
+    <section class="screen" id="screen-q2" data-step="3">
+      <button type="button" class="btn-back" data-back>← Voltar</button>
+      <h2>Você também notou algum destes?</h2>
+      <p class="hint">Pode marcar mais de um.</p>
+      <div class="options" id="opts-q2"></div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="btnQ2" disabled>Continuar</button>
+      </div>
+    </section>
+
+    <!-- Q3: duration -->
+    <section class="screen" id="screen-q3" data-step="4">
+      <button type="button" class="btn-back" data-back>← Voltar</button>
+      <h2>Há quanto tempo isso acontece?</h2>
+      <div class="options" id="opts-q3"></div>
+    </section>
+
+    <!-- Q4: tried -->
+    <section class="screen" id="screen-q4" data-step="5">
+      <button type="button" class="btn-back" data-back>← Voltar</button>
+      <h2>O que você já tentou?</h2>
+      <p class="hint">Pode marcar mais de um.</p>
+      <div class="options" id="opts-q4"></div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="btnQ4" disabled>Continuar</button>
+      </div>
+    </section>
+
+    <!-- Q5: size -->
+    <section class="screen" id="screen-q5" data-step="6">
+      <button type="button" class="btn-back" data-back>← Voltar</button>
+      <h2>Qual o porte do seu cão?</h2>
+      <p class="hint">Para calcular a dose diária de petiscos.</p>
+      <div class="options" id="opts-q5"></div>
+    </section>
+
+    <!-- Results -->
+    <section class="screen" id="screen-result" data-step="7">
+      <div class="result-hero">
+        <span class="result-badge" id="resultBadge">Seu resultado</span>
+        <h1 id="resultTitle">Plano intestinal personalizado</h1>
+        <img src="https://mimiepipo.com.br/cdn/shop/files/Digestaojarwart.png?v=1762798461" alt="Pote Digestão Saudável Mimi e Pipo" width="320" height="320" loading="lazy">
+      </div>
+      <p id="resultIntro"></p>
+      <ul class="benefit-list" id="benefitList"></ul>
+      <div class="dose-box" id="doseBox"></div>
+      <div class="reviews"><span class="stars">★★★★★</span> 4,7 de 5 · 635 avaliações · 92% recomendam</div>
+      <div class="price-row">
+        <span>Kit 2 potes (mais popular)</span>
+        <span class="price">R$ 198,80</span>
+      </div>
+      <p class="hint" style="text-align:center;margin-top:0.35rem;">30% off · frete grátis · 1 pote a partir de R$ 142</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" id="ctaPdp" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Ver Digestão Saudável</a>
+        <button type="button" class="btn btn-ghost" id="btnRestart">Refazer quiz</button>
+      </div>
+      <p class="disclaimer">Alimento coadjuvante — não substitui orientação veterinária. Resultados variam; muitos tutores relatam mudanças em dias ou semanas.</p>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var PDP = 'https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003';
+
+      var MAIN_ISSUES = [
+        { id: 'digestion', icon: '💩', label: 'Fezes moles, diarreia ou vômitos', sub: 'Intestino sensível, crises recorrentes' },
+        { id: 'itching', icon: '🐕', label: 'Coceira, pele irritada ou queda de pelo', sub: 'Tratou a pele mas o problema volta' },
+        { id: 'parasites', icon: '🦠', label: 'Giárdia, parasitas ou fezes inconsistentes', sub: 'Melhora e volta — medo de reinfecção' },
+        { id: 'scooting', icon: '🔄', label: 'Arrastar o bumbum ou odor forte', sub: 'Glândulas anais, cheiro "de peixe"' },
+        { id: 'behavior', icon: '🌿', label: 'Come cocô, grama ou vomita depois', sub: 'Comportamentos que envergonham na rua' },
+        { id: 'odor', icon: '💨', label: 'Gases ou fezes com cheiro muito forte', sub: 'Apartamento, visitas, qualidade de vida' },
+        { id: 'anxiety', icon: '🌙', label: 'Inquieto, ansioso ou mal dorme à noite', sub: 'Especialmente em cães idosos' },
+        { id: 'joints', icon: '🦴', label: 'Idoso com dificuldade para se mover', sub: 'Começou no intestino, afetou as articulações' }
+      ];
+
+      var SECONDARY = [
+        { id: 'gas', icon: '💨', label: 'Gases frequentes' },
+        { id: 'low_energy', icon: '😴', label: 'Pouca energia ou apetite baixo' },
+        { id: 'stress_gut', icon: '⚡', label: 'Piora com estresse ou viagem' },
+        { id: 'post_abx', icon: '💊', label: 'Depois de antibiótico ou vermífugo' },
+        { id: 'probiotic_fail', icon: '🧪', label: 'Probiótico sozinho não resolveu' },
+        { id: 'vet_cycle', icon: '🏥', label: 'Vai e volta na veterinária' }
+      ];
+
+      var DURATION = [
+        { id: 'recent', label: 'Menos de 1 mês' },
+        { id: 'months', label: '1 a 6 meses' },
+        { id: 'long', label: 'Mais de 6 meses' },
+        { id: 'chronic', label: 'Vai e volta há anos' }
+      ];
+
+      var TRIED = [
+        { id: 'dewormer', icon: '💊', label: 'Vermífugo ou antibiótico' },
+        { id: 'probiotic', icon: '🧫', label: 'Só probiótico da pet shop' },
+        { id: 'food', icon: '🥣', label: 'Troca de ração' },
+        { id: 'glands', icon: '✋', label: 'Expressão das glândulas na vet' },
+        { id: 'nothing', icon: '🤷', label: 'Ainda não sei o que fazer' }
+      ];
+
+      var SIZES = [
+        { id: 'small', label: 'Até 10 kg', sub: '2 petiscos por dia · ~R$ 1,60/dia', biscuits: 2, cost: 'R$ 1,60' },
+        { id: 'medium', label: '11 a 20 kg', sub: '4 petiscos por dia · ~R$ 3,20/dia', biscuits: 4, cost: 'R$ 3,20' },
+        { id: 'large', label: '21 a 30 kg', sub: '6 petiscos por dia · ~R$ 4,80/dia', biscuits: 6, cost: 'R$ 4,80' },
+        { id: 'xlarge', label: '31 kg ou mais', sub: '8 petiscos por dia · ~R$ 6,40/dia', biscuits: 8, cost: 'R$ 6,40' }
+      ];
+
+      var INSIGHTS = {
+        digestion: {
+          stat: '70%',
+          lead: 'do sistema imune do cão está no intestino.',
+          body: 'Quando a mucosa intestinal está inflamada, diarreia e vômitos podem voltar mesmo depois do vermífugo. Boswellia e prebióticos de levedura ajudam a apoiar a barreira intestinal — não só os sintomas.'
+        },
+        itching: {
+          stat: 'Eixo',
+          lead: 'intestino-pele',
+          body: 'Muitos tutores tratam a coceira na pele, mas a raiz pode estar no intestino. Spirulina e ômega-3 (EPA/DHA) da Schizochytrium apoiam esse eixo — é por isso que o pelo e a coceira podem melhorar quando o intestino responde.'
+        },
+        parasites: {
+          stat: 'Reinfecção',
+          lead: 'é comum na giárdia',
+          body: 'O extrato de Yucca schidigera age de forma diferente dos vermífugos tradicionais — estudos citam atividade contra Giardia. Não substitui o veterinário, mas pode apoiar o intestino depois do tratamento.'
+        },
+        scooting: {
+          stat: '19%',
+          lead: 'vs 61,5% de recorrência',
+          body: 'Em estudos com rações complementares, a impactação das glândulas anais caiu drasticamente com fibra insolúvel (beterraba, farelo) e menos inflamação. Expressar toda hora na vet pode irritar mais — o cocô mais firme ajuda na expressão natural.'
+        },
+        behavior: {
+          stat: '16%',
+          lead: 'dos cães comem cocô',
+          body: 'Muitas vezes o intestino não absorve bem — não é só falta de treino. Gengibre apoia o esvaziamento gástrico; fibra e Yucca ajudam a equilibrar o microbioma e reduzir o apelo do cocô.'
+        },
+        odor: {
+          stat: 'Yucca',
+          lead: 'liga amônia e enxofre',
+          body: 'O cheiro forte vem de compostos voláteis nas fezes. O Yucca schidigera ajuda a ligar amônia e enxofre antes da excreção — tutores em apartamento costumam notar a diferença primeiro no odor.'
+        },
+        anxiety: {
+          stat: 'Eixo',
+          lead: 'intestino-cérebro',
+          body: 'Bactérias intestinais influenciam cortisol e humor. Ácidos graxos de cadeia curta e DHA apoiam o eixo intestino-cérebro — cães inquietos à noite às vezes têm o estômago no centro da história.'
+        },
+        joints: {
+          stat: '71%',
+          lead: 'melhoraram em 6 semanas',
+          body: 'Em estudos com Boswellia, muitos cães tiveram menos claudicação e rigidez. Tutores começam pelo intestino e notam o cão se mexendo melhor — a inflamação crônica afeta tudo.'
+        }
+      };
+
+      var BENEFITS = {
+        digestion: [
+          { title: 'Boswellia serrata', text: 'Apoia a resposta inflamatória intestinal e a mucosa — relevante para diarreia crônica e cólica.' },
+          { title: 'Complexo de levedura (MOS)', text: 'Prebiótico que nutre a flora existente — diferente de só jogar probiótico por cima.' },
+          { title: 'Gengibre', text: 'Facilita o esvaziamento gástrico e pode reduzir náusea e vômitos.' }
+        ],
+        itching: [
+          { title: 'Spirulina platensis', text: 'Apoia o equilíbrio imune no intestino — eixo intestino-pele para coceira e hot spots.' },
+          { title: 'EPA e DHA (Schizochytrium)', text: 'Ômega-3 de cadeia longa que modula inflamação de pele e pelo.' },
+          { title: 'Prebióticos + fibra', text: 'Repopula flora benéfica depois de crises ou antibióticos.' }
+        ],
+        parasites: [
+          { title: 'Yucca schidigera', text: 'Saponinas com atividade citada contra Giardia — apoio além do vermífugo.' },
+          { title: 'MOS + Boswellia', text: 'Elimina patógenos aderidos e repara a barreira intestinal pós-infecção.' },
+          { title: 'Fibra solúvel', text: 'Fermenta em ácidos graxos que nutrem os colonócitos.' }
+        ],
+        scooting: [
+          { title: 'Fibra insolúvel', text: 'Beterraba e farelo deixam o cocô mais firme — expressão natural das glândulas anais.' },
+          { title: 'Boswellia + ômega-3', text: 'Menos inflamação nas glândulas irritadas por expressão repetida na vet.' },
+          { title: 'Yucca', text: 'Reduz odor forte associado às glândolas e fezes.' }
+        ],
+        behavior: [
+          { title: 'Gengibre', text: 'Antiemético natural — menos náusea depois de comer grama.' },
+          { title: 'Yucca + microbioma', text: 'Cocô menos "atractivo" quando a absorção melhora.' },
+          { title: 'Fibra insolúvel', text: 'Satisfaz a necessidade de volumoso que o cão busca na grama.' }
+        ],
+        odor: [
+          { title: 'Yucca schidigera', text: 'Liga amônia e compostos de enxofre — menos cheiro no apartamento.' },
+          { title: 'Prebióticos de levedura', text: 'Equilibra flora que produz gases em excesso.' },
+          { title: 'Fibra fermentável', text: 'Trânsito mais regular, menos fermentação descontrolada.' }
+        ],
+        anxiety: [
+          { title: 'Ácidos graxos de cadeia curta', text: 'Produzidos pela flora — apoiam o eixo intestino-cérebro e o cortisol.' },
+          { title: 'DHA (Schizochytrium)', text: 'Apoia função neurológica em cães idosos inquietos.' },
+          { title: 'Spirulina', text: 'Estabiliza microbioma sob estresse — viagens, barulho, mudanças.' }
+        ],
+        joints: [
+          { title: 'Boswellia serrata', text: 'Inibidor da via inflamatória 5-LOX — articulações e intestino na mesma cascata.' },
+          { title: 'EPA + DHA', text: 'Modulam eicosanoides inflamatórios — menos rigidez em idosos.' },
+          { title: 'Absorção melhorada', text: 'Intestino saudável absorve nutrientes que sustentam músculo e articulação.' }
+        ]
+      };
+
+      var state = {
+        main: null,
+        secondary: [],
+        duration: null,
+        tried: [],
+        size: null,
+        history: ['screen-welcome']
+      };
+
+      var screens = ['screen-welcome', 'screen-q1', 'screen-insight', 'screen-q2', 'screen-q3', 'screen-q4', 'screen-q5', 'screen-result'];
+      var progressSteps = 5;
+
+      function $(id) { return document.getElementById(id); }
+
+      function pdpUrl() {
+        var params = new URLSearchParams(window.location.search);
+        params.set('utm_source', params.get('utm_source') || 'quiz');
+        params.set('utm_medium', params.get('utm_medium') || 'artigos');
+        params.set('utm_campaign', params.get('utm_campaign') || 'digestao-quiz');
+        if (state.main) params.set('utm_content', state.main);
+        return PDP + (PDP.indexOf('?') >= 0 ? '&' : '?') + params.toString().replace(/^\?/, '');
+      }
+
+      function showScreen(id) {
+        screens.forEach(function (sid) {
+          var el = $(sid);
+          if (el) el.classList.toggle('active', sid === id);
+        });
+        var step = parseInt((document.getElementById(id) || {}).dataset.step || '0', 10);
+        var wrap = $('progressWrap');
+        if (id === 'screen-welcome') {
+          wrap.classList.remove('visible');
+        } else {
+          wrap.classList.add('visible');
+          var pct = id === 'screen-result' ? 100 : Math.min(100, Math.round((step / progressSteps) * 100));
+          $('progressFill').style.width = pct + '%';
+          $('pctLabel').textContent = pct + '%';
+          $('stepLabel').textContent = id === 'screen-result' ? 'Resultado' : 'Passo ' + Math.min(step, progressSteps) + ' de ' + progressSteps;
+        }
+        if (state.history[state.history.length - 1] !== id) state.history.push(id);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function goBack() {
+        if (state.history.length > 1) {
+          state.history.pop();
+          showScreen(state.history[state.history.length - 1]);
+        }
+      }
+
+      function renderOptions(containerId, items, mode, onSelect) {
+        var container = $(containerId);
+        container.innerHTML = '';
+        items.forEach(function (item) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'option';
+          btn.dataset.id = item.id;
+          var icon = item.icon ? '<span class="icon" aria-hidden="true">' + item.icon + '</span>' : '';
+          var sub = item.sub ? '<span class="sublabel">' + item.sub + '</span>' : '';
+          btn.innerHTML = icon + '<span class="label">' + item.label + sub + '</span>';
+          btn.addEventListener('click', function () {
+            if (mode === 'single') {
+              container.querySelectorAll('.option').forEach(function (o) { o.classList.remove('selected'); });
+              btn.classList.add('selected');
+              onSelect(item.id);
+            } else {
+              btn.classList.toggle('selected');
+              onSelect(item.id, btn.classList.contains('selected'));
+            }
+          });
+          container.appendChild(btn);
+        });
+      }
+
+      function renderInsight() {
+        var data = INSIGHTS[state.main] || INSIGHTS.digestion;
+        $('insightCard').innerHTML =
+          '<div class="insight-kicker">Você sabia que...</div>' +
+          '<div class="insight-stat">' + data.stat + '</div>' +
+          '<p class="insight-body"><strong>' + data.lead + '</strong> — ' + data.body + '</p>' +
+          '<p class="insight-cite">Baseado em pesquisa interna Mimi &amp; Pipo · consulte seu veterinário</p>';
+      }
+
+      function renderResult() {
+        var issue = MAIN_ISSUES.find(function (i) { return i.id === state.main; }) || MAIN_ISSUES[0];
+        var benefits = BENEFITS[state.main] || BENEFITS.digestion;
+        var size = SIZES.find(function (s) { return s.id === state.size; }) || SIZES[1];
+        var durationText = {
+          recent: 'há poucas semanas',
+          months: 'há alguns meses',
+          long: 'há mais de meio ano',
+          chronic: 'há anos, indo e voltando'
+        }[state.duration] || '';
+
+        $('resultBadge').textContent = 'Recomendado para: ' + issue.label.split(',')[0];
+        $('resultTitle').textContent = 'Digestão Saudável pode apoiar o intestino do seu cão';
+
+        var intro = 'Você marcou <strong>' + issue.label.toLowerCase() + '</strong>';
+        if (durationText) intro += ' ' + durationText;
+        intro += '. O Digestão Saudável é um petisco diário com abordagem estrutural: prebióticos que nutrem a flora existente + extratos botânicos e microalgas — não é só mais um probiótico.';
+        if (state.tried.indexOf('probiotic') >= 0) {
+          intro += ' Como você já tentou probiótico sozinho, a diferença aqui é fibra, Boswellia, Yucca e ômega-3 no mesmo petisco.';
+        }
+        $('resultIntro').innerHTML = intro;
+
+        $('benefitList').innerHTML = benefits.map(function (b) {
+          return '<li><strong>' + b.title + ':</strong> ' + b.text + '</li>';
+        }).join('');
+
+        if (state.secondary.length) {
+          var extra = state.secondary.map(function (id) {
+            var s = SECONDARY.find(function (x) { return x.id === id; });
+            return s ? s.label : '';
+          }).filter(Boolean).join(', ');
+          if (extra) {
+            $('benefitList').innerHTML += '<li><strong>Também cobre:</strong> ' + extra + ' — muitos sintomas compartilham a mesma raiz intestinal.</li>';
+          }
+        }
+
+        $('doseBox').innerHTML = '<strong>Dose para o porte do seu cão:</strong> ' + size.biscuits + ' petiscos por dia (' + size.label + ') — custo estimado de <strong>' + size.cost + '/dia</strong>. Pode dar direto ou misturar com iogurte/caldo se for exigente.';
+
+        $('ctaPdp').href = pdpUrl();
+      }
+
+      // Q1 — auto advance
+      renderOptions('opts-q1', MAIN_ISSUES, 'single', function (id) {
+        state.main = id;
+        renderInsight();
+        setTimeout(function () { showScreen('screen-insight'); }, 280);
+      });
+
+      $('btnInsightNext').addEventListener('click', function () { showScreen('screen-q2'); });
+
+      // Q2 — multi
+      renderOptions('opts-q2', SECONDARY, 'multi', function (id, on) {
+        if (on) {
+          if (state.secondary.indexOf(id) < 0) state.secondary.push(id);
+        } else {
+          state.secondary = state.secondary.filter(function (x) { return x !== id; });
+        }
+        $('btnQ2').disabled = false;
+      });
+      $('btnQ2').addEventListener('click', function () { showScreen('screen-q3'); });
+
+      // Q3 — auto advance
+      renderOptions('opts-q3', DURATION, 'single', function (id) {
+        state.duration = id;
+        setTimeout(function () { showScreen('screen-q4'); }, 280);
+      });
+
+      // Q4 — multi
+      renderOptions('opts-q4', TRIED, 'multi', function (id, on) {
+        if (on) {
+          if (state.tried.indexOf(id) < 0) state.tried.push(id);
+        } else {
+          state.tried = state.tried.filter(function (x) { return x !== id; });
+        }
+        $('btnQ4').disabled = state.tried.length === 0;
+      });
+      $('btnQ4').addEventListener('click', function () { showScreen('screen-q5'); });
+
+      // Q5 — auto advance to result
+      renderOptions('opts-q5', SIZES, 'single', function (id) {
+        state.size = id;
+        renderResult();
+        setTimeout(function () { showScreen('screen-result'); }, 280);
+      });
+
+      $('btnStart').addEventListener('click', function () { showScreen('screen-q1'); });
+
+      $('btnRestart').addEventListener('click', function () {
+        state = { main: null, secondary: [], duration: null, tried: [], size: null, history: ['screen-welcome'] };
+        document.querySelectorAll('.option.selected').forEach(function (o) { o.classList.remove('selected'); });
+        $('btnQ2').disabled = true;
+        $('btnQ4').disabled = true;
+        showScreen('screen-welcome');
+      });
+
+      document.querySelectorAll('[data-back]').forEach(function (btn) {
+        btn.addEventListener('click', goBack);
+      });
+
+      $('ctaPdp').href = pdpUrl();
+    })();
+  </script>
+</body>
+</html>
