@@ -7,6 +7,15 @@
   <meta name="description" content="Descubra em menos de 1 minuto como o Digestão Saudável pode apoiar o intestino do seu cão. Quiz gratuito Mimi &amp; Pipo.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://mimiepipo.com.br">
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      if (q.get('view') === 'quiz2') {
+        document.documentElement.classList.add('quiz2-view');
+        document.title = 'Teste de Saúde Intestinal | Mimi & Pipo';
+      }
+    })();
+  </script>
   <style>
     :root {
       --bg: #faf8f5;
@@ -367,10 +376,126 @@
       place-items: center;
       flex-shrink: 0;
     }
+
+    html.quiz2-view #quiz1-app { display: none !important; }
+    html:not(.quiz2-view) #quiz2-app { display: none !important; }
+
+    #quiz2-app {
+      --q2-bg: #FAF9F7;
+      --q2-green: #7BBC72;
+      --q2-dark: #1C1C1C;
+      --q2-border: #E0E0E0;
+      --q2-selected: #7BBC72;
+      min-height: 100dvh;
+      background: var(--q2-bg);
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .q2-shell { max-width: 1000px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+    .q2-topbar {
+      padding: 0.65rem 1rem;
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      color: #555;
+    }
+    .q2-logo {
+      padding: 0.85rem 1rem 0.25rem;
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: var(--q2-dark);
+      font-size: 0.9rem;
+    }
+    .q2-progress-wrap { padding: 0.5rem 1rem 0; }
+    .q2-progress-track { height: 4px; background: #e5e5e5; border-radius: 99px; overflow: hidden; }
+    .q2-progress-bar { height: 100%; width: 0; background: var(--q2-green); transition: width 0.35s ease; }
+    .q2-progress-meta { display: flex; justify-content: flex-end; font-size: 0.75rem; color: #888; margin-top: 0.25rem; }
+    .q2-stage { flex: 1; padding: 1rem 1rem 0; }
+    .q2-split { display: flex; flex-direction: column; gap: 1.25rem; align-items: center; }
+    .q2-split--full .q2-main { width: 100%; }
+    .q2-main { width: 100%; max-width: 560px; }
+    .q2-side { width: 100%; max-width: 320px; }
+    .q2-side img { width: 100%; height: auto; object-fit: contain; border-radius: 4px; }
+    .q2-title { font-size: clamp(1.6rem, 6vw, 2.2rem); line-height: 1.15; margin: 0 0 0.75rem; color: var(--q2-dark); font-weight: 700; text-align: center; }
+    .q2-sub, .q2-result-body { font-size: 1.05rem; line-height: 1.55; color: #444; margin: 0 0 1rem; text-align: center; }
+    .q2-caption { font-size: 0.8125rem; color: #888; text-align: center; margin: 1rem 0 0; font-style: italic; }
+    .q2-start, .q2-cta {
+      display: block; width: 100%; max-width: 280px; margin: 1rem auto 0;
+      padding: 1rem 1.5rem; border: none; border-radius: 0;
+      background: var(--q2-green); color: #fff; font-weight: 700; font-size: 1.05rem;
+      text-align: center; text-decoration: none; cursor: pointer;
+    }
+    .q2-qtitle { font-size: clamp(1.25rem, 5vw, 1.65rem); line-height: 1.25; margin: 0 0 0.5rem; color: var(--q2-dark); font-weight: 700; }
+    .q2-hint { color: #666; font-size: 0.9375rem; margin: 0 0 1rem; }
+    .q2-lopts, .q2-popts { display: flex; flex-direction: column; gap: 0.65rem; }
+    .q2-lopt, .q2-hopt, .q2-popt {
+      width: 100%; text-align: left; background: #fff; border: 1px solid var(--q2-border);
+      color: #333; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .q2-lopt {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 1rem 1.1rem; border-radius: 6px;
+    }
+    .q2-lopt.selected { border: 2px solid var(--q2-selected); }
+    .q2-check {
+      width: 1.25rem; height: 1.25rem; border-radius: 50%; border: 2px solid #000; flex-shrink: 0;
+      display: grid; place-items: center;
+    }
+    .q2-lopt.selected .q2-check { background: #000; box-shadow: inset 0 0 0 3px #fff; }
+    .q2-hopts { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+    .q2-hopt {
+      flex: 1 1 calc(50% - 0.35rem); min-width: 120px; padding: 1rem; border-radius: 6px;
+      font-weight: 600; text-align: center;
+    }
+    .q2-hopt.selected { border: 2px solid var(--q2-selected); }
+    .q2-popts {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem;
+    }
+    .q2-popt {
+      padding: 0.75rem 0.5rem 0.9rem; border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    }
+    .q2-popt.selected { border: 2px solid var(--q2-selected); }
+    .q2-pimg {
+      width: 88px; height: 88px; border-radius: 50%; overflow: hidden; background: #f3f3f3;
+      display: grid; place-items: center;
+    }
+    .q2-pimg img { width: 100%; height: 100%; object-fit: cover; }
+    .q2-plabel { font-size: 0.8125rem; font-weight: 600; text-align: center; line-height: 1.3; }
+    .q2-nav {
+      display: flex; gap: 0.75rem; padding: 1rem; border-top: 1px solid #e8e8e8; background: #fff;
+      position: sticky; bottom: 0;
+    }
+    .q2-nav button {
+      flex: 1; padding: 0.95rem 1rem; font-weight: 700; font-size: 1rem; cursor: pointer; border-radius: 0;
+    }
+    .q2-nav-back { background: #fff; border: 1px solid var(--q2-dark); color: var(--q2-dark); }
+    .q2-nav-next { background: var(--q2-dark); border: 1px solid var(--q2-dark); color: #FAF9F6; }
+    .q2-nav-next:disabled { opacity: 0.4; cursor: not-allowed; }
+    .q2-loading { text-align: center; padding: 4rem 1rem; }
+    .q2-loading img { margin: 0 auto 1rem; }
+    .q2-result { max-width: 640px; margin: 0 auto; padding-bottom: 2rem; }
+    .q2-result-sub { font-size: 1.1rem; line-height: 1.5; margin: 0 0 0.75rem; text-align: center; }
+    .q2-result-img { width: 100%; max-width: 300px; margin: 1rem auto; display: block; }
+    .q2-restart {
+      display: block; margin: 1.25rem auto 0; background: none; border: none;
+      color: #888; font-weight: 600; cursor: pointer; text-decoration: underline;
+    }
+    @media (min-width: 768px) {
+      .q2-split:not(.q2-split--full) { flex-direction: row; align-items: flex-start; justify-content: center; }
+      .q2-split:not(.q2-split--full) .q2-main { flex: 1; max-width: 58%; }
+      .q2-split:not(.q2-split--full) .q2-side { flex: 0 0 34%; max-width: 34%; }
+      .q2-title, .q2-sub { text-align: left; }
+      .q2-start { margin-left: 0; }
+      .q2-popts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
   </style>
 </head>
 <body>
-  <div class="app" id="app">
+  <div class="app" id="quiz1-app">
     <div class="trust-strip" aria-hidden="true">
       <span class="trust-pill">🔒 60 dias para devolver</span>
       <span class="trust-pill">📦 Frete grátis R$199+</span>
@@ -797,5 +922,22 @@
       $('ctaPdp').href = pdpUrl();
     })();
   </script>
+
+  <div id="quiz2-app">
+    <div class="q2-shell">
+      <div class="q2-topbar">☀️ PROMOÇÃO — NÃO PERCA · 🔒 60 dias para devolver · 📦 Frete grátis R$199+</div>
+      <div class="q2-logo">MIMI &amp; PIPO</div>
+      <div class="q2-progress-wrap">
+        <div class="q2-progress-track"><div class="q2-progress-bar" id="q2-progress"></div></div>
+        <div class="q2-progress-meta"><span id="q2-pct">0%</span></div>
+      </div>
+      <div class="q2-stage" id="q2-stage"></div>
+      <div class="q2-nav" id="q2-nav" style="display:none">
+        <button type="button" class="q2-nav-back" id="q2-back">Voltar</button>
+        <button type="button" class="q2-nav-next" id="q2-next">Próximo</button>
+      </div>
+    </div>
+  </div>
+  <script src="assets/quiz2.js"></script>
 </body>
 </html>
