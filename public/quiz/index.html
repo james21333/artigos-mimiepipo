@@ -782,6 +782,12 @@
 
       var screens = ['screen-q1', 'screen-insight', 'screen-q2', 'screen-q3', 'screen-q4', 'screen-q5', 'screen-result'];
       var progressSteps = 5;
+      var quiz1LeadSent = false;
+
+      function trackQuizLead(variant) {
+        if (typeof fbq !== 'function') return;
+        fbq('track', 'Lead', { content_name: variant });
+      }
 
       function $(id) { return document.getElementById(id); }
 
@@ -812,6 +818,10 @@
           btn.style.visibility = id === 'screen-q1' ? 'hidden' : 'visible';
         });
         if (state.history[state.history.length - 1] !== id) state.history.push(id);
+        if (id === 'screen-result' && !quiz1LeadSent) {
+          quiz1LeadSent = true;
+          trackQuizLead('digestao-quiz-1');
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
@@ -944,6 +954,7 @@
 
       $('btnRestart').addEventListener('click', function () {
         state = { main: null, secondary: [], duration: null, tried: [], size: null, history: ['screen-q1'] };
+        quiz1LeadSent = false;
         document.querySelectorAll('.option.selected').forEach(function (o) { o.classList.remove('selected'); });
         $('btnQ2').disabled = true;
         $('btnQ4').disabled = true;

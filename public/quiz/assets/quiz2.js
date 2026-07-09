@@ -119,6 +119,13 @@
   ];
 
   var state = { step: 0, answers: {}, history: [0] };
+  var quiz2LeadSent = false;
+
+  function trackQuizLead() {
+    if (quiz2LeadSent || typeof fbq !== 'function') return;
+    quiz2LeadSent = true;
+    fbq('track', 'Lead', { content_name: 'digestao-quiz-2' });
+  }
 
   function el(id) { return document.getElementById(id); }
   function pdpUrl() {
@@ -279,6 +286,7 @@
   }
 
   function renderResult() {
+    trackQuizLead();
     el('q2-stage').innerHTML =
       '<div class="q2-result">' +
         '<h1 class="q2-title">Seus resultados:</h1>' +
@@ -292,6 +300,7 @@
       '</div>';
     el('q2-restart').onclick = function () {
       state = { step: 0, answers: {}, history: [0] };
+      quiz2LeadSent = false;
       el('q2-nav').style.display = 'none';
       render();
     };
