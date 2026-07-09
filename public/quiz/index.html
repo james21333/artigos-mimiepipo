@@ -220,6 +220,13 @@
       color: var(--gold);
       margin-bottom: 0.5rem;
     }
+    .insight-headline {
+      font-size: clamp(1.15rem, 4.5vw, 1.35rem);
+      font-weight: 700;
+      color: var(--green-dark);
+      line-height: 1.4;
+      margin: 0 0 0.75rem;
+    }
     .insight-stat {
       font-size: clamp(2rem, 10vw, 2.75rem);
       font-weight: 800;
@@ -635,44 +642,36 @@
 
       var INSIGHTS = {
         digestion: {
-          stat: '70%',
-          lead: 'do sistema imune do cão está no intestino.',
+          headline: 'Até 70% do sistema imune do cão está no intestino.',
           body: 'Quando a mucosa intestinal está inflamada, diarreia e vômitos podem voltar mesmo depois do vermífugo. Boswellia e prebióticos de levedura ajudam a apoiar a barreira intestinal — não só os sintomas.'
         },
         itching: {
-          stat: 'Eixo',
-          lead: 'intestino-pele',
-          body: 'Muitos tutores tratam a coceira na pele, mas a raiz pode estar no intestino. Spirulina e ômega-3 (EPA/DHA) da Schizochytrium apoiam esse eixo — é por isso que o pelo e a coceira podem melhorar quando o intestino responde.'
+          headline: 'A coceira muitas vezes começa no intestino, não na pele.',
+          body: 'Muitos tutores tratam a pele, mas a raiz pode estar no eixo intestino-pele. Spirulina e ômega-3 (EPA/DHA) apoiam esse equilíbrio — é por isso que o pelo e a coceira podem melhorar quando o intestino responde.'
         },
         parasites: {
-          stat: 'Reinfecção',
-          lead: 'é comum na giárdia',
+          headline: 'A giárdia pode reinfectar mesmo depois do tratamento.',
           body: 'O extrato de Yucca schidigera age de forma diferente dos vermífugos tradicionais — estudos citam atividade contra Giardia. Não substitui o veterinário, mas pode apoiar o intestino depois do tratamento.'
         },
         scooting: {
-          stat: '19%',
-          lead: 'vs 61,5% de recorrência',
-          body: 'Em estudos com rações complementares, a impactação das glândulas anais caiu drasticamente com fibra insolúvel (beterraba, farelo) e menos inflamação. Expressar toda hora na vet pode irritar mais — o cocô mais firme ajuda na expressão natural.'
+          headline: 'Com fibra e menos inflamação, a recorrência das glândulas anais caiu de 61,5% para 19% em um estudo citado.',
+          body: 'Expressar toda hora na vet pode irritar mais. Cocô mais firme — com beterraba e farelo — ajuda na expressão natural das glândulas.'
         },
         behavior: {
-          stat: '16%',
-          lead: 'dos cães comem cocô',
-          body: 'Muitas vezes o intestino não absorve bem — não é só falta de treino. Gengibre apoia o esvaziamento gástrico; fibra e Yucca ajudam a equilibrar o microbioma e reduzir o apelo do cocô.'
+          headline: 'Até 16% dos cães comem cocô com frequência — e muitas vezes o intestino está pedindo socorro.',
+          body: 'Não é só falta de treino. Gengibre apoia o esvaziamento gástrico; fibra e Yucca ajudam a equilibrar o microbioma e reduzir o apelo do cocô.'
         },
         odor: {
-          stat: 'Yucca',
-          lead: 'liga amônia e enxofre',
-          body: 'O cheiro forte vem de compostos voláteis nas fezes. O Yucca schidigera ajuda a ligar amônia e enxofre antes da excreção — tutores em apartamento costumam notar a diferença primeiro no odor.'
+          headline: 'O cheiro forte das fezes começa no intestino.',
+          body: 'Compostos de amônia e enxofre passam pelas fezes antes de chegar ao nariz. O Yucca schidigera ajuda a ligar esses compostos — tutores em apartamento costumam notar a diferença primeiro no odor.'
         },
         anxiety: {
-          stat: 'Eixo',
-          lead: 'intestino-cérebro',
+          headline: 'O intestino e o cérebro conversam o tempo todo.',
           body: 'Bactérias intestinais influenciam cortisol e humor. Ácidos graxos de cadeia curta e DHA apoiam o eixo intestino-cérebro — cães inquietos à noite às vezes têm o estômago no centro da história.'
         },
         joints: {
-          stat: '71%',
-          lead: 'melhoraram em 6 semanas',
-          body: 'Em estudos com Boswellia, muitos cães tiveram menos claudicação e rigidez. Tutores começam pelo intestino e notam o cão se mexendo melhor — a inflamação crônica afeta tudo.'
+          headline: 'Em estudos com Boswellia, 71% dos cães melhoraram claudicação e rigidez em 6 semanas.',
+          body: 'Tutores começam pelo intestino e notam o cão se mexendo melhor. A inflamação crônica no intestino afeta articulações também — Boswellia e ômega-3 atuam na mesma cascata.'
         }
       };
 
@@ -797,8 +796,8 @@
         var data = INSIGHTS[state.main] || INSIGHTS.digestion;
         $('insightCard').innerHTML =
           '<div class="insight-kicker">Você sabia que...</div>' +
-          '<div class="insight-stat">' + data.stat + '</div>' +
-          '<p class="insight-body"><strong>' + data.lead + '</strong> — ' + data.body + '</p>' +
+          '<p class="insight-headline">' + data.headline + '</p>' +
+          '<p class="insight-body">' + data.body + '</p>' +
           '<p class="insight-cite">Baseado em pesquisa interna Mimi &amp; Pipo · consulte seu veterinário</p>';
       }
 
