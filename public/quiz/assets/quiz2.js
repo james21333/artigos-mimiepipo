@@ -1,7 +1,7 @@
 /* VitalPaws-style quiz2 — loaded when ?view=quiz2 */
 (function () {
   if (!document.documentElement.classList.contains('quiz2-view')) return;
-  var PDP = 'https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003';
+  var PDP = 'https://mimiepipo.com.br/products/digestao-saudavel';
   var IMG = 'assets/quiz2/';
 
   var PAGES = [
@@ -122,11 +122,13 @@
 
   function el(id) { return document.getElementById(id); }
   function pdpUrl() {
-    var p = new URLSearchParams(location.search);
-    p.set('utm_source', p.get('utm_source') || 'quiz2');
-    p.set('utm_medium', p.get('utm_medium') || 'artigos');
-    p.set('utm_campaign', p.get('utm_campaign') || 'digestao-quiz-vitalpaws');
-    return PDP + '&' + p.toString();
+    var incoming = new URLSearchParams(location.search);
+    var p = new URLSearchParams();
+    p.set('utm_source', incoming.get('utm_source') || 'quiz2');
+    p.set('utm_medium', incoming.get('utm_medium') || 'artigos');
+    p.set('utm_campaign', incoming.get('utm_campaign') || 'digestao-quiz-vitalpaws');
+    var qs = p.toString();
+    return qs ? PDP + '?' + qs : PDP;
   }
 
   function progressPct() {

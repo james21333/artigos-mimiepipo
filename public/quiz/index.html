@@ -589,7 +589,7 @@
       </div>
       <p class="hint" style="text-align:center;margin-top:0.35rem;">30% off · frete grátis · 1 pote a partir de R$ 142</p>
       <div class="btn-row">
-        <a class="btn btn-primary" id="ctaPdp" href="https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003">Ver Digestão Saudável</a>
+        <a class="btn btn-primary" id="ctaPdp" href="https://mimiepipo.com.br/products/digestao-saudavel">Ver Digestão Saudável</a>
         <button type="button" class="btn btn-ghost" id="btnRestart">Refazer quiz</button>
       </div>
       <p class="disclaimer">Alimento coadjuvante — não substitui orientação veterinária. Resultados variam; muitos tutores relatam mudanças em dias ou semanas.</p>
@@ -598,7 +598,7 @@
 
   <script>
     (function () {
-      var PDP = 'https://mimiepipo.com.br/products/digestao-saudavel?variant=47890765775003';
+      var PDP = 'https://mimiepipo.com.br/products/digestao-saudavel';
 
       var MAIN_ISSUES = [
         { id: 'digestion', icon: '💩', label: 'Fezes moles, diarreia ou vômitos', sub: 'Intestino sensível, crises recorrentes' },
@@ -751,12 +751,14 @@
       function $(id) { return document.getElementById(id); }
 
       function pdpUrl() {
-        var params = new URLSearchParams(window.location.search);
-        params.set('utm_source', params.get('utm_source') || 'quiz');
-        params.set('utm_medium', params.get('utm_medium') || 'artigos');
-        params.set('utm_campaign', params.get('utm_campaign') || 'digestao-quiz');
+        var incoming = new URLSearchParams(window.location.search);
+        var params = new URLSearchParams();
+        params.set('utm_source', incoming.get('utm_source') || 'quiz');
+        params.set('utm_medium', incoming.get('utm_medium') || 'artigos');
+        params.set('utm_campaign', incoming.get('utm_campaign') || 'digestao-quiz');
         if (state.main) params.set('utm_content', state.main);
-        return PDP + (PDP.indexOf('?') >= 0 ? '&' : '?') + params.toString().replace(/^\?/, '');
+        var qs = params.toString();
+        return qs ? PDP + '?' + qs : PDP;
       }
 
       function showScreen(id) {
