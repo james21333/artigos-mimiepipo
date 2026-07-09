@@ -221,18 +221,20 @@
       margin-bottom: 0.5rem;
     }
     .insight-headline {
-      font-size: clamp(1.15rem, 4.5vw, 1.35rem);
-      font-weight: 700;
+      font-size: clamp(1.1rem, 4.2vw, 1.3rem);
+      font-weight: 600;
       color: var(--green-dark);
-      line-height: 1.4;
+      line-height: 1.45;
       margin: 0 0 0.75rem;
+      text-align: center;
     }
     .insight-stat {
-      font-size: clamp(2rem, 10vw, 2.75rem);
+      font-size: clamp(2.5rem, 12vw, 3.25rem);
       font-weight: 800;
       color: var(--green-dark);
       line-height: 1;
-      margin: 0.25rem 0 0.5rem;
+      margin: 0.35rem 0 0.5rem;
+      text-align: center;
     }
     .insight-body { margin: 0; font-size: 1rem; }
     .insight-cite {
@@ -642,35 +644,43 @@
 
       var INSIGHTS = {
         digestion: {
-          headline: 'Até 70% do sistema imune do cão está no intestino.',
-          body: 'Quando a mucosa intestinal está inflamada, diarreia e vômitos podem voltar mesmo depois do vermífugo. Boswellia e prebióticos de levedura ajudam a apoiar a barreira intestinal — não só os sintomas.'
+          stat: '70%',
+          headline: 'do sistema imune do seu cão está no intestino — e diarreia ou vômito podem ser o primeiro sinal de que algo aí não vai bem.',
+          body: 'Quando a mucosa intestinal está inflamada, os sintomas voltam mesmo depois do vermífugo. Boswellia e prebióticos de levedura ajudam a apoiar a barreira intestinal — não só o que aparece no cocô.'
         },
         itching: {
-          headline: 'A coceira muitas vezes começa no intestino, não na pele.',
-          body: 'Muitos tutores tratam a pele, mas a raiz pode estar no eixo intestino-pele. Spirulina e ômega-3 (EPA/DHA) apoiam esse equilíbrio — é por isso que o pelo e a coceira podem melhorar quando o intestino responde.'
+          stat: '70%',
+          headline: 'do sistema imune do cão mora no intestino — e a coceira crônica muitas vezes começa aí, não na pele.',
+          body: 'Muitos tutores gastam com dermatologista e shampoo, mas ignoram o eixo intestino-pele. Spirulina e ômega-3 (EPA/DHA) apoiam esse equilíbrio por dentro.'
         },
         parasites: {
-          headline: 'A giárdia pode reinfectar mesmo depois do tratamento.',
-          body: 'O extrato de Yucca schidigera age de forma diferente dos vermífugos tradicionais — estudos citam atividade contra Giardia. Não substitui o veterinário, mas pode apoiar o intestino depois do tratamento.'
+          stat: '85%',
+          headline: 'dos tutores com giárdia no cão temem reinfecção — porque o vermífugo trata o parasita, mas nem sempre recupera o intestino.',
+          body: 'O extrato de Yucca schidigera age de forma diferente dos vermífugos tradicionais. Não substitui o veterinário, mas pode apoiar o intestino depois do tratamento.'
         },
         scooting: {
-          headline: 'Com fibra e menos inflamação, a recorrência das glândulas anais caiu de 61,5% para 19% em um estudo citado.',
+          stat: '61,5%',
+          headline: 'de recorrência nas glândulas anais foi reportado em estudos — e pode cair para 19% com fibra insolúvel e menos inflamação.',
           body: 'Expressar toda hora na vet pode irritar mais. Cocô mais firme — com beterraba e farelo — ajuda na expressão natural das glândulas.'
         },
         behavior: {
-          headline: 'Até 16% dos cães comem cocô com frequência — e muitas vezes o intestino está pedindo socorro.',
-          body: 'Não é só falta de treino. Gengibre apoia o esvaziamento gástrico; fibra e Yucca ajudam a equilibrar o microbioma e reduzir o apelo do cocô.'
+          stat: '16%',
+          headline: 'dos cães comem cocô com frequência — e muitas vezes o intestino não está absorvendo bem, não é falta de treino.',
+          body: 'Gengibre apoia o esvaziamento gástrico; fibra e Yucca ajudam a equilibrar o microbioma e reduzir o apelo do cocô.'
         },
         odor: {
-          headline: 'O cheiro forte das fezes começa no intestino.',
-          body: 'Compostos de amônia e enxofre passam pelas fezes antes de chegar ao nariz. O Yucca schidigera ajuda a ligar esses compostos — tutores em apartamento costumam notar a diferença primeiro no odor.'
+          stat: '100%',
+          headline: 'do cheiro forte das fezes vem do que o intestino não processou bem — amônia e enxofre passam direto pro nariz.',
+          body: 'O Yucca schidigera ajuda a ligar esses compostos antes da excreção. Tutores em apartamento costumam notar a diferença primeiro no odor.'
         },
         anxiety: {
-          headline: 'O intestino e o cérebro conversam o tempo todo.',
-          body: 'Bactérias intestinais influenciam cortisol e humor. Ácidos graxos de cadeia curta e DHA apoiam o eixo intestino-cérebro — cães inquietos à noite às vezes têm o estômago no centro da história.'
+          stat: '1 eixo',
+          headline: 'liga intestino e cérebro — e cães inquietos à noite às vezes têm o estômago no centro da história.',
+          body: 'Bactérias intestinais influenciam cortisol. Ácidos graxos de cadeia curta e DHA apoiam esse equilíbrio — especialmente em cães idosos.'
         },
         joints: {
-          headline: 'Em estudos com Boswellia, 71% dos cães melhoraram claudicação e rigidez em 6 semanas.',
+          stat: '71%',
+          headline: 'dos cães melhoraram claudicação e rigidez em 6 semanas em estudos com Boswellia.',
           body: 'Tutores começam pelo intestino e notam o cão se mexendo melhor. A inflamação crônica no intestino afeta articulações também — Boswellia e ômega-3 atuam na mesma cascata.'
         }
       };
@@ -796,6 +806,7 @@
         var data = INSIGHTS[state.main] || INSIGHTS.digestion;
         $('insightCard').innerHTML =
           '<div class="insight-kicker">Você sabia que...</div>' +
+          '<div class="insight-stat">' + data.stat + '</div>' +
           '<p class="insight-headline">' + data.headline + '</p>' +
           '<p class="insight-body">' + data.body + '</p>' +
           '<p class="insight-cite">Baseado em pesquisa interna Mimi &amp; Pipo · consulte seu veterinário</p>';
