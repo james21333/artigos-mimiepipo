@@ -646,42 +646,50 @@
         digestion: {
           stat: '70%',
           headline: 'do sistema imune do seu cão está no intestino — e diarreia ou vômito podem ser o primeiro sinal de que algo aí não vai bem.',
-          body: 'Quando a mucosa intestinal está inflamada, os sintomas voltam mesmo depois do vermífugo. Boswellia e prebióticos de levedura ajudam a apoiar a barreira intestinal — não só o que aparece no cocô.'
+          body: 'Quando a mucosa intestinal está inflamada, os sintomas voltam mesmo depois do vermífugo. Boswellia e prebióticos de levedura ajudam a apoiar a barreira intestinal — não só o que aparece no cocô.',
+          cite: 'Pesquisa interna Mimi &amp; Pipo'
         },
         itching: {
           stat: '70%',
           headline: 'do sistema imune do cão mora no intestino — e a coceira crônica muitas vezes começa aí, não na pele.',
-          body: 'Muitos tutores gastam com dermatologista e shampoo, mas ignoram o eixo intestino-pele. Spirulina e ômega-3 (EPA/DHA) apoiam esse equilíbrio por dentro.'
+          body: 'Muitos tutores gastam com dermatologista e shampoo, mas ignoram o eixo intestino-pele. Spirulina e ômega-3 (EPA/DHA) apoiam esse equilíbrio por dentro.',
+          cite: 'Pesquisa interna Mimi &amp; Pipo'
         },
         parasites: {
           stat: '85%',
           headline: 'dos tutores com giárdia no cão temem reinfecção — porque o vermífugo trata o parasita, mas nem sempre recupera o intestino.',
-          body: 'O extrato de Yucca schidigera age de forma diferente dos vermífugos tradicionais. Não substitui o veterinário, mas pode apoiar o intestino depois do tratamento.'
+          body: 'O extrato de Yucca schidigera age de forma diferente dos vermífugos tradicionais. Não substitui o veterinário, mas pode apoiar o intestino depois do tratamento.',
+          cite: 'Pesquisa interna Mimi &amp; Pipo'
         },
         scooting: {
           stat: '61,5%',
           headline: 'de recorrência nas glândulas anais foi reportado em estudos — e pode cair para 19% com fibra insolúvel e menos inflamação.',
-          body: 'Expressar toda hora na vet pode irritar mais. Cocô mais firme — com beterraba e farelo — ajuda na expressão natural das glândulas.'
+          body: 'Expressar toda hora na vet pode irritar mais. Cocô mais firme — com beterraba e farelo — ajuda na expressão natural das glândulas.',
+          cite: 'Estudo citado em pesquisa interna Mimi &amp; Pipo'
         },
         behavior: {
-          stat: '16%',
-          headline: 'dos cães comem cocô com frequência — e muitas vezes o intestino não está absorvendo bem, não é falta de treino.',
-          body: 'Gengibre apoia o esvaziamento gástrico; fibra e Yucca ajudam a equilibrar o microbioma e reduzir o apelo do cocô.'
+          stat: '23%',
+          headline: 'dos cães foram vistos comendo cocô pelo menos uma vez na pesquisa Hart com 1.552 tutores (UC Davis, 2018).',
+          body: '16% fazem isso com frequência (6+ vezes). Produtos comerciais contra coprofagia tiveram no máximo 2% de sucesso no mesmo estudo. Quando o intestino não absorve bem, o comportamento pode continuar — gengibre, fibra e Yucca apoiam por outro caminho.',
+          cite: 'Hart et al., Veterinary Medicine and Science, 2018'
         },
         odor: {
-          stat: '100%',
-          headline: 'do cheiro forte das fezes vem do que o intestino não processou bem — amônia e enxofre passam direto pro nariz.',
-          body: 'O Yucca schidigera ajuda a ligar esses compostos antes da excreção. Tutores em apartamento costumam notar a diferença primeiro no odor.'
+          stat: '43%',
+          headline: 'dos tutores relataram gases no cão em estudo com cães aparentemente saudáveis (Jones et al., 1998).',
+          body: '13% descreveram odor forte. O cheiro vem de compostos de amônia e enxofre na digestão — Yucca schidigera ajuda a ligar esses compostos antes da excreção.',
+          cite: 'Jones et al., New Zealand Veterinary Journal, 1998'
         },
         anxiety: {
-          stat: '1 eixo',
-          headline: 'liga intestino e cérebro — e cães inquietos à noite às vezes têm o estômago no centro da história.',
-          body: 'Bactérias intestinais influenciam cortisol. Ácidos graxos de cadeia curta e DHA apoiam esse equilíbrio — especialmente em cães idosos.'
+          stat: '72,5%',
+          headline: 'dos cães tinham comportamentos problemáticos ligados a ansiedade em estudo com 13.700 cães na Finlândia (Salonen et al., 2020).',
+          body: 'Pesquisas mostram que o microbioma intestinal influencia cortisol e o eixo HPA. Cães inquietos à noite às vezes têm o estômago no centro da história — ácidos graxos de cadeia curta e DHA apoiam o eixo intestino-cérebro.',
+          cite: 'Salonen et al., Scientific Reports, 2020'
         },
         joints: {
           stat: '71%',
           headline: 'dos cães melhoraram claudicação e rigidez em 6 semanas em estudos com Boswellia.',
-          body: 'Tutores começam pelo intestino e notam o cão se mexendo melhor. A inflamação crônica no intestino afeta articulações também — Boswellia e ômega-3 atuam na mesma cascata.'
+          body: 'Tutores começam pelo intestino e notam o cão se mexendo melhor. A inflamação crônica no intestino afeta articulações também — Boswellia e ômega-3 atuam na mesma cascata.',
+          cite: 'Estudo multicêntrico citado em pesquisa interna Mimi &amp; Pipo'
         }
       };
 
@@ -809,7 +817,7 @@
           '<div class="insight-stat">' + data.stat + '</div>' +
           '<p class="insight-headline">' + data.headline + '</p>' +
           '<p class="insight-body">' + data.body + '</p>' +
-          '<p class="insight-cite">Baseado em pesquisa interna Mimi &amp; Pipo · consulte seu veterinário</p>';
+          '<p class="insight-cite">Fonte: ' + (data.cite || 'Pesquisa interna Mimi &amp; Pipo') + ' · consulte seu veterinário</p>';
       }
 
       function renderResult() {
