@@ -502,7 +502,7 @@
       <span class="trust-pill">⭐ 4,7 · 635 avaliações</span>
     </div>
 
-    <div class="progress-wrap" id="progressWrap">
+    <div class="progress-wrap visible" id="progressWrap">
       <div class="progress-meta">
         <span id="stepLabel">Passo 1 de 5</span>
         <span id="pctLabel">0%</span>
@@ -510,25 +510,8 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     </div>
 
-    <!-- Welcome -->
-    <section class="screen active" id="screen-welcome" data-step="0">
-      <div class="logo">MIMI &amp; PIPO</div>
-      <div class="hero-dog" aria-hidden="true">🐾</div>
-      <h1>Descubra se o intestino explica os sintomas e comportamentos estranhos do seu cão</h1>
-      <p class="sub">Responda 5 perguntas rápidas e veja como o <strong>Digestão Saudável</strong> pode ajudar — em menos de 1 minuto.</p>
-      <div class="features">
-        <div class="feature"><div class="feature-icon">🌿</div><div><strong>Petiscos diários</strong> com prebióticos, ômega-3 e extratos botânicos — formulado por veterinários.</div></div>
-        <div class="feature"><div class="feature-icon">🎯</div><div><strong>Resultado personalizado</strong> com base nos sintomas que você marcar.</div></div>
-        <div class="feature"><div class="feature-icon">✨</div><div><strong>Sem cadastro</strong> — direto ao ponto, no celular.</div></div>
-      </div>
-      <div class="btn-row">
-        <button type="button" class="btn btn-primary" id="btnStart">Começar o quiz</button>
-      </div>
-    </section>
-
     <!-- Q1: main problem -->
-    <section class="screen" id="screen-q1" data-step="1">
-      <button type="button" class="btn-back" data-back>← Voltar</button>
+    <section class="screen active" id="screen-q1" data-step="1">
       <h2>Qual é o maior problema do seu cão hoje?</h2>
       <p class="hint">Toque na opção que mais se encaixa.</p>
       <div class="options" id="opts-q1"></div>
@@ -742,10 +725,10 @@
         duration: null,
         tried: [],
         size: null,
-        history: ['screen-welcome']
+        history: ['screen-q1']
       };
 
-      var screens = ['screen-welcome', 'screen-q1', 'screen-insight', 'screen-q2', 'screen-q3', 'screen-q4', 'screen-q5', 'screen-result'];
+      var screens = ['screen-q1', 'screen-insight', 'screen-q2', 'screen-q3', 'screen-q4', 'screen-q5', 'screen-result'];
       var progressSteps = 5;
 
       function $(id) { return document.getElementById(id); }
@@ -766,15 +749,14 @@
         });
         var step = parseInt((document.getElementById(id) || {}).dataset.step || '0', 10);
         var wrap = $('progressWrap');
-        if (id === 'screen-welcome') {
-          wrap.classList.remove('visible');
-        } else {
-          wrap.classList.add('visible');
-          var pct = id === 'screen-result' ? 100 : Math.min(100, Math.round((step / progressSteps) * 100));
-          $('progressFill').style.width = pct + '%';
-          $('pctLabel').textContent = pct + '%';
-          $('stepLabel').textContent = id === 'screen-result' ? 'Resultado' : 'Passo ' + Math.min(step, progressSteps) + ' de ' + progressSteps;
-        }
+        wrap.classList.add('visible');
+        var pct = id === 'screen-result' ? 100 : Math.min(100, Math.round((step / progressSteps) * 100));
+        $('progressFill').style.width = pct + '%';
+        $('pctLabel').textContent = pct + '%';
+        $('stepLabel').textContent = id === 'screen-result' ? 'Resultado' : 'Passo ' + Math.min(step, progressSteps) + ' de ' + progressSteps;
+        document.querySelectorAll('#quiz1-app [data-back]').forEach(function (btn) {
+          btn.style.visibility = id === 'screen-q1' ? 'hidden' : 'visible';
+        });
         if (state.history[state.history.length - 1] !== id) state.history.push(id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -905,14 +887,12 @@
         setTimeout(function () { showScreen('screen-result'); }, 280);
       });
 
-      $('btnStart').addEventListener('click', function () { showScreen('screen-q1'); });
-
       $('btnRestart').addEventListener('click', function () {
-        state = { main: null, secondary: [], duration: null, tried: [], size: null, history: ['screen-welcome'] };
+        state = { main: null, secondary: [], duration: null, tried: [], size: null, history: ['screen-q1'] };
         document.querySelectorAll('.option.selected').forEach(function (o) { o.classList.remove('selected'); });
         $('btnQ2').disabled = true;
         $('btnQ4').disabled = true;
-        showScreen('screen-welcome');
+        showScreen('screen-q1');
       });
 
       document.querySelectorAll('[data-back]').forEach(function (btn) {
@@ -920,6 +900,7 @@
       });
 
       $('ctaPdp').href = pdpUrl();
+      showScreen('screen-q1');
     })();
   </script>
 
