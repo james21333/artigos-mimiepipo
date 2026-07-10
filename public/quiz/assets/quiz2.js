@@ -129,11 +129,16 @@
 
   function el(id) { return document.getElementById(id); }
   function pdpUrl() {
+    var ATTR = ['fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
     var incoming = new URLSearchParams(location.search);
     var p = new URLSearchParams();
-    p.set('utm_source', incoming.get('utm_source') || 'quiz2');
-    p.set('utm_medium', incoming.get('utm_medium') || 'artigos');
-    p.set('utm_campaign', incoming.get('utm_campaign') || 'digestao-quiz-vitalpaws');
+    ATTR.forEach(function (k) {
+      var v = incoming.get(k);
+      if (v) p.set(k, v);
+    });
+    if (!p.has('utm_source')) p.set('utm_source', 'quiz2');
+    if (!p.has('utm_medium')) p.set('utm_medium', 'artigos');
+    if (!p.has('utm_campaign')) p.set('utm_campaign', 'digestao-quiz-vitalpaws');
     var qs = p.toString();
     return qs ? PDP + '?' + qs : PDP;
   }

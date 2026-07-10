@@ -668,11 +668,16 @@
       function $(id) { return document.getElementById(id); }
 
       function pdpUrl() {
+        var ATTR = ['fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
         var incoming = new URLSearchParams(window.location.search);
         var params = new URLSearchParams();
-        params.set('utm_source', incoming.get('utm_source') || 'advertorial');
-        params.set('utm_medium', incoming.get('utm_medium') || 'artigos');
-        params.set('utm_campaign', incoming.get('utm_campaign') || 'digestao-quiz-advertorial');
+        ATTR.forEach(function (k) {
+          var v = incoming.get(k);
+          if (v) params.set(k, v);
+        });
+        if (!params.has('utm_source')) params.set('utm_source', 'advertorial');
+        if (!params.has('utm_medium')) params.set('utm_medium', 'artigos');
+        if (!params.has('utm_campaign')) params.set('utm_campaign', 'digestao-quiz-advertorial');
         if (state.main) params.set('utm_content', state.main);
         var qs = params.toString();
         return qs ? PDP + '?' + qs : PDP;
