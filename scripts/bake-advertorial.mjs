@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Bake static advertorial.html fallback from template + default params. */
+/** Bake static advertorial2.html fallback from template + default params. */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -11,5 +11,5 @@ const template = readFileSync(
   'utf8',
 );
 const html = renderAdvertorial(template, new URLSearchParams());
-writeFileSync(join(root, 'public/advertorial.html'), html, 'utf8');
-console.log('Wrote public/advertorial.html (static fallback)');
+writeFileSync(join(root, 'public/advertorial2.html'), html, 'utf8');
+console.log('Wrote public/advertorial2.html (static fallback)');

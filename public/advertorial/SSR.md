@@ -4,10 +4,12 @@ Dynamic ATF fields are rendered **on the server** before HTML reaches the browse
 
 ## Routes (SSR via Pages Functions)
 
-- `/advertorial.html`
-- `/advertorial`
+- `/advertorial2.html`
+- `/advertorial2`
 
 Both read `public/advertorial.template.html` and inject query params at the edge.
+
+**Note:** `/advertorial.html` is now the **Quiz 1** lander (static HTML, no SSR). Story prelanders and `?id=` / `?angle=` URLs should use **advertorial2**.
 
 ## URL parameters
 
@@ -30,7 +32,7 @@ Both read `public/advertorial.template.html` and inject query params at the edge
 Example:
 
 ```
-https://artigos.mimiepipo.com.br/advertorial.html?angle=digestion
+https://artigos.mimiepipo.com.br/advertorial2.html?angle=digestion
 ```
 
 Per-ad URLs from `prelander-urls.json` still use explicit `h1`, `hero`, `lead`, `problem` (recommended for hook match).
@@ -51,7 +53,7 @@ After editing `advertorial.template.html`:
 node scripts/bake-advertorial.mjs
 ```
 
-Produces `public/advertorial.html` (fallback if Functions unavailable).
+Produces `public/advertorial2.html` (fallback if Functions unavailable).
 
 ## Deploy
 
