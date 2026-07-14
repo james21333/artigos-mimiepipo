@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Mimi &amp; Pipo</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Internal content ops station — GhostCut, media, RunPod (coming next).">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main>
+    <header class="site-header">
+      <p class="brand">Content Station</p>
+      <p class="sub">Mimi &amp; Pipo · hosted on artigos.mimiepipo.com.br</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected ops panel. API routes require a server session cookie.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="panel">
+        <h2>GhostCut / JollyToday</h2>
+        <p class="lede">Signed proxy via Pages Functions. Credentials stay in Cloudflare env — never in the browser.</p>
+        <div class="row">
+          <button type="button" id="balance-btn">Check point balance</button>
+          <button type="button" id="status-demo-btn" class="ghost">Demo: work/status probe</button>
+        </div>
+        <pre id="ghostcut-out" class="out" aria-live="polite">Ready.</pre>
+      </section>
+
+      <section class="panel muted">
+        <h2>Media (R2)</h2>
+        <p class="lede">Stub only. Cloudflare R2 is the planned low-cost store for source/result media.</p>
+        <button type="button" id="media-btn" class="ghost">Probe media endpoint</button>
+        <pre id="media-out" class="out">Not connected yet.</pre>
+      </section>
+
+      <section class="panel muted">
+        <h2>RunPod</h2>
+        <p class="lede">Coming next — deferred while RunPod is unavailable. Placeholder only.</p>
+        <button type="button" id="runpod-btn" class="ghost">Probe RunPod stub</button>
+        <pre id="runpod-out" class="out">Coming next.</pre>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="/">← Artigos hub</a>
+      · Deploy from <code>artigos-mimiepipo</code> branch <code>feature/contentstation</code>
+    </p>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
