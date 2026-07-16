@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | TikTok download</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Download a public TikTok video without watermark when available.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main>
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html" aria-current="page">TikTok download</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">TikTok download</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>TikTok download</h1>
+        <p class="lede">Paste a public TikTok link. We’ll save a no-watermark copy when the platform allows it.</p>
+
+        <label for="tiktok-url">TikTok URL</label>
+        <input id="tiktok-url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…">
+
+        <div class="row">
+          <button type="button" id="download-btn">Download video</button>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="download-error" class="error" hidden></p>
+
+        <div id="result" class="download-result" hidden>
+          <p id="result-title" class="result-title"></p>
+          <p id="result-meta" class="muted-line"></p>
+          <video id="result-preview" class="result-preview" controls playsinline preload="metadata" hidden></video>
+          <p class="row result-actions">
+            <a id="result-download" class="btn-link" href="#" download>Download MP4</a>
+            <a class="btn-link" href="./">Open Clean video</a>
+          </p>
+        </div>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./">← Clean video</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./tiktok-download-app.js"></script>
+</body>
+</html>

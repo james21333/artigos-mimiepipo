@@ -351,3 +351,30 @@ a { color: var(--accent); }
   font-size: 0.92rem;
   padding: 0.4rem 0.8rem;
 }
+
+.download-result {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  animation: fade-in 0.4s ease-out both;
+}
+
+.result-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+
+.result-preview {
+  display: block;
+  width: 100%;
+  max-height: 22rem;
+  margin: 0.75rem 0;
+  background: #0f1713;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+}
+
+.result-actions {
+  margin-top: 0.5rem;
+}
