@@ -1,10 +1,13 @@
 /**
- * CloudConvert API v2 helpers (metadata strip via ffmpeg command).
+ * CloudConvert API v2 helpers (ffmpeg post-process: metadata strip + audio alter).
  * Auth: Authorization: Bearer CLOUDCONVERT_API_KEY
  * Docs: https://cloudconvert.com/docs/operations/execute-commands
  */
 
 const API_BASE = 'https://api.cloudconvert.com/v2';
+
+/** Subtle pitch micro-shift (~3%). Tempo restored so duration/speech pace stay natural. */
+export const AUDIO_ALTER_PITCH = 1.03;
 
 export function cloudconvertConfigured(env) {
   return Boolean(env && env.CLOUDCONVERT_API_KEY);
@@ -35,14 +38,49 @@ function outputNameFromInput(filename) {
 }
 
 /**
- * Build ffmpeg args: strip container metadata, stream-copy when possible.
- * Equivalent to: ffmpeg -map_metadata -1 -map_chapters -1 -c copy …
+ * Community-style micro pitch (~3%) via asetrate + aresample, then atempo to restore tempo.
+ * Portable (no rubberband). Speech stays natural; fingerprint shifts slightly.
  */
-export function buildStripArguments(inputTaskName, inputFilename, outputFilename) {
+export function buildAudioAlterFilter(pitch = AUDIO_ALTER_PITCH) {
+  const p = Number(pitch);
+  const ratio = Number.isFinite(p) && p > 0.5 && p < 1.5 ? p : AUDIO_ALTER_PITCH;
+  const atempo = Math.round((1 / ratio) * 1e6) / 1e6;
+  return `asetrate=44100*${ratio},aresample=44100,atempo=${atempo}`;
+}
+
+/**
+ * Build ffmpeg args for post-process.
+ * - strip only: stream-copy (fast)
+ * - alter audio (± strip): copy video, re-encode audio with micro pitch filter
+ */
+export function buildFfmpegArguments(inputTaskName, inputFilename, outputFilename, flags = {}) {
+  const stripMetadata = Boolean(flags.stripMetadata);
+  const alterAudio = Boolean(flags.alterAudio);
   const inPath = `/input/${inputTaskName}/${safeVideoFilename(inputFilename)}`;
   const outPath = `/output/${outputFilename || outputNameFromInput(inputFilename)}`;
-  // -map 0 keeps all streams; bitexact reduces residual encoder tags when muxing.
-  return `-i ${inPath} -map 0 -map_metadata -1 -map_chapters -1 -c copy -fflags +bitexact ${outPath}`;
+  const meta = stripMetadata || alterAudio ? '-map_metadata -1 -map_chapters -1' : '';
+
+  if (alterAudio) {
+    const af = buildAudioAlterFilter(flags.pitch);
+    // Video stream-copy; AAC re-encode required for the audio filter.
+    // Quote the filter — commas would otherwise break argument splitting.
+    return `-i ${inPath} -map 0:v:0 -map 0:a:0 ${meta} -c:v copy -af "${af}" -c:a aac -b:a 192k -movflags +faststart -fflags +bitexact ${outPath}`
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Metadata strip only — stream copy when possible.
+  return `-i ${inPath} -map 0 ${meta || '-map_metadata -1 -map_chapters -1'} -c copy -fflags +bitexact ${outPath}`
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** @deprecated Prefer buildFfmpegArguments — kept for callers that only strip. */
+export function buildStripArguments(inputTaskName, inputFilename, outputFilename) {
+  return buildFfmpegArguments(inputTaskName, inputFilename, outputFilename, {
+    stripMetadata: true,
+    alterAudio: false,
+  });
 }
 
 async function parseJsonResponse(res) {
@@ -56,24 +94,53 @@ async function parseJsonResponse(res) {
   return { ok: res.ok, status: res.status, data };
 }
 
+function postProcessLabel(flags = {}, { processing = false } = {}) {
+  const strip = Boolean(flags.stripMetadata);
+  const audio = Boolean(flags.alterAudio);
+  if (processing) {
+    if (strip && audio) return 'Finishing audio & metadata…';
+    if (audio) return 'Altering audio…';
+    return 'Stripping metadata…';
+  }
+  if (strip && audio) return 'audio+metadata';
+  if (audio) return 'audio';
+  return 'metadata';
+}
+
 /**
- * Create an async job: import/url → ffmpeg metadata strip (stream copy) → export/url.
+ * Create an async job: import/url → ffmpeg (strip and/or alter audio) → export/url.
+ * Prefer one combined command when both stripMetadata and alterAudio are set.
  */
-export async function createMetadataStripJob(env, videoUrl, { filename, tag } = {}) {
+export async function createFfmpegPostJob(env, videoUrl, { filename, tag, stripMetadata, alterAudio } = {}) {
   if (!cloudconvertConfigured(env)) {
     return {
       ok: false,
       status: 503,
-      data: { error: 'metadata_unconfigured', message: 'Metadata cleaning isn’t configured.' },
+      data: { error: 'metadata_unconfigured', message: 'Post-processing isn’t configured.' },
     };
   }
   if (!videoUrl || typeof videoUrl !== 'string') {
     return { ok: false, status: 400, data: { error: 'invalid_url', message: 'A valid video URL is required.' } };
   }
 
+  const strip = Boolean(stripMetadata);
+  const audio = Boolean(alterAudio);
+  if (!strip && !audio) {
+    return {
+      ok: false,
+      status: 400,
+      data: { error: 'no_post_options', message: 'Select metadata strip and/or alter audio.' },
+    };
+  }
+
   const inputName = 'import-file';
   const inputFilename = safeVideoFilename(filename || 'input.mp4');
   const outputFilename = outputNameFromInput(inputFilename);
+  const flags = { stripMetadata: strip || audio, alterAudio: audio };
+  // When altering audio we always strip map_metadata in the same command (cheap).
+  // When strip-only, keep the stream-copy path.
+  if (audio) flags.stripMetadata = true;
+  else flags.stripMetadata = strip;
 
   const body = {
     tasks: {
@@ -82,17 +149,17 @@ export async function createMetadataStripJob(env, videoUrl, { filename, tag } = 
         url: videoUrl.trim(),
         filename: inputFilename,
       },
-      'strip-metadata': {
+      'ffmpeg-post': {
         operation: 'command',
         input: inputName,
         engine: 'ffmpeg',
         command: 'ffmpeg',
         capture_output: false,
-        arguments: buildStripArguments(inputName, inputFilename, outputFilename),
+        arguments: buildFfmpegArguments(inputName, inputFilename, outputFilename, flags),
       },
       'export-file': {
         operation: 'export/url',
-        input: 'strip-metadata',
+        input: 'ffmpeg-post',
       },
     },
   };
@@ -106,12 +173,23 @@ export async function createMetadataStripJob(env, videoUrl, { filename, tag } = 
   return parseJsonResponse(res);
 }
 
+/**
+ * Create an async job: import/url → ffmpeg metadata strip (stream copy) → export/url.
+ */
+export async function createMetadataStripJob(env, videoUrl, opts = {}) {
+  return createFfmpegPostJob(env, videoUrl, {
+    ...opts,
+    stripMetadata: true,
+    alterAudio: Boolean(opts.alterAudio),
+  });
+}
+
 export async function getJob(env, jobId) {
   if (!cloudconvertConfigured(env)) {
     return {
       ok: false,
       status: 503,
-      data: { error: 'metadata_unconfigured', message: 'Metadata cleaning isn’t configured.' },
+      data: { error: 'metadata_unconfigured', message: 'Post-processing isn’t configured.' },
     };
   }
   const id = String(jobId || '').trim();
@@ -134,7 +212,7 @@ export async function getUserCredits(env) {
     return {
       ok: false,
       status: 503,
-      data: { error: 'metadata_unconfigured', message: 'Metadata cleaning isn’t configured.' },
+      data: { error: 'metadata_unconfigured', message: 'Post-processing isn’t configured.' },
       credits: null,
     };
   }
@@ -191,14 +269,18 @@ export function extractJobError(job) {
 /**
  * Map CloudConvert job → Clean UI status shape.
  * Includes creditsUsed.cleaning from task.credits when finished (exact).
+ * @param {{ stripMetadata?: boolean, alterAudio?: boolean }} [postFlags]
  */
-export function summarizeCloudConvertJob(jobPayload, jobId) {
+export function summarizeCloudConvertJob(jobPayload, jobId, postFlags = null) {
   const job = jobPayload?.data || jobPayload || {};
   const status = String(job.status || '').toLowerCase();
   const id = job.id || jobId;
+  const flags = postFlags && typeof postFlags === 'object' ? postFlags : { stripMetadata: true };
+  const stage = flags.alterAudio && !flags.stripMetadata ? 'audio' : 'metadata';
   const cleaningCredits = status === 'finished' ? sumJobCredits(jobPayload) : null;
   const creditsUsed =
     cleaningCredits != null ? { cleaning: cleaningCredits, videoAlter: null } : null;
+  const processingLabel = postProcessLabel(flags, { processing: true });
 
   if (status === 'finished') {
     const downloadUrl = extractExportUrl(jobPayload);
@@ -207,7 +289,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
         state: 'ready',
         label: 'Ready to download',
         progress: 100,
-        stage: 'metadata',
+        stage,
         downloadUrl,
         error: null,
         creditsUsed: creditsUsed || { cleaning: 1, videoAlter: null },
@@ -217,7 +299,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
             state: 'ready',
             label: 'Ready to download',
             downloadUrl,
-            stage: 'metadata',
+            stage,
           },
         ],
       };
@@ -226,21 +308,21 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
       state: 'failed',
       label: 'Cleaning failed',
       progress: null,
-      stage: 'metadata',
+      stage,
       downloadUrl: null,
-      error: 'Metadata strip finished but no download URL was returned.',
+      error: 'Post-process finished but no download URL was returned.',
       creditsUsed: null,
       works: [],
     };
   }
 
   if (status === 'error') {
-    const err = extractJobError(jobPayload) || 'Metadata cleaning failed.';
+    const err = extractJobError(jobPayload) || 'Post-processing failed.';
     return {
       state: 'failed',
       label: 'Cleaning failed',
       progress: null,
-      stage: 'metadata',
+      stage,
       downloadUrl: null,
       error: err,
       creditsUsed: null,
@@ -250,7 +332,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
           state: 'failed',
           label: 'Cleaning failed',
           error: err,
-          stage: 'metadata',
+          stage,
         },
       ],
     };
@@ -258,9 +340,9 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
 
   return {
     state: 'processing',
-    label: 'Stripping metadata…',
+    label: processingLabel,
     progress: null,
-    stage: 'metadata',
+    stage,
     downloadUrl: null,
     error: null,
     creditsUsed: null,
@@ -268,8 +350,8 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
       {
         workId: id ? `cc:${id}` : null,
         state: 'processing',
-        label: 'Stripping metadata…',
-        stage: 'metadata',
+        label: processingLabel,
+        stage,
       },
     ],
   };

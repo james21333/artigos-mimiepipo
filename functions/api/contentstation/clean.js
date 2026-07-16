@@ -2,7 +2,7 @@ import { json, requireSession } from '../../lib/contentstation-auth.js';
 import { ghostcutPost } from '../../lib/ghostcut.js';
 import {
   cloudconvertConfigured,
-  createMetadataStripJob,
+  createFfmpegPostJob,
   getJob,
   summarizeCloudConvertJob,
 } from '../../lib/cloudconvert.js';
@@ -27,12 +27,13 @@ import {
  * Option → API mapping (internal; see docs/CLEAN-VIDEO-INTERNAL.md):
  *   removeWatermark  → needChineseOcclude + advanced_lite fullscreen OCR erase
  *   cleanMetadata    → CloudConvert ffmpeg -map_metadata -1 -c copy (after visual jobs)
+ *   alterAudio       → CloudConvert ffmpeg micro pitch/tempo (~3% asetrate/atempo)
  *   basicVideoRemix  → needTrim only + trim color/sharpness/speedup (Video Remaker defaults)
  *   remix            → needTrim + needRescale + needShift (+ trim color/sharpness/speedup)
  *   deepAiRemake     → trim + rescale/shift + needMask template + transition + randomBorder
  *   mirror           → needMirror=1
  *
- * Pipeline order: GhostCut visual options first → then CloudConvert metadata strip.
+ * Pipeline order: GhostCut visual options first → then CloudConvert post (metadata and/or audio).
  */
 
 const WORK_FREE = '/v-w-c/gateway/ve/work/free';
@@ -78,6 +79,7 @@ function parseOptions(raw) {
   return {
     removeWatermark: Boolean(src.removeWatermark),
     cleanMetadata: Boolean(src.cleanMetadata),
+    alterAudio: Boolean(src.alterAudio),
     basicVideoRemix: Boolean(src.basicVideoRemix),
     remix: Boolean(src.remix),
     deepAiRemake: Boolean(src.deepAiRemake),
@@ -89,6 +91,7 @@ function hasAnyCleanOption(opts) {
   return Boolean(
     opts.removeWatermark ||
       opts.cleanMetadata ||
+      opts.alterAudio ||
       opts.basicVideoRemix ||
       opts.remix ||
       opts.deepAiRemake ||
@@ -104,6 +107,26 @@ function needsVisual(opts) {
       opts.deepAiRemake ||
       opts.mirror,
   );
+}
+
+/** CloudConvert post step: metadata strip and/or audio fingerprint alter. */
+function needsCloudPost(opts) {
+  return Boolean(opts.cleanMetadata || opts.alterAudio);
+}
+
+function cloudPostFlags(opts) {
+  return {
+    stripMetadata: Boolean(opts.cleanMetadata),
+    alterAudio: Boolean(opts.alterAudio),
+  };
+}
+
+function cloudPostProcessingLabel(opts) {
+  const strip = Boolean(opts?.cleanMetadata || opts?.stripMetadata);
+  const audio = Boolean(opts?.alterAudio);
+  if (strip && audio) return 'Finishing audio & metadata…';
+  if (audio) return 'Altering audio…';
+  return 'Stripping metadata…';
 }
 
 /** Official Video Remaker “Basic Edit” sub-options (no crop trailer). */
@@ -145,7 +168,7 @@ function filenameFromUrl(url) {
 
 /**
  * Build /work/free payload from visual checkbox options only.
- * cleanMetadata is handled separately via CloudConvert after this step.
+ * cleanMetadata / alterAudio are handled via CloudConvert after this step.
  */
 export function buildCleanPayload(videoUrl, options) {
   const opts = parseOptions(options);
@@ -432,37 +455,47 @@ async function readJobOptionsCache(workKey) {
   }
 }
 
-async function startMetadataStrip(env, videoUrl, tag) {
-  const result = await createMetadataStripJob(env, videoUrl, {
+async function startCloudPost(env, videoUrl, options, tag) {
+  const opts = parseOptions(options);
+  const flags = cloudPostFlags(opts);
+  if (!flags.stripMetadata && !flags.alterAudio) {
+    return { ok: false, response: clientFail('No post-process options selected.', 400) };
+  }
+  const result = await createFfmpegPostJob(env, videoUrl, {
     filename: filenameFromUrl(videoUrl),
-    tag: tag || 'cs-clean-meta',
+    tag: tag || 'cs-clean-post',
+    stripMetadata: flags.stripMetadata,
+    alterAudio: flags.alterAudio,
   });
   if (!result.ok) {
     const msg =
       result.data?.message ||
       result.data?.error ||
       (Array.isArray(result.data?.errors) && result.data.errors[0]?.detail) ||
-      'Could not start metadata cleaning.';
+      'Could not start post-processing.';
     return { ok: false, response: clientFail(friendlyError(msg), result.status || 502) };
   }
   const jobId = result.data?.data?.id || result.data?.id;
   if (!jobId) {
     return {
       ok: false,
-      response: clientFail('Metadata job started but no id was returned.', 502, {
+      response: clientFail('Post-process job started but no id was returned.', 502, {
         detail: sanitizePayload(result.data),
       }),
     };
   }
+  const label = cloudPostProcessingLabel(opts);
+  const stage = flags.alterAudio && !flags.stripMetadata ? 'audio' : 'metadata';
   return {
     ok: true,
     jobId: String(jobId),
+    flags,
     response: json({
       ok: true,
       workId: encodeWorkId({ kind: 'cc', id: jobId }),
       state: 'processing',
-      label: 'Stripping metadata…',
-      stage: 'metadata',
+      label,
+      stage,
       message: 'Job submitted. Poll status until ready.',
     }),
   };
@@ -511,10 +544,15 @@ async function submitWork(env, videoUrl, options) {
     return { ok: false, response: clientFail('Select at least one clean option.', 400) };
   }
 
-  if (opts.cleanMetadata && !cloudconvertConfigured(env)) {
+  if (needsCloudPost(opts) && !cloudconvertConfigured(env)) {
+    const msg = opts.alterAudio && !opts.cleanMetadata
+      ? 'Audio cleaning isn’t configured.'
+      : opts.cleanMetadata && !opts.alterAudio
+        ? 'Metadata cleaning isn’t configured.'
+        : 'Post-processing isn’t configured.';
     return {
       ok: false,
-      response: clientFail('Metadata cleaning isn’t configured.', 503, {
+      response: clientFail(msg, 503, {
         error: 'metadata_unconfigured',
       }),
     };
@@ -528,9 +566,13 @@ async function submitWork(env, videoUrl, options) {
     };
   }
 
-  // Metadata-only: CloudConvert strip on the source URL.
-  if (!visual && opts.cleanMetadata) {
-    return startMetadataStrip(env, videoUrl, 'cs-meta-only');
+  // CloudConvert-only (metadata and/or alter audio) on the source URL.
+  if (!visual && needsCloudPost(opts)) {
+    const started = await startCloudPost(env, videoUrl, opts, 'cs-post-only');
+    if (started.ok) {
+      await writeJobOptionsCache(`cc:${started.jobId}`, opts);
+    }
+    return started;
   }
 
   const built = buildCleanPayload(videoUrl, opts);
@@ -541,7 +583,7 @@ async function submitWork(env, videoUrl, options) {
   const gc = await submitGhostCut(env, videoUrl, built.payload);
   if (!gc.ok) return gc;
 
-  const workId = opts.cleanMetadata
+  const workId = needsCloudPost(opts)
     ? encodeWorkId({ kind: 'pipe', id: gc.workId })
     : encodeWorkId({ kind: 'gc', id: gc.workId });
 
@@ -553,7 +595,7 @@ async function submitWork(env, videoUrl, options) {
       ok: true,
       workId,
       state: 'processing',
-      label: opts.cleanMetadata ? 'Cleaning video…' : 'Cleaning…',
+      label: needsCloudPost(opts) ? 'Cleaning video…' : 'Cleaning…',
       stage: 'visual',
       progress: 0,
       message: 'Job submitted. Poll status until ready.',
@@ -584,7 +626,7 @@ async function statusGhostCut(env, rawId) {
   };
 }
 
-async function statusCloudConvert(env, jobId, creditExtras = null) {
+async function statusCloudConvert(env, jobId, creditExtras = null, postFlags = null) {
   const result = await getJob(env, jobId);
   if (!result.ok) {
     return {
@@ -597,7 +639,12 @@ async function statusCloudConvert(env, jobId, creditExtras = null) {
       ),
     };
   }
-  const summary = summarizeCloudConvertJob(result.data, jobId);
+  let flags = postFlags;
+  if (!flags) {
+    const cached = await readJobOptionsCache(`cc:${jobId}`);
+    if (cached) flags = cloudPostFlags(cached);
+  }
+  const summary = summarizeCloudConvertJob(result.data, jobId, flags);
   let creditsUsed = summary.creditsUsed;
   if (creditsUsed && creditExtras && creditExtras.videoAlter != null) {
     creditsUsed = {
@@ -625,13 +672,23 @@ async function statusPipe(env, gcId) {
     pipeMeta?.videoAlterEstimate != null
       ? Number(pipeMeta.videoAlterEstimate)
       : null;
+  const pipeOpts =
+    pipeMeta?.options ||
+    (await readJobOptionsCache(gcId)) ||
+    { cleanMetadata: true, alterAudio: false };
+  const postFlags = cloudPostFlags(parseOptions(pipeOpts));
 
-  // If we already started the metadata step, follow that job.
+  // If we already started the CloudConvert post step, follow that job.
   const cachedCc = pipeMeta?.ccJobId ? String(pipeMeta.ccJobId) : null;
   if (cachedCc) {
-    return statusCloudConvert(env, cachedCc, {
-      videoAlter: Number.isFinite(videoAlterEstimate) ? videoAlterEstimate : null,
-    });
+    return statusCloudConvert(
+      env,
+      cachedCc,
+      {
+        videoAlter: Number.isFinite(videoAlterEstimate) ? videoAlterEstimate : null,
+      },
+      postFlags,
+    );
   }
 
   const gc = await statusGhostCut(env, gcId);
@@ -674,9 +731,9 @@ async function statusPipe(env, gcId) {
       ? summary.creditsUsed.videoAlter
       : null;
 
-  // Visual stage done → start metadata strip on the result (once).
+  // Visual stage done → start CloudConvert post on the result (once).
   if (!cloudconvertConfigured(env)) {
-    // Don't strand a finished visual job: return the cleaned video without metadata strip.
+    // Don't strand a finished visual job: return the cleaned video without post step.
     return {
       ok: true,
       response: json({
@@ -689,7 +746,7 @@ async function statusPipe(env, gcId) {
         downloadUrl: summary.downloadUrl,
         error: null,
         creditsUsed: alterUsed != null ? { cleaning: null, videoAlter: alterUsed } : summary.creditsUsed,
-        message: 'Visual clean done. Metadata cleaning isn’t configured, so that step was skipped.',
+        message: 'Visual clean done. Post-processing isn’t configured, so that step was skipped.',
         works: summary.works || [],
       }),
     };
@@ -698,20 +755,26 @@ async function statusPipe(env, gcId) {
   // Re-check cache in case another poll started the job.
   const againMeta = await readPipeMeta(gcId);
   if (againMeta?.ccJobId) {
-    return statusCloudConvert(env, String(againMeta.ccJobId), {
-      videoAlter:
-        againMeta.videoAlterEstimate != null
-          ? Number(againMeta.videoAlterEstimate)
-          : alterUsed,
-    });
+    const againOpts = againMeta.options || pipeOpts;
+    return statusCloudConvert(
+      env,
+      String(againMeta.ccJobId),
+      {
+        videoAlter:
+          againMeta.videoAlterEstimate != null
+            ? Number(againMeta.videoAlterEstimate)
+            : alterUsed,
+      },
+      cloudPostFlags(parseOptions(againOpts)),
+    );
   }
 
-  const started = await startMetadataStrip(env, summary.downloadUrl, `cs-pipe-${gcId}`);
+  const started = await startCloudPost(env, summary.downloadUrl, pipeOpts, `cs-pipe-${gcId}`);
   if (!started.ok) {
-    // Visual result exists — surface metadata failure but keep download available.
+    // Visual result exists — surface post failure but keep download available.
     const failBody = await started.response.clone().json().catch(() => null);
     const metaErr =
-      failBody?.message || 'Could not start metadata cleaning after the visual step finished.';
+      failBody?.message || 'Could not start post-processing after the visual step finished.';
     return {
       ok: true,
       response: json({
@@ -725,7 +788,7 @@ async function statusPipe(env, gcId) {
         error: null,
         creditsUsed: alterUsed != null ? { cleaning: null, videoAlter: alterUsed } : summary.creditsUsed,
         warning: friendlyError(metaErr),
-        message: 'Visual clean done. Metadata strip failed — download is the visual result.',
+        message: 'Visual clean done. Post-process failed — download is the visual result.',
         works: summary.works || [],
       }),
     };
@@ -733,18 +796,21 @@ async function statusPipe(env, gcId) {
 
   await writePipeCache(gcId, started.jobId, {
     videoAlterEstimate: alterUsed,
-    options: pipeMeta?.options || (await readJobOptionsCache(gcId)),
+    options: pipeOpts,
   });
+  await writeJobOptionsCache(`cc:${started.jobId}`, pipeOpts);
+  const label = cloudPostProcessingLabel(pipeOpts);
+  const stage = postFlags.alterAudio && !postFlags.stripMetadata ? 'audio' : 'metadata';
   return {
     ok: true,
     response: json({
       ok: true,
       workId: encodeWorkId({ kind: 'cc', id: started.jobId }),
       state: 'processing',
-      label: 'Stripping metadata…',
+      label,
       progress: null,
-      stage: 'metadata',
-      message: 'Visual clean done; stripping metadata…',
+      stage,
+      message: `Visual clean done; ${label.toLowerCase()}`,
       downloadUrl: null,
       error: null,
       creditsUsed: alterUsed != null ? { cleaning: null, videoAlter: alterUsed } : null,
@@ -938,7 +1004,7 @@ async function uploadThenSubmit(env, file, options) {
       response: clientFail('Video cleaning isn’t fully configured yet.', 503),
     };
   }
-  if (!processorConfigured(env) && opts.cleanMetadata && !needsVisual(opts)) {
+  if (!processorConfigured(env) && needsCloudPost(opts) && !needsVisual(opts)) {
     // No OSS uploader available — client should use /media (R2) then submit URL.
     return {
       ok: false,

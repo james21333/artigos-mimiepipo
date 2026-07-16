@@ -173,7 +173,7 @@
   }
 
   function jobUsedCleaning(workId, options) {
-    if (options && options.cleanMetadata) return true;
+    if (options && (options.cleanMetadata || options.alterAudio)) return true;
     return String(workId || '').startsWith('cc:');
   }
 
@@ -207,7 +207,10 @@
     const snap = loadCreditSnap();
     const options = (snap && snap.options) || lastJobOptions || selectedOptions();
     const usedVisual = jobUsedVisual(workId, options);
-    const usedCleaning = jobUsedCleaning(workId, options) || data?.stage === 'metadata';
+    const usedCleaning =
+      jobUsedCleaning(workId, options) ||
+      data?.stage === 'metadata' ||
+      data?.stage === 'audio';
 
     const after = await refreshBalances();
     const partial = {};
@@ -291,6 +294,7 @@
     return {
       removeWatermark: document.getElementById('opt-watermark').checked,
       cleanMetadata: document.getElementById('opt-metadata').checked,
+      alterAudio: document.getElementById('opt-alter-audio').checked,
       basicVideoRemix: document.getElementById('opt-basic-video-remix').checked,
       remix: document.getElementById('opt-remix').checked,
       deepAiRemake: document.getElementById('opt-deep-ai-remake').checked,
@@ -374,6 +378,7 @@
     if (workId) bits.push(`Job ${workId}`);
     if (data && data.stage === 'visual') bits.push('visual stage');
     if (data && data.stage === 'metadata') bits.push('metadata stage');
+    if (data && data.stage === 'audio') bits.push('audio stage');
     if (data && data.progress != null && data.state === 'processing') {
       bits.push(`${data.progress}%`);
     }
@@ -569,6 +574,7 @@
     if (
       !options.removeWatermark &&
       !options.cleanMetadata &&
+      !options.alterAudio &&
       !options.basicVideoRemix &&
       !options.remix &&
       !options.deepAiRemake &&
@@ -584,8 +590,16 @@
       return;
     }
 
-    if (options.cleanMetadata && window.__csSession && window.__csSession.metadataReady === false) {
-      setError('Metadata cleaning isn’t configured.');
+    if (
+      (options.cleanMetadata || options.alterAudio) &&
+      window.__csSession &&
+      window.__csSession.metadataReady === false
+    ) {
+      setError(
+        options.alterAudio && !options.cleanMetadata
+          ? 'Audio cleaning isn’t configured.'
+          : 'Metadata cleaning isn’t configured.',
+      );
       return;
     }
 

@@ -27,6 +27,7 @@ export async function onRequestGet(context) {
       r2: r2Bound,
       runpod: runpodConfigured,
       metadataStrip: metadataReady,
+      alterAudio: metadataReady,
     },
   };
 
