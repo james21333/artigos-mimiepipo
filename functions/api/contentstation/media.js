@@ -220,6 +220,7 @@ async function handleJson(env, bucket, request) {
       status: 'ok',
       ...signed,
       downloadPath: downloadPath(key),
+      publicUrl: publicUrl(env, key),
       note: 'PUT the file bytes directly to url with the returned headers (browser/CORS may require R2 CORS rules).',
     });
   }

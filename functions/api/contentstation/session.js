@@ -5,9 +5,15 @@ export async function onRequestGet(context) {
   const ok = await verifySessionToken(context.env, cookies[COOKIE_NAME]);
   const r2Bound = Boolean(context.env.MEDIA_BUCKET);
   const runpodConfigured = Boolean(context.env.RUNPOD_API_KEY);
+  const processorReady = Boolean(context.env.GHOSTCUT_APP_KEY && context.env.GHOSTCUT_APP_SECRET);
   return json({
     authenticated: ok,
-    ghostcutConfigured: Boolean(context.env.GHOSTCUT_APP_KEY && context.env.GHOSTCUT_APP_SECRET),
+    // Friendly flags for the consumer Clean video UI (no vendor names).
+    ready: processorReady && Boolean(context.env.CONTENT_STATION_PASSWORD),
+    cleanReady: processorReady,
+    uploadReady: r2Bound,
+    // Legacy fields kept for old213223523.html ops panel.
+    ghostcutConfigured: processorReady,
     passwordConfigured: Boolean(context.env.CONTENT_STATION_PASSWORD),
     r2Bound,
     runpodConfigured,

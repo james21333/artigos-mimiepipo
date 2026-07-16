@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Mimi &amp; Pipo</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Internal content ops station — GhostCut, R2 media, RunPod.">
+  <link rel="stylesheet" href="./old-styles.css">
+</head>
+<body>
+  <main>
+    <header class="site-header">
+      <p class="brand">Content Station</p>
+      <p class="sub">Mimi &amp; Pipo · hosted on artigos.mimiepipo.com.br</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected ops panel. API routes require a server session cookie.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="panel">
+        <h2>GhostCut / JollyToday</h2>
+        <p class="lede">Signed server proxy. Submit jobs, poll status, check balance — credentials never leave Cloudflare.</p>
+
+        <div class="row">
+          <button type="button" id="balance-btn">Check point balance</button>
+        </div>
+
+        <div class="stack">
+          <label for="gc-video-url">Video URL (public HTTPS, no Chinese characters in path)</label>
+          <input id="gc-video-url" type="url" placeholder="https://…/video.mp4" value="https://gc100.cdn.izhaoli.cn/demo/1691660164246.mp4">
+
+          <label for="gc-job-type">Job type</label>
+          <select id="gc-job-type">
+            <option value="erase-lite">Erase text — advanced_lite fullscreen</option>
+            <option value="erase-auto">Erase text — full-screen auto (basic)</option>
+            <option value="custom">Custom JSON payload → /work/free</option>
+          </select>
+
+          <label for="gc-lang">Erase language</label>
+          <select id="gc-lang">
+            <option value="all">all</option>
+            <option value="zh">zh</option>
+            <option value="en">en</option>
+            <option value="ja">ja</option>
+            <option value="ko">ko</option>
+            <option value="ar">ar</option>
+          </select>
+
+          <label for="gc-custom-json" class="optional-label">Custom JSON (only for “Custom” job type)</label>
+          <textarea id="gc-custom-json" rows="6" spellcheck="false" placeholder='{"urls":["https://…"],"needChineseOcclude":2,…}'></textarea>
+
+          <div class="row">
+            <button type="button" id="gc-submit-btn">Submit job</button>
+          </div>
+        </div>
+
+        <div class="stack">
+          <label for="gc-work-id">Work ID(s) — comma-separated</label>
+          <input id="gc-work-id" type="text" placeholder="521461135" autocomplete="off">
+          <div class="row">
+            <button type="button" id="gc-status-btn">Check status</button>
+            <button type="button" id="gc-poll-btn" class="ghost">Poll every 15s</button>
+            <button type="button" id="gc-poll-stop-btn" class="ghost" hidden>Stop polling</button>
+          </div>
+        </div>
+
+        <pre id="ghostcut-out" class="out" aria-live="polite">Ready.</pre>
+      </section>
+
+      <section class="panel" id="media-panel">
+        <h2>Media (R2)</h2>
+        <p class="lede">Bucket <code>content-station-media</code> via binding <code>MEDIA_BUCKET</code>. Downloads go through the authenticated API.</p>
+        <p id="media-gate" class="notice" hidden></p>
+
+        <div class="stack">
+          <label for="media-file">Upload file</label>
+          <input id="media-file" type="file">
+          <label for="media-prefix">Key prefix</label>
+          <input id="media-prefix" type="text" value="media/" spellcheck="false">
+          <div class="row">
+            <button type="button" id="media-upload-btn">Upload</button>
+            <button type="button" id="media-refresh-btn" class="ghost">Refresh list</button>
+          </div>
+        </div>
+
+        <div id="media-list" class="media-list" aria-live="polite"></div>
+        <pre id="media-out" class="out">—</pre>
+      </section>
+
+      <section class="panel" id="runpod-panel">
+        <h2>RunPod</h2>
+        <p class="lede">Serverless proxy to <code>api.runpod.ai/v2</code>. Needs <code>RUNPOD_API_KEY</code> (and usually <code>RUNPOD_ENDPOINT_ID</code>) in Pages secrets.</p>
+        <p id="runpod-gate" class="notice" hidden></p>
+
+        <div class="stack">
+          <label for="rp-endpoint">Endpoint ID</label>
+          <input id="rp-endpoint" type="text" placeholder="from RUNPOD_ENDPOINT_ID or paste here" spellcheck="false">
+
+          <label for="rp-input">Job input JSON</label>
+          <textarea id="rp-input" rows="5" spellcheck="false">{"prompt":"hello"}</textarea>
+
+          <div class="row">
+            <button type="button" id="rp-config-btn" class="ghost">Config / status</button>
+            <button type="button" id="rp-health-btn" class="ghost">Health</button>
+            <button type="button" id="rp-run-btn">Submit /run</button>
+          </div>
+
+          <label for="rp-job-id">Job ID</label>
+          <input id="rp-job-id" type="text" placeholder="after /run" spellcheck="false">
+          <div class="row">
+            <button type="button" id="rp-status-btn">Poll status</button>
+            <button type="button" id="rp-cancel-btn" class="ghost">Cancel</button>
+          </div>
+        </div>
+
+        <pre id="runpod-out" class="out">—</pre>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="/">← Artigos hub</a>
+      · Live on <code>artigos.mimiepipo.com.br</code> · Pages project <code>mimi-pipo</code>
+    </p>
+  </main>
+  <script src="./old-app.js"></script>
+</body>
+</html>
