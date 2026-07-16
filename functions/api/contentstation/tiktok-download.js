@@ -7,8 +7,8 @@ import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-downloa
  */
 export async function onRequestPost(context) {
   try {
-    const denied = await requireSession(context.env, context.request);
-    if (denied) return denied;
+    const auth = await requireSession(context);
+    if (!auth.ok) return auth.response;
 
     const bucket = context.env.MEDIA_BUCKET;
     if (!bucket) {
@@ -87,8 +87,8 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestGet(context) {
-  const denied = await requireSession(context.env, context.request);
-  if (denied) return denied;
+  const auth = await requireSession(context);
+  if (!auth.ok) return auth.response;
   const ready = Boolean(
     context.env.MEDIA_BUCKET &&
       (context.env.TIKLIVE_API_KEY || context.env.TIKTOK_DOWNLOAD_API_KEY || '').trim(),
