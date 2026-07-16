@@ -41,25 +41,23 @@ function sanitizeFilenamePart(s) {
     .slice(0, 80);
 }
 
-/** Prefer standard no-watermark over HD (HD can be 20–40MB+). */
-function pickPlayUrl(obj) {
+/**
+ * @param {object} obj
+ * @param {{ preferHd?: boolean }} [opts] preferHd default true
+ */
+function pickPlayUrl(obj, opts = {}) {
   if (!obj || typeof obj !== 'object') return null;
-  const candidates = [
-    obj.video,
-    obj.play,
-    obj.noWatermarkUrl,
-    obj.downloadUrl,
-    obj.download,
-    obj.video_hd,
-    obj.hdplay,
-  ];
+  const preferHd = opts.preferHd !== false;
+  const hdFirst = [obj.video_hd, obj.hdplay, obj.video, obj.play, obj.noWatermarkUrl, obj.downloadUrl, obj.download];
+  const sdFirst = [obj.video, obj.play, obj.noWatermarkUrl, obj.downloadUrl, obj.download, obj.video_hd, obj.hdplay];
+  const candidates = preferHd ? hdFirst : sdFirst;
   for (const c of candidates) {
     if (typeof c === 'string' && /^https?:\/\//i.test(c)) return c;
   }
   return null;
 }
 
-async function resolveViaTikLive(env, tiktokUrl) {
+async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
   const key = (env.TIKLIVE_API_KEY || env.TIKTOK_DOWNLOAD_API_KEY || '').trim();
   if (!key) return { ok: false, error: 'api_key_missing' };
 
@@ -97,10 +95,15 @@ async function resolveViaTikLive(env, tiktokUrl) {
   }
 
   const d = body?.data && typeof body.data === 'object' ? body.data : body;
-  const playUrl = pickPlayUrl(d);
+  const playUrl = pickPlayUrl(d, { preferHd });
   if (!playUrl) {
     return { ok: false, error: 'no_play_url', detail: 'No downloadable video URL returned' };
   }
+
+  const usedHd =
+    preferHd &&
+    typeof playUrl === 'string' &&
+    (playUrl === d.video_hd || playUrl === d.hdplay || /hdplay|original|_original/i.test(playUrl));
 
   let meta = {
     id: d.id ? String(d.id) : null,
@@ -112,8 +115,9 @@ async function resolveViaTikLive(env, tiktokUrl) {
       d.author?.nickname ||
       (typeof d.author === 'string' ? d.author : null) ||
       null,
-    size: d.size ?? null,
+    size: (usedHd ? d.hd_size : null) ?? d.size ?? null,
     createTime: d.create_time ?? null,
+    quality: usedHd ? 'hd' : 'standard',
   };
 
   // download-video often returns only URLs — enrich title/author from post-detail (best effort).
@@ -143,9 +147,28 @@ async function resolveViaTikLive(env, tiktokUrl) {
             pd.author?.nickname ||
             (typeof pd.author === 'string' ? pd.author : null) ||
             meta.author,
-          size: pd.size ?? meta.size,
+          size: (preferHd ? pd.hd_size : null) ?? pd.size ?? meta.size,
           createTime: pd.create_time ?? meta.createTime,
+          quality: meta.quality,
         };
+        if (preferHd && (pd.hdplay || pd.play)) {
+          const better = pickPlayUrl(
+            { video_hd: pd.hdplay, hdplay: pd.hdplay, video: pd.play, play: pd.play },
+            { preferHd },
+          );
+          if (better) {
+            return {
+              ok: true,
+              playUrl: better,
+              meta: {
+                ...meta,
+                size: pd.hd_size ?? pd.size ?? meta.size,
+                quality: better === pd.hdplay ? 'hd' : meta.quality,
+              },
+              provider: 'tiklive',
+            };
+          }
+        }
       }
     }
   } catch {
@@ -160,7 +183,7 @@ async function resolveViaTikLive(env, tiktokUrl) {
   };
 }
 
-async function resolveViaLegacy(env, tiktokUrl) {
+async function resolveViaLegacy(env, tiktokUrl, { preferHd = true } = {}) {
   const base = (env.TIKTOK_DOWNLOAD_API_BASE || LEGACY_RESOLVE_BASE).replace(/\/?$/, '/');
   const endpoint = `${base}?url=${encodeURIComponent(tiktokUrl.trim())}&hd=1`;
   let res;
@@ -191,11 +214,12 @@ async function resolveViaLegacy(env, tiktokUrl) {
   }
 
   const d = body.data;
-  const playUrl = pickPlayUrl(d) || d.hdplay || d.play || null;
+  const playUrl = pickPlayUrl(d, { preferHd }) || d.hdplay || d.play || null;
   if (!playUrl || typeof playUrl !== 'string') {
     return { ok: false, error: 'no_play_url', detail: 'No downloadable video URL returned' };
   }
 
+  const usedHd = preferHd && (playUrl === d.hdplay || playUrl === d.video_hd);
   return {
     ok: true,
     playUrl,
@@ -205,17 +229,19 @@ async function resolveViaLegacy(env, tiktokUrl) {
       duration: d.duration ?? null,
       cover: d.cover || d.origin_cover || null,
       author: d.author?.unique_id || d.author?.nickname || null,
-      size: d.size ?? null,
+      size: (usedHd ? d.hd_size : null) ?? d.size ?? null,
       createTime: d.create_time ?? null,
+      quality: usedHd ? 'hd' : 'standard',
     },
     provider: 'legacy',
   };
 }
 
-export async function resolveTikTokPlayUrl(env, tiktokUrl) {
+export async function resolveTikTokPlayUrl(env, tiktokUrl, opts = {}) {
+  const preferHd = opts.preferHd !== false;
   const hasKey = Boolean((env.TIKLIVE_API_KEY || env.TIKTOK_DOWNLOAD_API_KEY || '').trim());
-  if (hasKey) return resolveViaTikLive(env, tiktokUrl);
-  return resolveViaLegacy(env, tiktokUrl);
+  if (hasKey) return resolveViaTikLive(env, tiktokUrl, { preferHd });
+  return resolveViaLegacy(env, tiktokUrl, { preferHd });
 }
 
 async function fetchBytesViaCloudConvert(env, playUrl, filename) {
@@ -240,7 +266,7 @@ async function fetchBytesViaCloudConvert(env, playUrl, filename) {
     return { ok: false, error: 'transfer_failed', detail: 'No transfer job id returned' };
   }
 
-  const waited = await waitForJob(env, jobId, { timeoutMs: 55000, intervalMs: 1500 });
+  const waited = await waitForJob(env, jobId, { timeoutMs: 90000, intervalMs: 2000 });
   if (!waited.ok) {
     return {
       ok: false,
@@ -291,8 +317,9 @@ async function fetchBytesViaCloudConvert(env, playUrl, filename) {
   return { ok: true, bytes, contentType };
 }
 
-export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
-  const resolved = await resolveTikTokPlayUrl(env, tiktokUrl);
+export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
+  const preferHd = opts.preferHd !== false;
+  const resolved = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd });
   if (!resolved.ok) return resolved;
 
   if (resolved.meta?.size && Number(resolved.meta.size) > MAX_BYTES) {

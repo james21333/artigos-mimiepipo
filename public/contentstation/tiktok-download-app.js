@@ -4,6 +4,7 @@
   const gateError = document.getElementById('gate-error');
   const sessionMeta = document.getElementById('session-meta');
   const urlInput = document.getElementById('tiktok-url');
+  const smallerNoHd = document.getElementById('opt-smaller-no-hd');
   const downloadBtn = document.getElementById('download-btn');
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
@@ -82,8 +83,13 @@
     const title = (data.meta && data.meta.title) || 'TikTok video';
     const author = data.meta && data.meta.author ? `@${data.meta.author}` : '';
     resultTitle.textContent = title;
-    const bits = [author, formatBytes(data.size), data.meta?.duration != null ? `${data.meta.duration}s` : '']
-      .filter(Boolean);
+    const quality = data.quality || data.meta?.quality;
+    const bits = [
+      author,
+      quality === 'hd' ? 'HD' : quality === 'standard' ? 'standard' : '',
+      formatBytes(data.size),
+      data.meta?.duration != null ? `${data.meta.duration}s` : '',
+    ].filter(Boolean);
     resultMeta.textContent = bits.join(' · ');
     resultDownload.href = data.downloadPath;
     resultDownload.setAttribute('download', (data.key || 'tiktok.mp4').split('/').pop());
@@ -140,11 +146,15 @@
       return;
     }
     downloadBtn.disabled = true;
-    setStatus('Downloading…', 'Resolving link and saving video');
+    const smallerFile = Boolean(smallerNoHd && smallerNoHd.checked);
+    setStatus(
+      'Downloading…',
+      smallerFile ? 'Saving smaller (no HD) file' : 'Saving HD file when available',
+    );
     try {
       const { ok, data } = await api('/api/contentstation/tiktok-download', {
         method: 'POST',
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, smallerFile }),
       });
       if (!ok) {
         setStatus('Failed');
@@ -152,7 +162,8 @@
         setError((data?.message || data?.error || 'Download failed') + detail);
         return;
       }
-      setStatus('Saved', data.key || '');
+      const q = data.quality === 'hd' ? 'HD' : 'standard';
+      setStatus('Saved', `${q}${data.key ? ` · ${data.key}` : ''}`);
       showResult(data);
     } catch (err) {
       setStatus('Failed');

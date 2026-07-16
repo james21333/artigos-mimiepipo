@@ -33,6 +33,10 @@ export async function onRequestPost(context) {
       );
     }
 
+    // Default HD. smallerFile / noHd → standard no-watermark file.
+    const smallerFile = Boolean(body?.smallerFile || body?.noHd);
+    const preferHd = !smallerFile;
+
     if (!(context.env.TIKLIVE_API_KEY || context.env.TIKTOK_DOWNLOAD_API_KEY || '').trim()) {
       return json(
         { error: 'api_key_missing', message: 'Download isn’t configured yet.' },
@@ -40,7 +44,7 @@ export async function onRequestPost(context) {
       );
     }
 
-    const result = await downloadTikTokToR2(context.env, bucket, url);
+    const result = await downloadTikTokToR2(context.env, bucket, url, { preferHd });
     if (!result.ok) {
       const messages = {
         api_key_missing: 'Download isn’t configured yet.',
@@ -73,6 +77,7 @@ export async function onRequestPost(context) {
       contentType: result.contentType,
       downloadPath: result.downloadPath,
       meta: result.meta,
+      quality: result.meta?.quality || (preferHd ? 'hd' : 'standard'),
     });
   } catch (err) {
     return json(
