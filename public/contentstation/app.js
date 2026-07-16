@@ -230,7 +230,12 @@
 
       if (data.state === 'ready' && data.downloadUrl) {
         showDownload(data.downloadUrl);
-        setStatus('Ready to download', detailFor(workId, data));
+        const readyLabel = data.inLibrary
+          ? 'Ready · in Cleaned videos'
+          : data.savingToLibrary
+            ? 'Ready · saving to Cleaned videos'
+            : 'Ready to download';
+        setStatus(readyLabel, detailFor(workId, data));
         stopPoll({ clearStored: true, paused: false });
         cleanBtn.disabled = false;
       } else if (data.state === 'failed') {

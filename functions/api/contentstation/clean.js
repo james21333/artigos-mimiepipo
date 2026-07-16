@@ -6,6 +6,11 @@ import {
   getJob,
   summarizeCloudConvertJob,
 } from '../../lib/cloudconvert.js';
+import {
+  archiveCleanedVideo,
+  resolveArchivedDownload,
+  scheduleCleanArchive,
+} from '../../lib/clean-archive.js';
 
 /**
  * Consumer-facing clean-video API.
@@ -602,6 +607,103 @@ async function statusWork(env, workId) {
   return { ok: false, response: clientFail('Unknown work id.', 400) };
 }
 
+/**
+ * When a clean is ready, prefer an already-saved library copy; otherwise schedule
+ * a background save to cleaned/. Never awaits the upload — polling stays fast.
+ */
+async function attachLibraryFields(context, env, data) {
+  if (!data || data.state !== 'ready' || !data.downloadUrl || !data.workId) {
+    return data;
+  }
+  const existing = await resolveArchivedDownload(env, data.workId);
+  if (existing) {
+    return {
+      ...data,
+      downloadUrl: existing.downloadPath,
+      cleanedKey: existing.key,
+      inLibrary: true,
+    };
+  }
+  scheduleCleanArchive(context, env, {
+    workId: data.workId,
+    sourceUrl: data.downloadUrl,
+  });
+  return {
+    ...data,
+    inLibrary: false,
+    savingToLibrary: true,
+  };
+}
+
+async function archiveFromStatus(context, env, workId) {
+  if (!workId) {
+    return { ok: false, response: clientFail('Missing work id.', 400) };
+  }
+  const existing = await resolveArchivedDownload(env, workId);
+  if (existing) {
+    return {
+      ok: true,
+      response: json({
+        ok: true,
+        workId,
+        cleanedKey: existing.key,
+        downloadUrl: existing.downloadPath,
+        inLibrary: true,
+        existed: true,
+      }),
+    };
+  }
+
+  const status = await statusWork(env, workId);
+  if (!status.ok) return status;
+  let data;
+  try {
+    data = await status.response.clone().json();
+  } catch {
+    return { ok: false, response: clientFail('Could not read job status.', 502) };
+  }
+  // Follow pipe → cc workId if status advanced.
+  const effectiveId = data.workId || workId;
+  if (data.state === 'ready' && data.downloadUrl) {
+    const archived = await archiveCleanedVideo(env, {
+      workId: effectiveId,
+      sourceUrl: data.downloadUrl,
+    });
+    if (!archived.ok) {
+      return { ok: false, response: clientFail(archived.error || 'Could not save to library.', 502) };
+    }
+    return {
+      ok: true,
+      response: json({
+        ok: true,
+        workId: effectiveId,
+        cleanedKey: archived.key,
+        downloadUrl: archived.downloadPath,
+        inLibrary: true,
+        existed: Boolean(archived.existed),
+      }),
+    };
+  }
+  if (data.state === 'processing') {
+    return {
+      ok: false,
+      response: clientFail('Job is still processing — try again when it’s ready.', 409, {
+        workId: effectiveId,
+        state: data.state,
+        label: data.label,
+      }),
+    };
+  }
+  return {
+    ok: false,
+    response: clientFail(
+      data.error || data.message || 'No finished download URL available to save.',
+      404,
+      { workId: effectiveId, state: data.state || null },
+    ),
+  };
+}
+
 function safeFilename(name) {
   const base = String(name || 'video.mp4')
     .replace(/[^a-zA-Z0-9._-]+/g, '_')
@@ -755,6 +857,38 @@ export async function onRequestPost(context) {
 
     if (action === 'status') {
       const result = await statusWork(env, body.workId);
+      if (!result.ok) return result.response;
+      let data;
+      try {
+        data = await result.response.json();
+      } catch {
+        return result.response;
+      }
+      const enriched = await attachLibraryFields(context, env, data);
+      return json(enriched);
+    }
+
+    if (action === 'archive') {
+      // Explicit save into cleaned/ gallery (also used for backfill of finished jobs).
+      if (body.sourceUrl && body.workId) {
+        const archived = await archiveCleanedVideo(env, {
+          workId: body.workId,
+          sourceUrl: body.sourceUrl,
+          filename: body.filename,
+        });
+        if (!archived.ok) {
+          return clientFail(archived.error || 'Could not save to library.', 502);
+        }
+        return json({
+          ok: true,
+          workId: body.workId,
+          cleanedKey: archived.key,
+          downloadUrl: archived.downloadPath,
+          inLibrary: true,
+          existed: Boolean(archived.existed),
+        });
+      }
+      const result = await archiveFromStatus(context, env, body.workId);
       return result.response;
     }
 

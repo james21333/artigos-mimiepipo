@@ -34,6 +34,30 @@ main {
   margin-bottom: 1.75rem;
 }
 
+.top-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.15rem;
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+}
+
+.top-nav a {
+  text-decoration: none;
+  color: var(--muted);
+  border-bottom: 1px solid transparent;
+}
+
+.top-nav a:hover {
+  color: var(--accent);
+}
+
+.top-nav a[aria-current="page"] {
+  color: var(--accent);
+  border-bottom-color: var(--rule);
+  font-weight: 600;
+}
+
 .brand {
   margin: 0;
   font-size: 2rem;
@@ -218,4 +242,72 @@ a { color: var(--accent); }
 
 #download-wrap {
   animation: fade-in 0.35s ease-out both;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+#download-wrap[hidden] {
+  display: none;
+}
+
+.gallery-jump {
+  background: transparent;
+}
+
+.gallery-main {
+  max-width: 52rem;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.35rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 640px) {
+  .gallery-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.gallery-card {
+  animation: fade-in 0.4s ease-out both;
+}
+
+.gallery-media {
+  background: #0f1713;
+  aspect-ratio: 9 / 16;
+  max-height: 22rem;
+  overflow: hidden;
+}
+
+.gallery-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0f1713;
+}
+
+.gallery-meta {
+  padding: 0.65rem 0 0;
+}
+
+.gallery-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.98rem;
+  word-break: break-word;
+}
+
+.gallery-actions {
+  margin: 0.45rem 0 0;
+}
+
+.gallery-actions .btn-link {
+  margin-top: 0;
+  font-size: 0.92rem;
+  padding: 0.4rem 0.8rem;
 }
