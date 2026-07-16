@@ -329,6 +329,42 @@
       return;
     }
     const prefix = document.getElementById('media-prefix').value.trim() || 'media/';
+    const DIRECT_MAX = 90 * 1024 * 1024;
+
+    if (file.size > DIRECT_MAX) {
+      mediaOut.textContent = `Large file (${file.size} bytes) — requesting presigned PUT…`;
+      const { ok, status, data } = await api('/api/contentstation/media', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'sign-put',
+          prefix,
+          filename: file.name,
+          contentType: file.type || 'application/octet-stream',
+        }),
+      });
+      if (!ok || !data || !data.url) {
+        mediaOut.textContent = pretty(status, data);
+        return;
+      }
+      mediaOut.textContent = `Uploading directly to R2…`;
+      const putRes = await fetch(data.url, {
+        method: 'PUT',
+        headers: data.headers || { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      mediaOut.textContent = pretty(putRes.status, {
+        key: data.key,
+        putOk: putRes.ok,
+        downloadPath: data.downloadPath,
+        note: putRes.ok
+          ? 'Uploaded via presigned URL.'
+          : 'Presigned PUT failed — check R2 CORS for PUT from this origin, or use a smaller file via binding upload.',
+      });
+      fileInput.value = '';
+      await refreshMediaList();
+      return;
+    }
+
     const form = new FormData();
     form.append('file', file);
     form.append('prefix', prefix);

@@ -1,4 +1,5 @@
 import { json, requireSession } from '../../lib/contentstation-auth.js';
+import { createR2PresignedPut } from '../../lib/r2-presign.js';
 
 /**
  * R2 media API (binding: MEDIA_BUCKET → content-station-media).
@@ -7,12 +8,11 @@ import { json, requireSession } from '../../lib/contentstation-auth.js';
  * GET  ?action=get&key=…          → stream object (auth required)
  * GET  ?action=meta&key=…         → object metadata + download URL path
  * POST multipart/form-data        → upload file (field "file", optional "key"/"prefix")
- * POST application/json           → { action: "delete"|"mkdir"|"sign-put", key?, prefix? }
+ * POST application/json           → { action: "delete"|"sign-put"|"multipart-*", … }
  * DELETE ?key=…                   → delete object
  *
- * Large files: Workers request body limit (~100MB). Prefer chunked multipart
- * via ?action=multipart-init / multipart-part / multipart-complete, or upload
- * under the limit via multipart/form-data.
+ * Large files: Workers body limit (~100MB). Use action "sign-put" for a direct-to-R2
+ * S3 presigned PUT, or binding multipart-init / multipart-part / multipart-complete.
  */
 
 const MAX_LIST = 200;
@@ -196,6 +196,32 @@ async function handleJson(env, bucket, request) {
 
   if (action === 'delete') {
     return deleteKey(bucket, body.key);
+  }
+
+  if (action === 'sign-put') {
+    let key;
+    if (body.key) {
+      key = sanitizeKey(body.key);
+    } else {
+      const name = String(body.filename || 'upload.bin').replace(/[^a-zA-Z0-9._\-]+/g, '_');
+      const prefix =
+        sanitizeKey(body.prefix || PREFIX_DEFAULT, { allowTrailingSlash: true }) || PREFIX_DEFAULT;
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      key = sanitizeKey(`${prefix.replace(/\/?$/, '/')}${stamp}_${name}`);
+    }
+    if (!key) return json({ error: 'invalid_key' }, 400);
+    const signed = await createR2PresignedPut(env, {
+      key,
+      contentType: body.contentType || 'application/octet-stream',
+      expiresIn: Math.min(3600, Math.max(60, Number(body.expiresIn) || 3600)),
+    });
+    if (!signed.ok) return json(signed, 503);
+    return json({
+      status: 'ok',
+      ...signed,
+      downloadPath: downloadPath(key),
+      note: 'PUT the file bytes directly to url with the returned headers (browser/CORS may require R2 CORS rules).',
+    });
   }
 
   if (action === 'multipart-init') {
