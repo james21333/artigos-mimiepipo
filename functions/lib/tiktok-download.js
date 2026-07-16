@@ -1,14 +1,13 @@
 /**
- * Resolve a public TikTok URL to a no-watermark play URL, then optionally save to R2.
- * Default provider: tikwm-compatible JSON API (no vendor names exposed to the UI).
+ * Resolve a public TikTok URL to a no-watermark play URL, then save to R2.
+ * Provider: TikLiveAPI when TIKLIVE_API_KEY is set; otherwise legacy free resolver.
+ * UI never shows vendor names.
  */
 
-const DEFAULT_RESOLVE_BASE = 'https://www.tikwm.com/api/';
-const MAX_BYTES = 90 * 1024 * 1024; // stay under typical Worker body limits
-
-function resolveBase(env) {
-  return (env.TIKTOK_DOWNLOAD_API_BASE || DEFAULT_RESOLVE_BASE).replace(/\/?$/, '/');
-}
+const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
+const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
+const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
+const MAX_BYTES = 90 * 1024 * 1024;
 
 export function looksLikeTikTokUrl(raw) {
   if (!raw || typeof raw !== 'string') return false;
@@ -34,11 +33,123 @@ function sanitizeFilenamePart(s) {
     .slice(0, 80);
 }
 
-/**
- * @returns {Promise<{ ok: true, playUrl, meta } | { ok: false, error, detail? }>}
- */
-export async function resolveTikTokPlayUrl(env, tiktokUrl) {
-  const base = resolveBase(env);
+function pickPlayUrl(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const candidates = [
+    obj.video_hd,
+    obj.video,
+    obj.hdplay,
+    obj.play,
+    obj.noWatermarkUrl,
+    obj.downloadUrl,
+    obj.download,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string' && /^https?:\/\//i.test(c)) return c;
+  }
+  return null;
+}
+
+async function resolveViaTikLive(env, tiktokUrl) {
+  const key = (env.TIKLIVE_API_KEY || env.TIKTOK_DOWNLOAD_API_KEY || '').trim();
+  if (!key) return { ok: false, error: 'api_key_missing' };
+
+  const endpoint = `${TIKLIVE_DOWNLOAD}?url=${encodeURIComponent(tiktokUrl.trim())}`;
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        'X-Api-Key': key,
+        'User-Agent': 'ContentStation/1.0',
+      },
+    });
+  } catch (err) {
+    return { ok: false, error: 'resolve_failed', detail: String(err?.message || err) };
+  }
+
+  let body;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: 'resolve_invalid_json', detail: `HTTP ${res.status}` };
+  }
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: 'resolve_rejected',
+      detail: body?.message || body?.msg || body?.error || `HTTP ${res.status}`,
+    };
+  }
+
+  // Some responses wrap under data; others are flat { video, video_hd }
+  const d = body?.data && typeof body.data === 'object' ? body.data : body;
+  const playUrl = pickPlayUrl(d);
+  if (!playUrl) {
+    return { ok: false, error: 'no_play_url', detail: 'No downloadable video URL returned' };
+  }
+
+  // Optional richer metadata from post-detail (best effort; ignore failures)
+  let meta = {
+    id: d.id ? String(d.id) : null,
+    title: d.title || d.desc || '',
+    duration: d.duration ?? null,
+    cover: d.cover || d.origin_cover || null,
+    author: d.author?.unique_id || d.author?.nickname || d.author || null,
+    size: d.size ?? d.hd_size ?? null,
+    createTime: d.create_time ?? null,
+  };
+
+  try {
+    const detailRes = await fetch(
+      `${TIKLIVE_POST_DETAIL}?url=${encodeURIComponent(tiktokUrl.trim())}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'X-Api-Key': key,
+          'User-Agent': 'ContentStation/1.0',
+        },
+      },
+    );
+    if (detailRes.ok) {
+      const detailBody = await detailRes.json();
+      const pd = detailBody?.data && typeof detailBody.data === 'object' ? detailBody.data : detailBody;
+      if (pd && typeof pd === 'object') {
+        meta = {
+          id: pd.id ? String(pd.id) : meta.id,
+          title: pd.title || pd.desc || meta.title,
+          duration: pd.duration ?? meta.duration,
+          cover: pd.cover || pd.origin_cover || meta.cover,
+          author:
+            pd.author?.unique_id ||
+            pd.author?.nickname ||
+            (typeof pd.author === 'string' ? pd.author : null) ||
+            meta.author,
+          size: pd.hd_size ?? pd.size ?? meta.size,
+          createTime: pd.create_time ?? meta.createTime,
+        };
+        // Prefer HD from detail if download-video only returned a short link
+        const better = pickPlayUrl({
+          video_hd: pd.hdplay,
+          video: pd.play,
+          hdplay: pd.hdplay,
+          play: pd.play,
+        });
+        if (better && /original|_original|hdplay/i.test(better)) {
+          return { ok: true, playUrl: better, meta, provider: 'tiklive' };
+        }
+      }
+    }
+  } catch {
+    // ignore metadata enrichment errors
+  }
+
+  return { ok: true, playUrl, meta, provider: 'tiklive' };
+}
+
+async function resolveViaLegacy(env, tiktokUrl) {
+  const base = (env.TIKTOK_DOWNLOAD_API_BASE || LEGACY_RESOLVE_BASE).replace(/\/?$/, '/');
   const endpoint = `${base}?url=${encodeURIComponent(tiktokUrl.trim())}&hd=1`;
   let res;
   try {
@@ -85,7 +196,17 @@ export async function resolveTikTokPlayUrl(env, tiktokUrl) {
       size: d.size ?? null,
       createTime: d.create_time ?? null,
     },
+    provider: 'legacy',
   };
+}
+
+/**
+ * @returns {Promise<{ ok: true, playUrl, meta, provider } | { ok: false, error, detail? }>}
+ */
+export async function resolveTikTokPlayUrl(env, tiktokUrl) {
+  const hasKey = Boolean((env.TIKLIVE_API_KEY || env.TIKTOK_DOWNLOAD_API_KEY || '').trim());
+  if (hasKey) return resolveViaTikLive(env, tiktokUrl);
+  return resolveViaLegacy(env, tiktokUrl);
 }
 
 /**
@@ -132,6 +253,7 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
       },
       customMetadata: {
         source: 'tiktok-download',
+        provider: resolved.provider || '',
         tiktokId: resolved.meta.id || '',
         title: String(resolved.meta.title || '').slice(0, 200),
         author: resolved.meta.author || '',
@@ -149,5 +271,6 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
     contentType: head?.httpMetadata?.contentType || 'video/mp4',
     downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`,
     meta: resolved.meta,
+    provider: resolved.provider,
   };
 }

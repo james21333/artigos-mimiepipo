@@ -35,6 +35,7 @@ export async function onRequestPost(context) {
   const result = await downloadTikTokToR2(context.env, bucket, url);
   if (!result.ok) {
     const messages = {
+      api_key_missing: 'Download isn’t configured yet.',
       resolve_failed: 'Could not reach the download service. Try again.',
       resolve_invalid_json: 'Download service returned a bad response.',
       resolve_rejected: 'Could not resolve that TikTok link (private, removed, or blocked).',
