@@ -63,7 +63,8 @@
 
         <div class="row">
           <button type="button" id="clean-btn">Clean video</button>
-          <button type="button" id="stop-btn" class="ghost" hidden>Stop checking</button>
+          <button type="button" id="stop-btn" class="ghost" hidden>Pause checking</button>
+          <button type="button" id="resume-btn" class="ghost" hidden>Resume checking</button>
         </div>
 
         <p id="status-line" class="status" aria-live="polite">Ready.</p>
@@ -72,6 +73,14 @@
           <a id="download-link" class="btn-link" href="#" target="_blank" rel="noopener">Download cleaned video</a>
         </p>
         <p id="clean-error" class="error" hidden></p>
+
+        <div class="job-resume stack">
+          <label for="job-id-input">Resume a job id</label>
+          <div class="row">
+            <input id="job-id-input" type="text" placeholder="pipe:gc:… or cc:…" autocomplete="off" spellcheck="false">
+            <button type="button" id="job-check-btn" class="ghost">Check job</button>
+          </div>
+        </div>
       </section>
     </section>
 

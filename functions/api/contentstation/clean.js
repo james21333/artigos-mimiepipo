@@ -33,6 +33,8 @@ const WORK_STATUS = '/v-w-c/gateway/ve/work/status';
 const UPLOAD_POLICY = '/v-w-c/gateway/ve/file/upload/policy/apply';
 const MAX_PROXY_UPLOAD = 90 * 1024 * 1024;
 const PIPE_CACHE_PREFIX = 'https://contentstation.internal/clean-pipe/';
+/** GhostCut jobs still at processStatus < 1 after this are treated as stuck. */
+const GC_STUCK_MS = 60 * 60 * 1000;
 
 function friendlyError(raw) {
   const text = String(raw || 'Something went wrong. Please try again.');
@@ -180,12 +182,29 @@ function extractWorkId(data) {
   return null;
 }
 
-function mapProcessStatus(processStatus) {
+function progressPct(processProgress) {
+  const n = Number(processProgress);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function mapProcessStatus(processStatus, processProgress) {
   const n = Number(processStatus);
-  if (!Number.isFinite(n)) return { state: 'unknown', label: 'Checking…' };
-  if (n === 1) return { state: 'ready', label: 'Ready to download' };
-  if (n < 1) return { state: 'processing', label: 'Cleaning…' };
-  return { state: 'failed', label: 'Cleaning failed' };
+  const pct = progressPct(processProgress);
+  const pctSuffix = pct != null && pct < 100 ? ` ${pct}%` : '';
+  if (!Number.isFinite(n)) return { state: 'unknown', label: 'Checking…', progress: pct };
+  // GhostCut: 1 = success, <1 = still processing, >1 = failed (see skill 14-video-process-status).
+  if (n === 1) return { state: 'ready', label: 'Ready to download', progress: 100 };
+  if (n < 1) return { state: 'processing', label: `Cleaning…${pctSuffix}`, progress: pct };
+  return { state: 'failed', label: 'Cleaning failed', progress: pct };
+}
+
+function workAgeMs(c) {
+  const t = Number(c?.createTime ?? c?.lastUpdateTime);
+  if (!Number.isFinite(t) || t <= 0) return null;
+  // GhostCut returns epoch ms; guard against accidental seconds.
+  const ms = t < 1e12 ? t * 1000 : t;
+  return Date.now() - ms;
 }
 
 function summarizeStatus(data) {
@@ -194,22 +213,43 @@ function summarizeStatus(data) {
     return { state: 'unknown', label: 'No status yet', works: [] };
   }
   const works = content.map((c) => {
-    const mapped = mapProcessStatus(c.processStatus);
+    const mapped = mapProcessStatus(c.processStatus, c.processProgress);
+    const downloadUrl =
+      mapped.state === 'ready' ? c.videoUrl || c.videoUrlOut || null : null;
+    const ageMs = workAgeMs(c);
+    let state = mapped.state;
+    let label = mapped.label;
+    let error = mapped.state === 'failed' ? friendlyError(c.errorDetail || 'Processing failed') : null;
+
+    // Stuck while still "processing" — surface instead of infinite Cleaning…
+    if (state === 'processing' && ageMs != null && ageMs > GC_STUCK_MS) {
+      state = 'failed';
+      label = 'Cleaning timed out';
+      error = friendlyError(
+        c.errorDetail ||
+          'This job is taking too long and may be stuck. Please try again with a new upload.',
+      );
+    }
+
     return {
       workId: c.id != null ? String(c.id) : null,
-      state: mapped.state,
-      label: mapped.label,
+      state,
+      label,
+      progress: mapped.progress,
       processStatus: c.processStatus,
-      downloadUrl: mapped.state === 'ready' ? c.videoUrl || null : null,
-      error: mapped.state === 'failed' ? friendlyError(c.errorDetail || 'Processing failed') : null,
+      downloadUrl,
+      error,
+      stage: 'visual',
     };
   });
   const primary = works[0];
   return {
     state: primary.state,
     label: primary.label,
+    progress: primary.progress,
     downloadUrl: primary.downloadUrl,
     error: primary.error,
+    stage: primary.stage,
     works,
   };
 }
@@ -291,7 +331,8 @@ async function startMetadataStrip(env, videoUrl, tag) {
       ok: true,
       workId: encodeWorkId({ kind: 'cc', id: jobId }),
       state: 'processing',
-      label: 'Cleaning…',
+      label: 'Stripping metadata…',
+      stage: 'metadata',
       message: 'Job submitted. Poll status until ready.',
     }),
   };
@@ -380,7 +421,9 @@ async function submitWork(env, videoUrl, options) {
       ok: true,
       workId,
       state: 'processing',
-      label: 'Cleaning…',
+      label: opts.cleanMetadata ? 'Cleaning video…' : 'Cleaning…',
+      stage: 'visual',
+      progress: 0,
       message: 'Job submitted. Poll status until ready.',
     }),
   };
@@ -446,19 +489,24 @@ async function statusPipe(env, gcId) {
       response: json({
         ok: true,
         workId: encodeWorkId({ kind: 'pipe', id: gcId }),
+        stage: 'visual',
         ...summary,
       }),
     };
   }
 
   if (summary.state !== 'ready' || !summary.downloadUrl) {
+    const pct = summary.progress;
+    const pctSuffix = pct != null && pct < 100 ? ` ${pct}%` : '';
     return {
       ok: true,
       response: json({
         ok: true,
         workId: encodeWorkId({ kind: 'pipe', id: gcId }),
         state: 'processing',
-        label: summary.label || 'Cleaning…',
+        label: summary.label || `Cleaning video…${pctSuffix}`,
+        progress: pct ?? null,
+        stage: 'visual',
         downloadUrl: null,
         error: null,
         works: summary.works || [],
@@ -468,10 +516,20 @@ async function statusPipe(env, gcId) {
 
   // Visual stage done → start metadata strip on the result (once).
   if (!cloudconvertConfigured(env)) {
+    // Don't strand a finished visual job: return the cleaned video without metadata strip.
     return {
-      ok: false,
-      response: clientFail('Metadata cleaning isn’t configured.', 503, {
-        error: 'metadata_unconfigured',
+      ok: true,
+      response: json({
+        ok: true,
+        workId: encodeWorkId({ kind: 'gc', id: gcId }),
+        state: 'ready',
+        label: 'Ready to download',
+        progress: 100,
+        stage: 'visual',
+        downloadUrl: summary.downloadUrl,
+        error: null,
+        message: 'Visual clean done. Metadata cleaning isn’t configured, so that step was skipped.',
+        works: summary.works || [],
       }),
     };
   }
@@ -481,7 +539,28 @@ async function statusPipe(env, gcId) {
   if (again) return statusCloudConvert(env, again);
 
   const started = await startMetadataStrip(env, summary.downloadUrl, `cs-pipe-${gcId}`);
-  if (!started.ok) return started;
+  if (!started.ok) {
+    // Visual result exists — surface metadata failure but keep download available.
+    const failBody = await started.response.clone().json().catch(() => null);
+    const metaErr =
+      failBody?.message || 'Could not start metadata cleaning after the visual step finished.';
+    return {
+      ok: true,
+      response: json({
+        ok: true,
+        workId: encodeWorkId({ kind: 'gc', id: gcId }),
+        state: 'ready',
+        label: 'Ready to download',
+        progress: 100,
+        stage: 'visual',
+        downloadUrl: summary.downloadUrl,
+        error: null,
+        warning: friendlyError(metaErr),
+        message: 'Visual clean done. Metadata strip failed — download is the visual result.',
+        works: summary.works || [],
+      }),
+    };
+  }
 
   await writePipeCache(gcId, started.jobId);
   return {
@@ -490,7 +569,9 @@ async function statusPipe(env, gcId) {
       ok: true,
       workId: encodeWorkId({ kind: 'cc', id: started.jobId }),
       state: 'processing',
-      label: 'Cleaning…',
+      label: 'Stripping metadata…',
+      progress: null,
+      stage: 'metadata',
       message: 'Visual clean done; stripping metadata…',
       downloadUrl: null,
       error: null,

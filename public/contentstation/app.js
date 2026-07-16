@@ -11,11 +11,21 @@
   const fileMeta = document.getElementById('file-meta');
   const cleanBtn = document.getElementById('clean-btn');
   const stopBtn = document.getElementById('stop-btn');
+  const resumeBtn = document.getElementById('resume-btn');
   const fileInput = document.getElementById('video-file');
+  const jobIdInput = document.getElementById('job-id-input');
+  const jobCheckBtn = document.getElementById('job-check-btn');
 
   const DIRECT_MAX = 90 * 1024 * 1024;
+  const POLL_MS = 8000;
+  const STORAGE_KEY = 'cs_clean_work_id';
+  const MAX_POLL_ERRORS = 8;
+
   let pollTimer = null;
   let activeWorkId = null;
+  let pollPaused = false;
+  let consecutiveErrors = 0;
+  let pollInFlight = false;
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -36,7 +46,7 @@
   }
 
   function showGate(msg) {
-    stopPoll();
+    stopPoll({ clearStored: false });
     gate.hidden = false;
     app.hidden = true;
     if (msg) {
@@ -104,55 +114,152 @@
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  function stopPoll() {
+  function persistWorkId(workId) {
+    try {
+      if (workId) sessionStorage.setItem(STORAGE_KEY, workId);
+      else sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function loadStoredWorkId() {
+    try {
+      return sessionStorage.getItem(STORAGE_KEY) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function updatePollButtons() {
+    const hasJob = Boolean(activeWorkId);
+    const polling = Boolean(pollTimer);
+    stopBtn.hidden = !(hasJob && polling);
+    if (resumeBtn) {
+      resumeBtn.hidden = !(hasJob && !polling && pollPaused);
+    }
+  }
+
+  function stopPoll({ clearStored = false, paused = true } = {}) {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
-    stopBtn.hidden = true;
+    pollPaused = paused && Boolean(activeWorkId);
+    if (clearStored) {
+      activeWorkId = null;
+      persistWorkId(null);
+      pollPaused = false;
+    }
+    updatePollButtons();
   }
 
   function startPoll(workId) {
-    stopPoll();
-    activeWorkId = workId;
-    stopBtn.hidden = false;
+    if (workId) {
+      activeWorkId = workId;
+      persistWorkId(workId);
+    }
+    if (!activeWorkId) return;
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    pollPaused = false;
+    consecutiveErrors = 0;
+    updatePollButtons();
     pollTimer = setInterval(() => {
-      if (!activeWorkId) {
-        stopPoll();
-        return;
-      }
-      checkStatus(activeWorkId).catch(() => stopPoll());
-    }, 12000);
+      tickPoll().catch(() => {
+        /* tickPoll handles errors; never kill the interval here */
+      });
+    }, POLL_MS);
+  }
+
+  async function tickPoll() {
+    if (!activeWorkId || pollInFlight || document.hidden) return;
+    await checkStatus(activeWorkId);
+  }
+
+  function detailFor(workId, data) {
+    const bits = [];
+    if (workId) bits.push(`Job ${workId}`);
+    if (data && data.stage === 'visual') bits.push('visual stage');
+    if (data && data.stage === 'metadata') bits.push('metadata stage');
+    if (data && data.progress != null && data.state === 'processing') {
+      bits.push(`${data.progress}%`);
+    }
+    return bits.join(' · ');
   }
 
   async function checkStatus(workId) {
-    const { ok, data } = await api('/api/contentstation/clean', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'status', workId }),
-    });
-    if (!ok || !data) {
-      setError((data && data.message) || 'Could not check status.');
+    if (!workId) return null;
+    pollInFlight = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/clean', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'status', workId }),
+      });
+
+      if (!ok || !data) {
+        consecutiveErrors += 1;
+        const msg = (data && data.message) || 'Could not check status.';
+        setError(
+          consecutiveErrors >= MAX_POLL_ERRORS
+            ? `${msg} Stopped after repeated errors — use Resume checking or re-check the job id.`
+            : msg,
+        );
+        if (consecutiveErrors >= MAX_POLL_ERRORS) {
+          stopPoll({ paused: true });
+        }
+        return data;
+      }
+
+      consecutiveErrors = 0;
+
+      // Pipeline may advance workId (visual → metadata strip).
+      if (data.workId) {
+        activeWorkId = data.workId;
+        workId = data.workId;
+        persistWorkId(workId);
+        if (jobIdInput && document.activeElement !== jobIdInput) {
+          jobIdInput.value = workId;
+        }
+      }
+
+      setError(data.warning || '');
+      setStatus(data.label || 'Checking…', detailFor(workId, data));
+
+      if (data.state === 'ready' && data.downloadUrl) {
+        showDownload(data.downloadUrl);
+        setStatus('Ready to download', detailFor(workId, data));
+        stopPoll({ clearStored: true, paused: false });
+        cleanBtn.disabled = false;
+      } else if (data.state === 'failed') {
+        setError(data.error || 'Cleaning failed.');
+        showDownload(null);
+        stopPoll({ paused: true });
+        cleanBtn.disabled = false;
+      } else if (data.state === 'processing' || data.state === 'unknown') {
+        // Keep polling; ensure interval is running if caller only did a one-shot check.
+        if (!pollTimer && !pollPaused) startPoll(workId);
+      }
+
       return data;
+    } catch (err) {
+      consecutiveErrors += 1;
+      const msg = err && err.message ? err.message : 'Network error while checking status.';
+      setError(
+        consecutiveErrors >= MAX_POLL_ERRORS
+          ? `${msg} Stopped after repeated errors — use Resume checking.`
+          : msg,
+      );
+      if (consecutiveErrors >= MAX_POLL_ERRORS) {
+        stopPoll({ paused: true });
+      }
+      return null;
+    } finally {
+      pollInFlight = false;
+      updatePollButtons();
     }
-    // Pipeline may advance workId (visual → metadata strip).
-    if (data.workId) {
-      activeWorkId = data.workId;
-      workId = data.workId;
-    }
-    setError('');
-    setStatus(data.label || 'Checking…', workId ? `Job ${workId}` : '');
-    if (data.state === 'ready' && data.downloadUrl) {
-      showDownload(data.downloadUrl);
-      setStatus('Ready to download', `Job ${workId}`);
-      stopPoll();
-      cleanBtn.disabled = false;
-    } else if (data.state === 'failed') {
-      setError(data.error || 'Cleaning failed.');
-      showDownload(null);
-      stopPoll();
-      cleanBtn.disabled = false;
-    }
-    return data;
   }
 
   async function uploadViaStorage(file) {
@@ -232,6 +339,19 @@
     return data.workId;
   }
 
+  async function beginTracking(workId) {
+    activeWorkId = workId;
+    persistWorkId(workId);
+    if (jobIdInput) jobIdInput.value = workId;
+    setStatus('Cleaning…', `Job ${workId}`);
+    pollPaused = false;
+    const data = await checkStatus(workId);
+    // Always keep polling while still processing — even if workId advanced (pipe → cc).
+    if (data && data.state === 'ready' && data.downloadUrl) return;
+    if (data && data.state === 'failed') return;
+    if (activeWorkId) startPoll(activeWorkId);
+  }
+
   fileInput.addEventListener('change', () => {
     const file = fileInput.files && fileInput.files[0];
     if (!file) {
@@ -245,7 +365,7 @@
   cleanBtn.addEventListener('click', async () => {
     setError('');
     showDownload(null);
-    stopPoll();
+    stopPoll({ clearStored: true, paused: false });
 
     const options = selectedOptions();
     if (!options.removeWatermark && !options.cleanMetadata && !options.remix && !options.mirror) {
@@ -259,7 +379,6 @@
       return;
     }
 
-    // Soft client hint; server still enforces with a generic message.
     if (options.cleanMetadata && window.__csSession && window.__csSession.metadataReady === false) {
       setError('Metadata cleaning isn’t configured.');
       return;
@@ -268,7 +387,6 @@
     cleanBtn.disabled = true;
     try {
       let workId;
-      // Prefer direct processor upload for typical sizes; fall back to storage URL path.
       if (file.size <= DIRECT_MAX) {
         try {
           workId = await submitDirect(file, options);
@@ -282,10 +400,7 @@
         workId = await submitByUrl(videoUrl, options);
       }
 
-      activeWorkId = workId;
-      setStatus('Cleaning…', `Job ${workId}`);
-      await checkStatus(workId);
-      if (activeWorkId === workId) startPoll(workId);
+      await beginTracking(workId);
     } catch (err) {
       setError(err && err.message ? err.message : String(err));
       setStatus('Ready.');
@@ -294,9 +409,48 @@
   });
 
   stopBtn.addEventListener('click', () => {
-    stopPoll();
+    stopPoll({ paused: true });
     cleanBtn.disabled = false;
-    setStatus(activeWorkId ? `Stopped checking · Job ${activeWorkId}` : 'Stopped.');
+    setStatus(activeWorkId ? `Paused · Job ${activeWorkId}` : 'Stopped.');
+    updatePollButtons();
+  });
+
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', async () => {
+      if (!activeWorkId) {
+        const typed = jobIdInput && jobIdInput.value.trim();
+        if (typed) activeWorkId = typed;
+      }
+      if (!activeWorkId) {
+        setError('No job id to resume.');
+        return;
+      }
+      setError('');
+      pollPaused = false;
+      cleanBtn.disabled = true;
+      await beginTracking(activeWorkId);
+    });
+  }
+
+  if (jobCheckBtn && jobIdInput) {
+    jobCheckBtn.addEventListener('click', async () => {
+      const workId = jobIdInput.value.trim();
+      if (!workId) {
+        setError('Enter a job id (e.g. pipe:gc:123 or cc:…).');
+        return;
+      }
+      setError('');
+      showDownload(null);
+      cleanBtn.disabled = true;
+      pollPaused = false;
+      await beginTracking(workId);
+    });
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && activeWorkId && pollTimer && !pollPaused) {
+      checkStatus(activeWorkId).catch(() => {});
+    }
   });
 
   async function refreshSession() {
@@ -325,13 +479,33 @@
     }
     document.getElementById('password').value = '';
     await refreshSession();
+    const stored = loadStoredWorkId();
+    if (stored) {
+      activeWorkId = stored;
+      if (jobIdInput) jobIdInput.value = stored;
+      pollPaused = true;
+      setStatus(`Job saved · ${stored}`, 'Click Resume checking to continue.');
+      updatePollButtons();
+    }
   });
 
   document.getElementById('logout-btn').addEventListener('click', async () => {
-    stopPoll();
+    stopPoll({ clearStored: true, paused: false });
     await api('/api/contentstation/logout', { method: 'POST', body: '{}' });
     showGate();
   });
 
-  refreshSession().catch(() => showGate('Could not reach the station. Try again shortly.'));
+  refreshSession()
+    .then((authed) => {
+      if (!authed) return;
+      const stored = loadStoredWorkId();
+      if (stored) {
+        activeWorkId = stored;
+        if (jobIdInput) jobIdInput.value = stored;
+        pollPaused = true;
+        setStatus(`Job saved · ${stored}`, 'Click Resume checking to continue.');
+        updatePollButtons();
+      }
+    })
+    .catch(() => showGate('Could not reach the station. Try again shortly.'));
 })();

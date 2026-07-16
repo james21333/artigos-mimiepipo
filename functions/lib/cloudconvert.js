@@ -161,14 +161,26 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
       return {
         state: 'ready',
         label: 'Ready to download',
+        progress: 100,
+        stage: 'metadata',
         downloadUrl,
         error: null,
-        works: [{ workId: id ? `cc:${id}` : null, state: 'ready', label: 'Ready to download', downloadUrl }],
+        works: [
+          {
+            workId: id ? `cc:${id}` : null,
+            state: 'ready',
+            label: 'Ready to download',
+            downloadUrl,
+            stage: 'metadata',
+          },
+        ],
       };
     }
     return {
       state: 'failed',
       label: 'Cleaning failed',
+      progress: null,
+      stage: 'metadata',
       downloadUrl: null,
       error: 'Metadata strip finished but no download URL was returned.',
       works: [],
@@ -180,17 +192,36 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
     return {
       state: 'failed',
       label: 'Cleaning failed',
+      progress: null,
+      stage: 'metadata',
       downloadUrl: null,
       error: err,
-      works: [{ workId: id ? `cc:${id}` : null, state: 'failed', label: 'Cleaning failed', error: err }],
+      works: [
+        {
+          workId: id ? `cc:${id}` : null,
+          state: 'failed',
+          label: 'Cleaning failed',
+          error: err,
+          stage: 'metadata',
+        },
+      ],
     };
   }
 
   return {
     state: 'processing',
-    label: 'Cleaning…',
+    label: 'Stripping metadata…',
+    progress: null,
+    stage: 'metadata',
     downloadUrl: null,
     error: null,
-    works: [{ workId: id ? `cc:${id}` : null, state: 'processing', label: 'Cleaning…' }],
+    works: [
+      {
+        workId: id ? `cc:${id}` : null,
+        state: 'processing',
+        label: 'Stripping metadata…',
+        stage: 'metadata',
+      },
+    ],
   };
 }
