@@ -13,6 +13,7 @@
   const statusDetail = document.getElementById('status-detail');
   const downloadError = document.getElementById('download-error');
   const results = document.getElementById('results');
+  const libraryNote = document.getElementById('library-note');
 
   let stopRequested = false;
 
@@ -112,6 +113,7 @@
   function clearResults() {
     results.innerHTML = '';
     results.hidden = true;
+    if (libraryNote) libraryNote.hidden = true;
   }
 
   function ensureResults() {
@@ -132,7 +134,7 @@
       <video class="result-preview" controls playsinline preload="metadata" hidden></video>
       <p class="row result-actions" hidden>
         <a class="btn-link result-download" href="#" download>Download MP4</a>
-        <a class="btn-link" href="./">Open Clean video</a>
+        <a class="btn-link result-clean" href="./">Clean this video</a>
       </p>
       <p class="error result-error" hidden></p>
     `;
@@ -169,6 +171,7 @@
     const preview = card.querySelector('.result-preview');
     const actions = card.querySelector('.result-actions');
     const dl = card.querySelector('.result-download');
+    const cleanLink = card.querySelector('.result-clean');
     titleEl.hidden = false;
     titleEl.textContent = title;
     metaEl.hidden = false;
@@ -186,8 +189,12 @@
       actions.hidden = false;
       dl.href = data.downloadPath;
       dl.setAttribute('download', (data.key || 'tiktok.mp4').split('/').pop());
+      if (cleanLink && data.key) {
+        cleanLink.href = `./?media=${encodeURIComponent(data.key)}`;
+      }
     }
     setCardStatus(card, 'Saved');
+    if (libraryNote) libraryNote.hidden = false;
   }
 
   async function refreshSession() {

@@ -30,6 +30,8 @@
   let pollInFlight = false;
   let creditBalances = { cleaningCreditsLeft: null, videoAlterCreditsLeft: null };
   let lastJobOptions = null;
+  let pendingSource = null; // { key, fetchUrl, name } — set when arriving via ?media=…
+  let mediaParamConsumed = false;
 
   const creditsCleaningEl = document.getElementById('credits-cleaning');
   const creditsVideoAlterEl = document.getElementById('credits-video-alter');
@@ -555,15 +557,70 @@
     if (activeWorkId) startPoll(activeWorkId);
   }
 
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files && fileInput.files[0];
-    if (!file) {
+  function showFileMeta(text) {
+    if (!text) {
       fileMeta.hidden = true;
+      fileMeta.textContent = '';
       return;
     }
     fileMeta.hidden = false;
-    fileMeta.textContent = `${file.name} · ${formatBytes(file.size)}`;
+    fileMeta.textContent = text;
+  }
+
+  function clearPendingSource() {
+    pendingSource = null;
+  }
+
+  function renderFileOrPendingMeta() {
+    const file = fileInput.files && fileInput.files[0];
+    if (file) {
+      showFileMeta(`${file.name} · ${formatBytes(file.size)}`);
+    } else if (pendingSource) {
+      showFileMeta(`Using downloaded: ${pendingSource.name}`);
+    } else {
+      showFileMeta('');
+    }
+  }
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (file) clearPendingSource(); // a picked file always overrides a pending media source
+    renderFileOrPendingMeta();
   });
+
+  /** Consume ?media=<r2 key> once authenticated: look up the object and offer it as a source. */
+  async function maybeConsumeMediaParam() {
+    if (mediaParamConsumed) return;
+    const params = new URLSearchParams(window.location.search);
+    const key = params.get('media');
+    if (!key) return;
+    mediaParamConsumed = true;
+    try {
+      const { ok, data } = await api(
+        `/api/contentstation/media?action=meta&key=${encodeURIComponent(key)}`,
+      );
+      if (!ok || !data || !data.object || !data.object.fetchUrl) {
+        throw new Error((data && (data.message || data.error)) || 'Could not find that video.');
+      }
+      pendingSource = {
+        key,
+        fetchUrl: data.object.fetchUrl,
+        name: key.split('/').pop() || key,
+      };
+      renderFileOrPendingMeta();
+    } catch (err) {
+      setError(err && err.message ? err.message : 'Could not load the requested video.');
+    } finally {
+      // Drop ?media= from the URL now that we've tried to consume it.
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('media');
+        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
   cleanBtn.addEventListener('click', async () => {
     setError('');
@@ -585,7 +642,7 @@
     }
 
     const file = fileInput.files && fileInput.files[0];
-    if (!file) {
+    if (!file && !pendingSource) {
       setError('Choose a video file first.');
       return;
     }
@@ -609,7 +666,9 @@
       snapshotCreditsForJob(options);
 
       let workId;
-      if (file.size <= DIRECT_MAX) {
+      if (!file && pendingSource) {
+        workId = await submitByUrl(pendingSource.fetchUrl, options);
+      } else if (file.size <= DIRECT_MAX) {
         try {
           workId = await submitDirect(file, options);
         } catch (directErr) {
@@ -682,6 +741,7 @@
       showApp(data);
       // Refresh balances in background so left figures stay current.
       refreshBalances().catch(() => {});
+      maybeConsumeMediaParam().catch(() => {});
       return true;
     }
     window.__csSession = null;
