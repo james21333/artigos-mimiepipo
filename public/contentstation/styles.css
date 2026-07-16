@@ -352,15 +352,50 @@ a { color: var(--accent); }
   padding: 0.4rem 0.8rem;
 }
 
-.download-result {
+.download-main {
+  max-width: 36rem;
+}
+
+#tiktok-urls {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+#tiktok-urls:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.download-results {
   margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.download-result-card {
   padding-top: 1rem;
   border-top: 1px solid var(--rule);
   animation: fade-in 0.4s ease-out both;
 }
 
+.result-index {
+  margin: 0 0 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .result-title {
-  margin: 0 0 0.25rem;
+  margin: 0.35rem 0 0.25rem;
   font-size: 1.05rem;
   word-break: break-word;
 }
@@ -377,4 +412,8 @@ a { color: var(--accent); }
 
 .result-actions {
   margin-top: 0.5rem;
+}
+
+.result-url {
+  word-break: break-all;
 }
