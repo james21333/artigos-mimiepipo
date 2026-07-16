@@ -6,11 +6,14 @@ export async function onRequestGet(context) {
   const r2Bound = Boolean(context.env.MEDIA_BUCKET);
   const runpodConfigured = Boolean(context.env.RUNPOD_API_KEY);
   const processorReady = Boolean(context.env.GHOSTCUT_APP_KEY && context.env.GHOSTCUT_APP_SECRET);
+  const metadataReady = Boolean(context.env.CLOUDCONVERT_API_KEY);
+  const cleanReady = processorReady || metadataReady;
   return json({
     authenticated: ok,
     // Friendly flags for the consumer Clean video UI (no vendor names).
-    ready: processorReady && Boolean(context.env.CONTENT_STATION_PASSWORD),
-    cleanReady: processorReady,
+    ready: cleanReady && Boolean(context.env.CONTENT_STATION_PASSWORD),
+    cleanReady,
+    metadataReady,
     uploadReady: r2Bound,
     // Legacy fields kept for old213223523.html ops panel.
     ghostcutConfigured: processorReady,
@@ -21,6 +24,7 @@ export async function onRequestGet(context) {
       ghostcut: true,
       r2: r2Bound,
       runpod: runpodConfigured,
+      metadataStrip: metadataReady,
     },
   });
 }

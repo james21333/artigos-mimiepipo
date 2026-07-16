@@ -1,5 +1,11 @@
 import { json, requireSession } from '../../lib/contentstation-auth.js';
 import { ghostcutPost } from '../../lib/ghostcut.js';
+import {
+  cloudconvertConfigured,
+  createMetadataStripJob,
+  getJob,
+  summarizeCloudConvertJob,
+} from '../../lib/cloudconvert.js';
 
 /**
  * Consumer-facing clean-video API.
@@ -15,15 +21,18 @@ import { ghostcutPost } from '../../lib/ghostcut.js';
  *
  * Option → API mapping (internal; see docs/CLEAN-VIDEO-INTERNAL.md):
  *   removeWatermark → needChineseOcclude + advanced_lite fullscreen OCR erase
- *   cleanMetadata   → re-encode via write_options.crf (no strip/rewrite metadata flag exists)
+ *   cleanMetadata   → CloudConvert ffmpeg -map_metadata -1 -c copy (after visual jobs)
  *   remix           → needTrim + needRescale + needShift (+ trim color/crop/speed)
  *   mirror          → needMirror=1
+ *
+ * Pipeline order: GhostCut visual options first → then CloudConvert metadata strip.
  */
 
 const WORK_FREE = '/v-w-c/gateway/ve/work/free';
 const WORK_STATUS = '/v-w-c/gateway/ve/work/status';
 const UPLOAD_POLICY = '/v-w-c/gateway/ve/file/upload/policy/apply';
 const MAX_PROXY_UPLOAD = 90 * 1024 * 1024;
+const PIPE_CACHE_PREFIX = 'https://contentstation.internal/clean-pipe/';
 
 function friendlyError(raw) {
   const text = String(raw || 'Something went wrong. Please try again.');
@@ -33,7 +42,9 @@ function friendlyError(raw) {
     .replace(/\bzhaoli\b/gi, 'processor')
     .replace(/\brunpod\b/gi, 'compute')
     .replace(/\bR2\b/g, 'storage')
-    .replace(/cloudflare/gi, 'host');
+    .replace(/cloudflare/gi, 'host')
+    .replace(/cloud\s*convert/gi, 'processor')
+    .replace(/\bffmpeg\b/gi, 'processor');
 }
 
 function sanitizePayload(data) {
@@ -43,7 +54,7 @@ function sanitizePayload(data) {
   if (typeof data !== 'object') return data;
   const out = {};
   for (const [k, v] of Object.entries(data)) {
-    if (/ghostcut|jolly|zhaoli|runpod|appkey|appsecret/i.test(k)) continue;
+    if (/ghostcut|jolly|zhaoli|runpod|appkey|appsecret|cloudconvert/i.test(k)) continue;
     out[k] = sanitizePayload(v);
   }
   return out;
@@ -63,6 +74,10 @@ function parseOptions(raw) {
   };
 }
 
+function needsVisual(opts) {
+  return Boolean(opts.removeWatermark || opts.remix || opts.mirror);
+}
+
 function isPublicHttpsUrl(url) {
   if (!url || typeof url !== 'string') return false;
   try {
@@ -76,15 +91,33 @@ function isPublicHttpsUrl(url) {
   }
 }
 
+function processorConfigured(env) {
+  return Boolean(env.GHOSTCUT_APP_KEY && env.GHOSTCUT_APP_SECRET);
+}
+
+function filenameFromUrl(url) {
+  try {
+    const path = new URL(url).pathname;
+    const base = path.split('/').pop() || 'input.mp4';
+    return base.slice(0, 80);
+  } catch {
+    return 'input.mp4';
+  }
+}
+
 /**
- * Build /work/free payload from checkbox options.
- * Limitation: there is no documented metadata strip/rewrite flag; cleanMetadata
- * forces a re-encode (write_options.crf) so the export is a new container.
+ * Build /work/free payload from visual checkbox options only.
+ * cleanMetadata is handled separately via CloudConvert after this step.
  */
 export function buildCleanPayload(videoUrl, options) {
   const opts = parseOptions(options);
   if (!opts.removeWatermark && !opts.cleanMetadata && !opts.remix && !opts.mirror) {
     return { error: 'Select at least one clean option.' };
+  }
+
+  // Metadata-only jobs skip GhostCut entirely.
+  if (!needsVisual(opts)) {
+    return { skipVisual: true, opts };
   }
 
   const payload = {
@@ -94,12 +127,6 @@ export function buildCleanPayload(videoUrl, options) {
   };
 
   const extra = {};
-
-  if (opts.cleanMetadata) {
-    // Closest supported approach: re-export with a fresh encode.
-    // Does not inject fake device metadata; source tags are typically dropped on re-mux.
-    extra.write_options = { crf: 18 };
-  }
 
   if (opts.removeWatermark) {
     // TikTok-style text/logo overlays: advanced_lite fullscreen OCR erase.
@@ -142,7 +169,7 @@ export function buildCleanPayload(videoUrl, options) {
     payload.extraOptions = JSON.stringify(extra);
   }
 
-  return { payload };
+  return { payload, opts };
 }
 
 function extractWorkId(data) {
@@ -187,16 +214,91 @@ function summarizeStatus(data) {
   };
 }
 
-async function submitWork(env, videoUrl, options) {
-  if (!isPublicHttpsUrl(videoUrl)) {
-    return { ok: false, response: clientFail('A valid public video URL is required.', 400) };
-  }
-  const built = buildCleanPayload(videoUrl, options);
-  if (built.error) {
-    return { ok: false, response: clientFail(built.error, 400) };
-  }
+function encodeWorkId({ kind, id }) {
+  if (kind === 'cc') return `cc:${id}`;
+  if (kind === 'pipe') return `pipe:gc:${id}`;
+  if (kind === 'gc') return `gc:${id}`;
+  return String(id);
+}
 
-  const result = await ghostcutPost(env, WORK_FREE, built.payload);
+function parseWorkId(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { kind: 'unknown' };
+  if (s.startsWith('cc:')) return { kind: 'cc', id: s.slice(3) };
+  if (s.startsWith('pipe:gc:')) return { kind: 'pipe', id: s.slice(8) };
+  if (s.startsWith('gc:')) return { kind: 'gc', id: s.slice(3) };
+  // Legacy numeric GhostCut ids
+  if (/^\d+$/.test(s)) return { kind: 'gc', id: s };
+  return { kind: 'unknown', id: s };
+}
+
+async function readPipeCache(gcId) {
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(new Request(`${PIPE_CACHE_PREFIX}${gcId}`));
+    if (!hit) return null;
+    const data = await hit.json();
+    return data && data.ccJobId ? String(data.ccJobId) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writePipeCache(gcId, ccJobId) {
+  try {
+    const cache = caches.default;
+    const body = JSON.stringify({ ccJobId, at: new Date().toISOString() });
+    await cache.put(
+      new Request(`${PIPE_CACHE_PREFIX}${gcId}`),
+      new Response(body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      }),
+    );
+  } catch {
+    // Best-effort memoization; duplicate strip jobs are rare if the client follows workId.
+  }
+}
+
+async function startMetadataStrip(env, videoUrl, tag) {
+  const result = await createMetadataStripJob(env, videoUrl, {
+    filename: filenameFromUrl(videoUrl),
+    tag: tag || 'cs-clean-meta',
+  });
+  if (!result.ok) {
+    const msg =
+      result.data?.message ||
+      result.data?.error ||
+      (Array.isArray(result.data?.errors) && result.data.errors[0]?.detail) ||
+      'Could not start metadata cleaning.';
+    return { ok: false, response: clientFail(friendlyError(msg), result.status || 502) };
+  }
+  const jobId = result.data?.data?.id || result.data?.id;
+  if (!jobId) {
+    return {
+      ok: false,
+      response: clientFail('Metadata job started but no id was returned.', 502, {
+        detail: sanitizePayload(result.data),
+      }),
+    };
+  }
+  return {
+    ok: true,
+    jobId: String(jobId),
+    response: json({
+      ok: true,
+      workId: encodeWorkId({ kind: 'cc', id: jobId }),
+      state: 'processing',
+      label: 'Cleaning…',
+      message: 'Job submitted. Poll status until ready.',
+    }),
+  };
+}
+
+async function submitGhostCut(env, videoUrl, payload) {
+  const result = await ghostcutPost(env, WORK_FREE, payload);
   if (!result.ok) {
     const msg =
       result.data?.msg ||
@@ -208,8 +310,6 @@ async function submitWork(env, videoUrl, options) {
       response: clientFail(msg, result.status || 502, { detail: sanitizePayload(result.data) }),
     };
   }
-
-  // Upstream business errors often still HTTP 200 with code != 1000
   if (result.data && result.data.code != null && Number(result.data.code) !== 1000) {
     return {
       ok: false,
@@ -218,7 +318,6 @@ async function submitWork(env, videoUrl, options) {
       }),
     };
   }
-
   const workId = extractWorkId(result.data);
   if (!workId) {
     return {
@@ -228,6 +327,52 @@ async function submitWork(env, videoUrl, options) {
       }),
     };
   }
+  return { ok: true, workId };
+}
+
+async function submitWork(env, videoUrl, options) {
+  if (!isPublicHttpsUrl(videoUrl)) {
+    return { ok: false, response: clientFail('A valid public video URL is required.', 400) };
+  }
+
+  const opts = parseOptions(options);
+  if (!opts.removeWatermark && !opts.cleanMetadata && !opts.remix && !opts.mirror) {
+    return { ok: false, response: clientFail('Select at least one clean option.', 400) };
+  }
+
+  if (opts.cleanMetadata && !cloudconvertConfigured(env)) {
+    return {
+      ok: false,
+      response: clientFail('Metadata cleaning isn’t configured.', 503, {
+        error: 'metadata_unconfigured',
+      }),
+    };
+  }
+
+  const visual = needsVisual(opts);
+  if (visual && !processorConfigured(env)) {
+    return {
+      ok: false,
+      response: clientFail('Video cleaning isn’t fully configured yet.', 503),
+    };
+  }
+
+  // Metadata-only: CloudConvert strip on the source URL.
+  if (!visual && opts.cleanMetadata) {
+    return startMetadataStrip(env, videoUrl, 'cs-meta-only');
+  }
+
+  const built = buildCleanPayload(videoUrl, opts);
+  if (built.error) {
+    return { ok: false, response: clientFail(built.error, 400) };
+  }
+
+  const gc = await submitGhostCut(env, videoUrl, built.payload);
+  if (!gc.ok) return gc;
+
+  const workId = opts.cleanMetadata
+    ? encodeWorkId({ kind: 'pipe', id: gc.workId })
+    : encodeWorkId({ kind: 'gc', id: gc.workId });
 
   return {
     ok: true,
@@ -241,11 +386,11 @@ async function submitWork(env, videoUrl, options) {
   };
 }
 
-async function statusWork(env, workId) {
-  if (workId == null || workId === '') {
+async function statusGhostCut(env, rawId) {
+  if (rawId == null || rawId === '') {
     return { ok: false, response: clientFail('Missing work id.', 400) };
   }
-  const id = /^\d+$/.test(String(workId)) ? Number(workId) : workId;
+  const id = /^\d+$/.test(String(rawId)) ? Number(rawId) : rawId;
   const result = await ghostcutPost(env, WORK_STATUS, { idWorks: [id] });
   if (!result.ok) {
     return {
@@ -256,15 +401,124 @@ async function statusWork(env, workId) {
       ),
     };
   }
-  const summary = summarizeStatus(result.data);
+  return { ok: true, summary: summarizeStatus(result.data), rawId: String(rawId) };
+}
+
+async function statusCloudConvert(env, jobId) {
+  const result = await getJob(env, jobId);
+  if (!result.ok) {
+    return {
+      ok: false,
+      response: clientFail(
+        friendlyError(
+          result.data?.message || result.data?.error || 'Status check failed.',
+        ),
+        result.status || 502,
+      ),
+    };
+  }
+  const summary = summarizeCloudConvertJob(result.data, jobId);
   return {
     ok: true,
     response: json({
       ok: true,
-      workId: String(workId),
+      workId: encodeWorkId({ kind: 'cc', id: jobId }),
       ...summary,
+      error: summary.error ? friendlyError(summary.error) : null,
     }),
   };
+}
+
+async function statusPipe(env, gcId) {
+  // If we already started the metadata step, follow that job.
+  const cachedCc = await readPipeCache(gcId);
+  if (cachedCc) {
+    return statusCloudConvert(env, cachedCc);
+  }
+
+  const gc = await statusGhostCut(env, gcId);
+  if (!gc.ok) return gc;
+
+  const { summary } = gc;
+  if (summary.state === 'failed') {
+    return {
+      ok: true,
+      response: json({
+        ok: true,
+        workId: encodeWorkId({ kind: 'pipe', id: gcId }),
+        ...summary,
+      }),
+    };
+  }
+
+  if (summary.state !== 'ready' || !summary.downloadUrl) {
+    return {
+      ok: true,
+      response: json({
+        ok: true,
+        workId: encodeWorkId({ kind: 'pipe', id: gcId }),
+        state: 'processing',
+        label: summary.label || 'Cleaning…',
+        downloadUrl: null,
+        error: null,
+        works: summary.works || [],
+      }),
+    };
+  }
+
+  // Visual stage done → start metadata strip on the result (once).
+  if (!cloudconvertConfigured(env)) {
+    return {
+      ok: false,
+      response: clientFail('Metadata cleaning isn’t configured.', 503, {
+        error: 'metadata_unconfigured',
+      }),
+    };
+  }
+
+  // Re-check cache in case another poll started the job.
+  const again = await readPipeCache(gcId);
+  if (again) return statusCloudConvert(env, again);
+
+  const started = await startMetadataStrip(env, summary.downloadUrl, `cs-pipe-${gcId}`);
+  if (!started.ok) return started;
+
+  await writePipeCache(gcId, started.jobId);
+  return {
+    ok: true,
+    response: json({
+      ok: true,
+      workId: encodeWorkId({ kind: 'cc', id: started.jobId }),
+      state: 'processing',
+      label: 'Cleaning…',
+      message: 'Visual clean done; stripping metadata…',
+      downloadUrl: null,
+      error: null,
+    }),
+  };
+}
+
+async function statusWork(env, workId) {
+  const parsed = parseWorkId(workId);
+  if (parsed.kind === 'cc') {
+    return statusCloudConvert(env, parsed.id);
+  }
+  if (parsed.kind === 'pipe') {
+    return statusPipe(env, parsed.id);
+  }
+  if (parsed.kind === 'gc') {
+    const gc = await statusGhostCut(env, parsed.id);
+    if (!gc.ok) return gc;
+    return {
+      ok: true,
+      response: json({
+        ok: true,
+        workId: encodeWorkId({ kind: 'gc', id: parsed.id }),
+        ...gc.summary,
+      }),
+    };
+  }
+  return { ok: false, response: clientFail('Unknown work id.', 400) };
 }
 
 function safeFilename(name) {
@@ -321,6 +575,25 @@ async function uploadThenSubmit(env, file, options) {
         `File is too large for direct upload (${size} bytes). Upload via storage first, then submit the public URL.`,
         413,
         { maxBytes: MAX_PROXY_UPLOAD },
+      ),
+    };
+  }
+
+  const opts = parseOptions(options);
+  // Metadata-only can still use the visual processor's upload host for a public fetch URL.
+  if (!processorConfigured(env) && needsVisual(opts)) {
+    return {
+      ok: false,
+      response: clientFail('Video cleaning isn’t fully configured yet.', 503),
+    };
+  }
+  if (!processorConfigured(env) && opts.cleanMetadata && !needsVisual(opts)) {
+    // No OSS uploader available — client should use /media (R2) then submit URL.
+    return {
+      ok: false,
+      response: clientFail(
+        'Direct upload needs the video processor configured, or upload via storage first.',
+        503,
       ),
     };
   }

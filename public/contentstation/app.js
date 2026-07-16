@@ -54,6 +54,7 @@
     if (session.ready || session.cleanReady) bits.push('Ready');
     else bits.push('Setup incomplete');
     if (session.uploadReady) bits.push('Uploads on');
+    if (session.metadataReady === false) bits.push('Metadata off');
     sessionMeta.textContent = bits.join(' · ');
   }
 
@@ -116,7 +117,11 @@
     activeWorkId = workId;
     stopBtn.hidden = false;
     pollTimer = setInterval(() => {
-      checkStatus(workId).catch(() => stopPoll());
+      if (!activeWorkId) {
+        stopPoll();
+        return;
+      }
+      checkStatus(activeWorkId).catch(() => stopPoll());
     }, 12000);
   }
 
@@ -128,6 +133,11 @@
     if (!ok || !data) {
       setError((data && data.message) || 'Could not check status.');
       return data;
+    }
+    // Pipeline may advance workId (visual → metadata strip).
+    if (data.workId) {
+      activeWorkId = data.workId;
+      workId = data.workId;
     }
     setError('');
     setStatus(data.label || 'Checking…', workId ? `Job ${workId}` : '');
@@ -168,12 +178,14 @@
       if (!putRes.ok) {
         throw new Error('Large upload failed. Try a smaller file.');
       }
+      if (data.fetchUrl) return data.fetchUrl;
       if (data.publicUrl) return data.publicUrl;
       const meta = await api(
         `/api/contentstation/media?action=meta&key=${encodeURIComponent(data.key)}`,
       );
+      if (meta.ok && meta.data?.object?.fetchUrl) return meta.data.object.fetchUrl;
       if (meta.ok && meta.data?.object?.publicUrl) return meta.data.object.publicUrl;
-      throw new Error('Upload succeeded but no public URL is available for processing.');
+      throw new Error('Upload succeeded but no fetchable URL is available for processing.');
     }
 
     const form = new FormData();
@@ -187,8 +199,9 @@
     if (!ok || !data?.object) {
       throw new Error((data && data.message) || 'Upload failed.');
     }
+    if (data.object.fetchUrl) return data.object.fetchUrl;
     if (data.object.publicUrl) return data.object.publicUrl;
-    throw new Error('Upload succeeded but no public URL is available for processing.');
+    throw new Error('Upload succeeded but no fetchable URL is available for processing.');
   }
 
   async function submitByUrl(videoUrl, options) {
@@ -246,6 +259,12 @@
       return;
     }
 
+    // Soft client hint; server still enforces with a generic message.
+    if (options.cleanMetadata && window.__csSession && window.__csSession.metadataReady === false) {
+      setError('Metadata cleaning isn’t configured.');
+      return;
+    }
+
     cleanBtn.disabled = true;
     try {
       let workId;
@@ -283,9 +302,11 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
+      window.__csSession = data;
       showApp(data);
       return true;
     }
+    window.__csSession = null;
     showGate();
     return false;
   }

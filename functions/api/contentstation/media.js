@@ -1,5 +1,5 @@
 import { json, requireSession } from '../../lib/contentstation-auth.js';
-import { createR2PresignedPut } from '../../lib/r2-presign.js';
+import { createR2PresignedPut, createR2PresignedGet } from '../../lib/r2-presign.js';
 
 /**
  * R2 media API (binding: MEDIA_BUCKET → content-station-media).
@@ -60,6 +60,15 @@ function objectSummary(env, obj) {
   };
 }
 
+/** Prefer public CDN URL; otherwise a time-limited S3 GET for external processors. */
+async function fetchableUrl(env, key) {
+  const pub = publicUrl(env, key);
+  if (pub) return { url: pub, kind: 'public' };
+  const signed = await createR2PresignedGet(env, { key, expiresIn: 3600 });
+  if (signed.ok) return { url: signed.url, kind: 'presigned-get', expiresIn: signed.expiresIn };
+  return { url: null, kind: null, error: signed };
+}
+
 async function listObjects(env, bucket, url) {
   const prefix = sanitizeKey(url.searchParams.get('prefix') || PREFIX_DEFAULT, {
     allowTrailingSlash: true,
@@ -94,7 +103,16 @@ async function getMeta(env, bucket, url) {
   if (!key) return json({ error: 'invalid_key' }, 400);
   const head = await bucket.head(key);
   if (!head) return json({ error: 'not_found', key }, 404);
-  return json({ status: 'ok', object: objectSummary(env, head) });
+  const summary = objectSummary(env, head);
+  const fetchable = await fetchableUrl(env, key);
+  return json({
+    status: 'ok',
+    object: {
+      ...summary,
+      fetchUrl: fetchable.url || summary.publicUrl,
+      fetchUrlKind: fetchable.kind,
+    },
+  });
 }
 
 async function streamGet(bucket, url) {
@@ -179,9 +197,15 @@ async function uploadForm(env, bucket, request) {
     },
   });
 
+  const summary = objectSummary(env, put || { key, size, httpMetadata: { contentType } });
+  const fetchable = await fetchableUrl(env, key);
   return json({
     status: 'ok',
-    object: objectSummary(env, put || { key, size, httpMetadata: { contentType } }),
+    object: {
+      ...summary,
+      fetchUrl: fetchable.url || summary.publicUrl,
+      fetchUrlKind: fetchable.kind,
+    },
   });
 }
 
@@ -216,12 +240,32 @@ async function handleJson(env, bucket, request) {
       expiresIn: Math.min(3600, Math.max(60, Number(body.expiresIn) || 3600)),
     });
     if (!signed.ok) return json(signed, 503);
+    const fetchable = await fetchableUrl(env, key);
     return json({
       status: 'ok',
       ...signed,
       downloadPath: downloadPath(key),
       publicUrl: publicUrl(env, key),
-      note: 'PUT the file bytes directly to url with the returned headers (browser/CORS may require R2 CORS rules).',
+      fetchUrl: fetchable.url || publicUrl(env, key),
+      fetchUrlKind: fetchable.kind,
+      note: 'PUT the file bytes directly to url with the returned headers (browser/CORS may require R2 CORS rules). After PUT, use fetchUrl (or publicUrl) for processing.',
+    });
+  }
+
+  if (action === 'sign-get') {
+    const key = sanitizeKey(body.key);
+    if (!key) return json({ error: 'invalid_key' }, 400);
+    const fetchable = await fetchableUrl(env, key);
+    if (!fetchable.url) {
+      return json(fetchable.error || { error: 'sign_get_failed', message: 'Could not create fetch URL.' }, 503);
+    }
+    return json({
+      status: 'ok',
+      key,
+      fetchUrl: fetchable.url,
+      fetchUrlKind: fetchable.kind,
+      expiresIn: fetchable.expiresIn || null,
+      publicUrl: publicUrl(env, key),
     });
   }
 
