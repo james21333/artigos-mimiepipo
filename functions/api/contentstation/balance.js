@@ -4,7 +4,7 @@ import { fetchCreditBalances } from '../../lib/credits.js';
 /**
  * Credit balances for the Clean video UI (Josh naming — no vendor names).
  *   cleaningCreditsLeft   → metadata strip account
- *   videoAlterCreditsLeft → visual alter (watermark / remix / mirror) account
+ *   videoAlterCreditsLeft → visual alter (watermark / basic remix / remix / mirror) account
  *
  * Legacy pointAssets payload is still included for the archive ops page.
  */

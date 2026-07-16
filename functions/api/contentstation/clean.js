@@ -25,10 +25,11 @@ import {
  *   file + options (JSON string) → upload then submit (≤ ~90MB)
  *
  * Option → API mapping (internal; see docs/CLEAN-VIDEO-INTERNAL.md):
- *   removeWatermark → needChineseOcclude + advanced_lite fullscreen OCR erase
- *   cleanMetadata   → CloudConvert ffmpeg -map_metadata -1 -c copy (after visual jobs)
- *   remix           → needTrim + needRescale + needShift (+ trim color/crop/speed)
- *   mirror          → needMirror=1
+ *   removeWatermark  → needChineseOcclude + advanced_lite fullscreen OCR erase
+ *   cleanMetadata    → CloudConvert ffmpeg -map_metadata -1 -c copy (after visual jobs)
+ *   basicVideoRemix  → needTrim only + trim color/sharpness/speedup (Video Remaker defaults)
+ *   remix            → needTrim + needRescale + needShift (+ trim color/sharpness/speedup)
+ *   mirror           → needMirror=1
  *
  * Pipeline order: GhostCut visual options first → then CloudConvert metadata strip.
  */
@@ -76,13 +77,34 @@ function parseOptions(raw) {
   return {
     removeWatermark: Boolean(src.removeWatermark),
     cleanMetadata: Boolean(src.cleanMetadata),
+    basicVideoRemix: Boolean(src.basicVideoRemix),
     remix: Boolean(src.remix),
     mirror: Boolean(src.mirror),
   };
 }
 
+function hasAnyCleanOption(opts) {
+  return Boolean(
+    opts.removeWatermark ||
+      opts.cleanMetadata ||
+      opts.basicVideoRemix ||
+      opts.remix ||
+      opts.mirror,
+  );
+}
+
 function needsVisual(opts) {
-  return Boolean(opts.removeWatermark || opts.remix || opts.mirror);
+  return Boolean(opts.removeWatermark || opts.basicVideoRemix || opts.remix || opts.mirror);
+}
+
+/** Official Video Remaker “Basic Edit” sub-options (no crop trailer). */
+function videoRemakerTrimConfig() {
+  return {
+    adjust_color_on: true,
+    adjust_sharpness_on: true,
+    crop_trailer_on: false,
+    speedup_on: true,
+  };
 }
 
 function isPublicHttpsUrl(url) {
@@ -118,7 +140,7 @@ function filenameFromUrl(url) {
  */
 export function buildCleanPayload(videoUrl, options) {
   const opts = parseOptions(options);
-  if (!opts.removeWatermark && !opts.cleanMetadata && !opts.remix && !opts.mirror) {
+  if (!hasAnyCleanOption(opts)) {
     return { error: 'Select at least one clean option.' };
   }
 
@@ -155,17 +177,16 @@ export function buildCleanPayload(videoUrl, options) {
     ]);
   }
 
-  if (opts.remix) {
-    // Community unique-ify: color / micro-crop / speed + rescale + camera shift.
+  if (opts.basicVideoRemix || opts.remix) {
+    // Video Remaker Basic Edit: color / sharpness / speedup (skill 27-video-basic-processing).
     payload.needTrim = 1;
+    extra.extra_trim_config = videoRemakerTrimConfig();
+  }
+
+  if (opts.remix) {
+    // Subtle remix adds dynamic zoom + smart pan on top of Basic Edit.
     payload.needRescale = 3;
     payload.needShift = 1;
-    extra.extra_trim_config = {
-      adjust_color_on: true,
-      adjust_sharpness_on: true,
-      crop_trailer_on: false,
-      speedup_on: true,
-    };
   }
 
   if (opts.mirror) {
@@ -215,8 +236,10 @@ function workAgeMs(c) {
 /**
  * Estimate video-alter points from duration + options when the processor
  * does not return an exact cost. Billing unit = 30s (ceil).
- * Mapping (internal): watermark advanced_lite = 4/unit; remix ≈ 1/unit
- * (trim+rescale+shift); mirror ≈ 0.5/unit. Prefer client balance-delta.
+ * Mapping (internal): watermark advanced_lite = 4/unit;
+ * basicVideoRemix (needTrim only) ≈ 0.5/unit;
+ * remix (trim+rescale+shift) ≈ 1/unit; mirror ≈ 0.5/unit.
+ * Prefer client balance-delta.
  */
 function estimateVideoAlterCredits(durationSec, optionsHint) {
   const secs = Number(durationSec);
@@ -226,6 +249,7 @@ function estimateVideoAlterCredits(durationSec, optionsHint) {
   let perUnit = 0;
   if (opts.removeWatermark) perUnit += 4;
   if (opts.remix) perUnit += 1;
+  else if (opts.basicVideoRemix) perUnit += 0.5;
   if (opts.mirror) perUnit += 0.5;
   if (perUnit <= 0) perUnit = 4; // default assume watermark-class job
   return Math.round(units * perUnit * 10) / 10;
@@ -460,7 +484,7 @@ async function submitWork(env, videoUrl, options) {
   }
 
   const opts = parseOptions(options);
-  if (!opts.removeWatermark && !opts.cleanMetadata && !opts.remix && !opts.mirror) {
+  if (!hasAnyCleanOption(opts)) {
     return { ok: false, response: clientFail('Select at least one clean option.', 400) };
   }
 

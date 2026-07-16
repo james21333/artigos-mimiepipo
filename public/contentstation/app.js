@@ -158,7 +158,12 @@
   }
 
   function jobUsedVisual(workId, options) {
-    if (options && (options.removeWatermark || options.remix || options.mirror)) return true;
+    if (
+      options &&
+      (options.removeWatermark || options.basicVideoRemix || options.remix || options.mirror)
+    ) {
+      return true;
+    }
     const id = String(workId || '');
     return id.startsWith('gc:') || id.startsWith('pipe:gc:') || /^\d+$/.test(id);
   }
@@ -282,6 +287,7 @@
     return {
       removeWatermark: document.getElementById('opt-watermark').checked,
       cleanMetadata: document.getElementById('opt-metadata').checked,
+      basicVideoRemix: document.getElementById('opt-basic-video-remix').checked,
       remix: document.getElementById('opt-remix').checked,
       mirror: document.getElementById('opt-mirror').checked,
     };
@@ -555,7 +561,13 @@
     stopPoll({ clearStored: true, paused: false });
 
     const options = selectedOptions();
-    if (!options.removeWatermark && !options.cleanMetadata && !options.remix && !options.mirror) {
+    if (
+      !options.removeWatermark &&
+      !options.cleanMetadata &&
+      !options.basicVideoRemix &&
+      !options.remix &&
+      !options.mirror
+    ) {
       setError('Select at least one option.');
       return;
     }
