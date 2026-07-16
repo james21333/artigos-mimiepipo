@@ -204,6 +204,63 @@ export async function getJob(env, jobId) {
 }
 
 /**
+ * Simple import/url → export/url (no ffmpeg). Used to pull remote media into a
+ * Worker-friendly CDN URL (TikTok CDN often fails from Pages Functions).
+ */
+export async function createImportExportJob(env, videoUrl, { filename, tag } = {}) {
+  if (!cloudconvertConfigured(env)) {
+    return {
+      ok: false,
+      status: 503,
+      data: { error: 'metadata_unconfigured', message: 'Post-processing isn’t configured.' },
+    };
+  }
+  if (!videoUrl || typeof videoUrl !== 'string') {
+    return { ok: false, status: 400, data: { error: 'invalid_url' } };
+  }
+  const inputFilename = safeVideoFilename(filename || 'input.mp4');
+  const body = {
+    tasks: {
+      'import-file': {
+        operation: 'import/url',
+        url: videoUrl.trim(),
+        filename: inputFilename,
+      },
+      'export-file': {
+        operation: 'export/url',
+        input: 'import-file',
+      },
+    },
+  };
+  if (tag) body.tag = String(tag).slice(0, 120);
+
+  const res = await fetch(`${API_BASE}/jobs`, {
+    method: 'POST',
+    headers: authHeaders(env),
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse(res);
+}
+
+/** Poll a job until finished/error or timeout (ms). */
+export async function waitForJob(env, jobId, { timeoutMs = 55000, intervalMs = 1500 } = {}) {
+  const started = Date.now();
+  let last = null;
+  while (Date.now() - started < timeoutMs) {
+    last = await getJob(env, jobId);
+    if (!last.ok) return last;
+    const status = String(last.data?.data?.status || last.data?.status || '').toLowerCase();
+    if (status === 'finished' || status === 'error') return last;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return {
+    ok: false,
+    status: 504,
+    data: { error: 'job_timeout', message: 'Timed out waiting for transfer.', last: last?.data || null },
+  };
+}
+
+/**
  * Remaining conversion credits for the API key (GET /v2/users/me).
  * Requires user.read scope on the token.
  */

@@ -1,8 +1,16 @@
 /**
  * Resolve a public TikTok URL to a no-watermark play URL, then save to R2.
- * Prefer TikLiveAPI when TIKLIVE_API_KEY is set.
- * Prefer standard no-watermark `video` over huge `video_hd` (Worker stability).
+ * TikLiveAPI resolves the play URL; CloudConvert pulls the bytes (TikTok CDN
+ * often crashes Pages Functions on direct fetch).
  */
+
+import {
+  cloudconvertConfigured,
+  createImportExportJob,
+  extractExportUrl,
+  extractJobError,
+  waitForJob,
+} from './cloudconvert.js';
 
 const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
 const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
@@ -32,7 +40,7 @@ function sanitizeFilenamePart(s) {
     .slice(0, 80);
 }
 
-/** Prefer standard no-watermark over HD (HD can be 20–40MB+ and crash Pages Functions). */
+/** Prefer standard no-watermark over HD (HD can be 20–40MB+). */
 function pickPlayUrl(obj) {
   if (!obj || typeof obj !== 'object') return null;
   const candidates = [
@@ -66,6 +74,10 @@ async function resolveViaTikLive(env, tiktokUrl) {
     });
   } catch (err) {
     return { ok: false, error: 'resolve_failed', detail: String(err?.message || err) };
+  }
+
+  if (!res) {
+    return { ok: false, error: 'resolve_failed', detail: 'Empty response from download service' };
   }
 
   let body;
@@ -169,45 +181,69 @@ export async function resolveTikTokPlayUrl(env, tiktokUrl) {
   return resolveViaLegacy(env, tiktokUrl);
 }
 
-export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
-  const resolved = await resolveTikTokPlayUrl(env, tiktokUrl);
-  if (!resolved.ok) return resolved;
+async function fetchBytesViaCloudConvert(env, playUrl, filename) {
+  if (!cloudconvertConfigured(env)) {
+    return { ok: false, error: 'transfer_unconfigured', detail: 'File transfer isn’t configured.' };
+  }
+
+  const created = await createImportExportJob(env, playUrl, {
+    filename,
+    tag: 'tiktok-download',
+  });
+  if (!created.ok) {
+    return {
+      ok: false,
+      error: 'transfer_failed',
+      detail: created.data?.message || created.data?.error || `HTTP ${created.status}`,
+    };
+  }
+
+  const jobId = created.data?.data?.id || created.data?.id;
+  if (!jobId) {
+    return { ok: false, error: 'transfer_failed', detail: 'No transfer job id returned' };
+  }
+
+  const waited = await waitForJob(env, jobId, { timeoutMs: 55000, intervalMs: 1500 });
+  if (!waited.ok) {
+    return {
+      ok: false,
+      error: waited.data?.error === 'job_timeout' ? 'transfer_timeout' : 'transfer_failed',
+      detail: waited.data?.message || waited.data?.error || 'Transfer failed',
+    };
+  }
+
+  const status = String(waited.data?.data?.status || waited.data?.status || '').toLowerCase();
+  if (status === 'error') {
+    return {
+      ok: false,
+      error: 'transfer_failed',
+      detail: extractJobError(waited.data) || 'Transfer job error',
+    };
+  }
+
+  const exportUrl = extractExportUrl(waited.data);
+  if (!exportUrl) {
+    return { ok: false, error: 'transfer_failed', detail: 'No export URL from transfer' };
+  }
 
   let mediaRes;
   try {
-    mediaRes = await fetch(resolved.playUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Referer: 'https://www.tiktok.com/',
-      },
+    mediaRes = await fetch(exportUrl, {
+      headers: { 'User-Agent': 'ContentStation/1.0' },
     });
   } catch (err) {
     return { ok: false, error: 'fetch_media_failed', detail: String(err?.message || err) };
   }
 
-  if (!mediaRes.ok) {
+  if (!mediaRes || !mediaRes.ok) {
     return {
       ok: false,
       error: 'fetch_media_http',
-      detail: `HTTP ${mediaRes.status}`,
+      detail: `HTTP ${mediaRes ? mediaRes.status : 'no response'}`,
     };
   }
 
-  const len = Number(mediaRes.headers.get('content-length') || 0);
-  if (len && len > MAX_BYTES) {
-    return {
-      ok: false,
-      error: 'file_too_large',
-      detail: `Video is ${Math.round(len / (1024 * 1024))}MB; max ~${Math.round(MAX_BYTES / (1024 * 1024))}MB`,
-    };
-  }
-
-  if (!mediaRes.body) {
-    return { ok: false, error: 'fetch_media_failed', detail: 'Empty response body' };
-  }
-
-  // Buffer in Worker for reliability (standard no-WM files are usually a few MB).
+  const contentType = mediaRes.headers?.get?.('content-type') || 'video/mp4';
   let bytes;
   try {
     bytes = await mediaRes.arrayBuffer();
@@ -215,22 +251,42 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
     return { ok: false, error: 'fetch_media_failed', detail: String(err?.message || err) };
   }
 
-  if (bytes.byteLength > MAX_BYTES) {
+  return { ok: true, bytes, contentType };
+}
+
+export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
+  const resolved = await resolveTikTokPlayUrl(env, tiktokUrl);
+  if (!resolved.ok) return resolved;
+
+  if (resolved.meta?.size && Number(resolved.meta.size) > MAX_BYTES) {
     return {
       ok: false,
       error: 'file_too_large',
-      detail: `Video is ${Math.round(bytes.byteLength / (1024 * 1024))}MB; max ~${Math.round(MAX_BYTES / (1024 * 1024))}MB`,
+      detail: `Video is ${Math.round(Number(resolved.meta.size) / (1024 * 1024))}MB; max ~${Math.round(MAX_BYTES / (1024 * 1024))}MB`,
     };
   }
 
   const idPart = sanitizeFilenamePart(resolved.meta.id || 'video');
   const authorPart = sanitizeFilenamePart(resolved.meta.author || 'tiktok');
+  const filename = `${authorPart}_${idPart}.mp4`;
+
+  const transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
+  if (!transferred.ok) return transferred;
+
+  if (transferred.bytes.byteLength > MAX_BYTES) {
+    return {
+      ok: false,
+      error: 'file_too_large',
+      detail: `Video is ${Math.round(transferred.bytes.byteLength / (1024 * 1024))}MB; max ~${Math.round(MAX_BYTES / (1024 * 1024))}MB`,
+    };
+  }
+
   const key = `tiktok/${authorPart}_${idPart}_${Date.now()}.mp4`;
 
   try {
-    await bucket.put(key, bytes, {
+    await bucket.put(key, transferred.bytes, {
       httpMetadata: {
-        contentType: mediaRes.headers.get('content-type') || 'video/mp4',
+        contentType: transferred.contentType || 'video/mp4',
       },
       customMetadata: {
         source: 'tiktok-download',
@@ -244,19 +300,11 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl) {
     return { ok: false, error: 'r2_put_failed', detail: String(err?.message || err) };
   }
 
-  let size = bytes.byteLength;
-  try {
-    const head = await bucket.head(key);
-    if (head?.size) size = head.size;
-  } catch {
-    // ignore
-  }
-
   return {
     ok: true,
     key,
-    size,
-    contentType: mediaRes.headers.get('content-type') || 'video/mp4',
+    size: transferred.bytes.byteLength,
+    contentType: transferred.contentType || 'video/mp4',
     downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`,
     meta: resolved.meta,
     provider: resolved.provider,
