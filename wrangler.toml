@@ -3,11 +3,7 @@ name = "mimi-pipo"
 compatibility_date = "2024-09-01"
 pages_build_output_dir = "public"
 
-# R2 media store for Content Station.
-# One-time: Cloudflare Dashboard → R2 → Enable (payment method required for free tier).
-# Then: npx wrangler r2 bucket create content-station-media
-# Uncomment the block below and redeploy so Functions get env.MEDIA_BUCKET.
-#
-# [[r2_buckets]]
-# binding = "MEDIA_BUCKET"
-# bucket_name = "content-station-media"
+# R2 media store for Content Station (session-gated Functions API).
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "content-station-media"
