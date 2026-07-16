@@ -1,4 +1,5 @@
 import { json, parseCookies, verifySessionToken, COOKIE_NAME } from '../../lib/contentstation-auth.js';
+import { fetchCreditBalances } from '../../lib/credits.js';
 
 export async function onRequestGet(context) {
   const cookies = parseCookies(context.request.headers.get('Cookie') || '');
@@ -8,7 +9,8 @@ export async function onRequestGet(context) {
   const processorReady = Boolean(context.env.GHOSTCUT_APP_KEY && context.env.GHOSTCUT_APP_SECRET);
   const metadataReady = Boolean(context.env.CLOUDCONVERT_API_KEY);
   const cleanReady = processorReady || metadataReady;
-  return json({
+
+  const payload = {
     authenticated: ok,
     // Friendly flags for the consumer Clean video UI (no vendor names).
     ready: cleanReady && Boolean(context.env.CONTENT_STATION_PASSWORD),
@@ -26,7 +28,21 @@ export async function onRequestGet(context) {
       runpod: runpodConfigured,
       metadataStrip: metadataReady,
     },
-  });
+  };
+
+  // When signed in, attach remaining balances (Josh naming — no vendor keys).
+  if (ok) {
+    try {
+      const balances = await fetchCreditBalances(context.env);
+      payload.cleaningCreditsLeft = balances.cleaningCreditsLeft;
+      payload.videoAlterCreditsLeft = balances.videoAlterCreditsLeft;
+    } catch {
+      payload.cleaningCreditsLeft = null;
+      payload.videoAlterCreditsLeft = null;
+    }
+  }
+
+  return json(payload);
 }
 
 export async function onRequest(context) {

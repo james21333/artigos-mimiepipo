@@ -83,6 +83,23 @@ h1 {
   color: var(--muted);
 }
 
+.credits {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.credit-line {
+  margin: 0.2rem 0;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.credit-line .credit-muted {
+  color: var(--muted);
+}
+
 .panel,
 .hero-flow {
   margin: 0 0 1.25rem;

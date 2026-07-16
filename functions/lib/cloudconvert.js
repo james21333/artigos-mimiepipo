@@ -125,6 +125,47 @@ export async function getJob(env, jobId) {
   return parseJsonResponse(res);
 }
 
+/**
+ * Remaining conversion credits for the API key (GET /v2/users/me).
+ * Requires user.read scope on the token.
+ */
+export async function getUserCredits(env) {
+  if (!cloudconvertConfigured(env)) {
+    return {
+      ok: false,
+      status: 503,
+      data: { error: 'metadata_unconfigured', message: 'Metadata cleaning isn’t configured.' },
+      credits: null,
+    };
+  }
+  const res = await fetch(`${API_BASE}/users/me`, {
+    method: 'GET',
+    headers: authHeaders(env),
+  });
+  const parsed = await parseJsonResponse(res);
+  const creditsRaw = parsed.data?.data?.credits ?? parsed.data?.credits;
+  const credits =
+    creditsRaw != null && Number.isFinite(Number(creditsRaw)) ? Number(creditsRaw) : null;
+  return { ...parsed, credits };
+}
+
+/** Sum credits charged across finished tasks in a job payload. */
+export function sumJobCredits(jobPayload) {
+  const job = jobPayload?.data || jobPayload || {};
+  const tasks = job.tasks || [];
+  if (!Array.isArray(tasks) || !tasks.length) return null;
+  let sum = 0;
+  let found = false;
+  for (const t of tasks) {
+    if (t == null || t.credits == null) continue;
+    const n = Number(t.credits);
+    if (!Number.isFinite(n)) continue;
+    sum += n;
+    found = true;
+  }
+  return found ? sum : null;
+}
+
 export function extractExportUrl(job) {
   const tasks = job?.data?.tasks || job?.tasks || [];
   if (!Array.isArray(tasks)) return null;
@@ -149,11 +190,15 @@ export function extractJobError(job) {
 
 /**
  * Map CloudConvert job → Clean UI status shape.
+ * Includes creditsUsed.cleaning from task.credits when finished (exact).
  */
 export function summarizeCloudConvertJob(jobPayload, jobId) {
   const job = jobPayload?.data || jobPayload || {};
   const status = String(job.status || '').toLowerCase();
   const id = job.id || jobId;
+  const cleaningCredits = status === 'finished' ? sumJobCredits(jobPayload) : null;
+  const creditsUsed =
+    cleaningCredits != null ? { cleaning: cleaningCredits, videoAlter: null } : null;
 
   if (status === 'finished') {
     const downloadUrl = extractExportUrl(jobPayload);
@@ -165,6 +210,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
         stage: 'metadata',
         downloadUrl,
         error: null,
+        creditsUsed: creditsUsed || { cleaning: 1, videoAlter: null },
         works: [
           {
             workId: id ? `cc:${id}` : null,
@@ -183,6 +229,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
       stage: 'metadata',
       downloadUrl: null,
       error: 'Metadata strip finished but no download URL was returned.',
+      creditsUsed: null,
       works: [],
     };
   }
@@ -196,6 +243,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
       stage: 'metadata',
       downloadUrl: null,
       error: err,
+      creditsUsed: null,
       works: [
         {
           workId: id ? `cc:${id}` : null,
@@ -215,6 +263,7 @@ export function summarizeCloudConvertJob(jobPayload, jobId) {
     stage: 'metadata',
     downloadUrl: null,
     error: null,
+    creditsUsed: null,
     works: [
       {
         workId: id ? `cc:${id}` : null,

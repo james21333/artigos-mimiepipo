@@ -212,7 +212,35 @@ function workAgeMs(c) {
   return Date.now() - ms;
 }
 
-function summarizeStatus(data) {
+/**
+ * Estimate video-alter points from duration + options when the processor
+ * does not return an exact cost. Billing unit = 30s (ceil).
+ * Mapping (internal): watermark advanced_lite = 4/unit; remix ≈ 1/unit
+ * (trim+rescale+shift); mirror ≈ 0.5/unit. Prefer client balance-delta.
+ */
+function estimateVideoAlterCredits(durationSec, optionsHint) {
+  const secs = Number(durationSec);
+  if (!Number.isFinite(secs) || secs <= 0) return null;
+  const units = Math.max(1, Math.ceil(secs / 30));
+  const opts = optionsHint && typeof optionsHint === 'object' ? optionsHint : {};
+  let perUnit = 0;
+  if (opts.removeWatermark) perUnit += 4;
+  if (opts.remix) perUnit += 1;
+  if (opts.mirror) perUnit += 0.5;
+  if (perUnit <= 0) perUnit = 4; // default assume watermark-class job
+  return Math.round(units * perUnit * 10) / 10;
+}
+
+function extractDurationSec(c) {
+  const candidates = [c?.duration, c?.videoDuration, c?.durationSeconds, c?.videoLen];
+  for (const v of candidates) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+function summarizeStatus(data, optionsHint) {
   const content = data?.body?.content;
   if (!Array.isArray(content) || !content.length) {
     return { state: 'unknown', label: 'No status yet', works: [] };
@@ -245,9 +273,17 @@ function summarizeStatus(data) {
       downloadUrl,
       error,
       stage: 'visual',
+      durationSec: extractDurationSec(c),
     };
   });
   const primary = works[0];
+  let creditsUsed = null;
+  if (primary.state === 'ready') {
+    const estimated = estimateVideoAlterCredits(primary.durationSec, optionsHint);
+    if (estimated != null) {
+      creditsUsed = { cleaning: null, videoAlter: estimated };
+    }
+  }
   return {
     state: primary.state,
     label: primary.label,
@@ -255,6 +291,8 @@ function summarizeStatus(data) {
     downloadUrl: primary.downloadUrl,
     error: primary.error,
     stage: primary.stage,
+    durationSec: primary.durationSec ?? null,
+    creditsUsed,
     works,
   };
 }
@@ -278,21 +316,31 @@ function parseWorkId(raw) {
 }
 
 async function readPipeCache(gcId) {
+  const data = await readPipeMeta(gcId);
+  return data && data.ccJobId ? String(data.ccJobId) : null;
+}
+
+async function readPipeMeta(gcId) {
   try {
     const cache = caches.default;
     const hit = await cache.match(new Request(`${PIPE_CACHE_PREFIX}${gcId}`));
     if (!hit) return null;
-    const data = await hit.json();
-    return data && data.ccJobId ? String(data.ccJobId) : null;
+    return await hit.json();
   } catch {
     return null;
   }
 }
 
-async function writePipeCache(gcId, ccJobId) {
+async function writePipeCache(gcId, ccJobId, extra = {}) {
   try {
     const cache = caches.default;
-    const body = JSON.stringify({ ccJobId, at: new Date().toISOString() });
+    const prev = (await readPipeMeta(gcId)) || {};
+    const body = JSON.stringify({
+      ...prev,
+      ccJobId,
+      at: new Date().toISOString(),
+      ...extra,
+    });
     await cache.put(
       new Request(`${PIPE_CACHE_PREFIX}${gcId}`),
       new Response(body, {
@@ -304,6 +352,36 @@ async function writePipeCache(gcId, ccJobId) {
     );
   } catch {
     // Best-effort memoization; duplicate strip jobs are rare if the client follows workId.
+  }
+}
+
+async function writeJobOptionsCache(workKey, options) {
+  try {
+    const cache = caches.default;
+    const body = JSON.stringify({ options: parseOptions(options), at: new Date().toISOString() });
+    await cache.put(
+      new Request(`${PIPE_CACHE_PREFIX}opts/${workKey}`),
+      new Response(body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+async function readJobOptionsCache(workKey) {
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(new Request(`${PIPE_CACHE_PREFIX}opts/${workKey}`));
+    if (!hit) return null;
+    const data = await hit.json();
+    return data?.options || null;
+  } catch {
+    return null;
   }
 }
 
@@ -420,6 +498,8 @@ async function submitWork(env, videoUrl, options) {
     ? encodeWorkId({ kind: 'pipe', id: gc.workId })
     : encodeWorkId({ kind: 'gc', id: gc.workId });
 
+  await writeJobOptionsCache(gc.workId, opts);
+
   return {
     ok: true,
     response: json({
@@ -449,10 +529,15 @@ async function statusGhostCut(env, rawId) {
       ),
     };
   }
-  return { ok: true, summary: summarizeStatus(result.data), rawId: String(rawId) };
+  const optionsHint = await readJobOptionsCache(String(rawId));
+  return {
+    ok: true,
+    summary: summarizeStatus(result.data, optionsHint),
+    rawId: String(rawId),
+  };
 }
 
-async function statusCloudConvert(env, jobId) {
+async function statusCloudConvert(env, jobId, creditExtras = null) {
   const result = await getJob(env, jobId);
   if (!result.ok) {
     return {
@@ -466,22 +551,40 @@ async function statusCloudConvert(env, jobId) {
     };
   }
   const summary = summarizeCloudConvertJob(result.data, jobId);
+  let creditsUsed = summary.creditsUsed;
+  if (creditsUsed && creditExtras && creditExtras.videoAlter != null) {
+    creditsUsed = {
+      cleaning: creditsUsed.cleaning,
+      videoAlter: creditExtras.videoAlter,
+    };
+  } else if (!creditsUsed && creditExtras && creditExtras.videoAlter != null) {
+    creditsUsed = { cleaning: null, videoAlter: creditExtras.videoAlter };
+  }
   return {
     ok: true,
     response: json({
       ok: true,
       workId: encodeWorkId({ kind: 'cc', id: jobId }),
       ...summary,
+      creditsUsed,
       error: summary.error ? friendlyError(summary.error) : null,
     }),
   };
 }
 
 async function statusPipe(env, gcId) {
+  const pipeMeta = await readPipeMeta(gcId);
+  const videoAlterEstimate =
+    pipeMeta?.videoAlterEstimate != null
+      ? Number(pipeMeta.videoAlterEstimate)
+      : null;
+
   // If we already started the metadata step, follow that job.
-  const cachedCc = await readPipeCache(gcId);
+  const cachedCc = pipeMeta?.ccJobId ? String(pipeMeta.ccJobId) : null;
   if (cachedCc) {
-    return statusCloudConvert(env, cachedCc);
+    return statusCloudConvert(env, cachedCc, {
+      videoAlter: Number.isFinite(videoAlterEstimate) ? videoAlterEstimate : null,
+    });
   }
 
   const gc = await statusGhostCut(env, gcId);
@@ -519,6 +622,11 @@ async function statusPipe(env, gcId) {
     };
   }
 
+  const alterUsed =
+    summary.creditsUsed?.videoAlter != null
+      ? summary.creditsUsed.videoAlter
+      : null;
+
   // Visual stage done → start metadata strip on the result (once).
   if (!cloudconvertConfigured(env)) {
     // Don't strand a finished visual job: return the cleaned video without metadata strip.
@@ -533,6 +641,7 @@ async function statusPipe(env, gcId) {
         stage: 'visual',
         downloadUrl: summary.downloadUrl,
         error: null,
+        creditsUsed: alterUsed != null ? { cleaning: null, videoAlter: alterUsed } : summary.creditsUsed,
         message: 'Visual clean done. Metadata cleaning isn’t configured, so that step was skipped.',
         works: summary.works || [],
       }),
@@ -540,8 +649,15 @@ async function statusPipe(env, gcId) {
   }
 
   // Re-check cache in case another poll started the job.
-  const again = await readPipeCache(gcId);
-  if (again) return statusCloudConvert(env, again);
+  const againMeta = await readPipeMeta(gcId);
+  if (againMeta?.ccJobId) {
+    return statusCloudConvert(env, String(againMeta.ccJobId), {
+      videoAlter:
+        againMeta.videoAlterEstimate != null
+          ? Number(againMeta.videoAlterEstimate)
+          : alterUsed,
+    });
+  }
 
   const started = await startMetadataStrip(env, summary.downloadUrl, `cs-pipe-${gcId}`);
   if (!started.ok) {
@@ -560,6 +676,7 @@ async function statusPipe(env, gcId) {
         stage: 'visual',
         downloadUrl: summary.downloadUrl,
         error: null,
+        creditsUsed: alterUsed != null ? { cleaning: null, videoAlter: alterUsed } : summary.creditsUsed,
         warning: friendlyError(metaErr),
         message: 'Visual clean done. Metadata strip failed — download is the visual result.',
         works: summary.works || [],
@@ -567,7 +684,10 @@ async function statusPipe(env, gcId) {
     };
   }
 
-  await writePipeCache(gcId, started.jobId);
+  await writePipeCache(gcId, started.jobId, {
+    videoAlterEstimate: alterUsed,
+    options: pipeMeta?.options || (await readJobOptionsCache(gcId)),
+  });
   return {
     ok: true,
     response: json({
@@ -580,6 +700,7 @@ async function statusPipe(env, gcId) {
       message: 'Visual clean done; stripping metadata…',
       downloadUrl: null,
       error: null,
+      creditsUsed: alterUsed != null ? { cleaning: null, videoAlter: alterUsed } : null,
     }),
   };
 }

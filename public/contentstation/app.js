@@ -19,6 +19,8 @@
   const DIRECT_MAX = 90 * 1024 * 1024;
   const POLL_MS = 8000;
   const STORAGE_KEY = 'cs_clean_work_id';
+  const CREDITS_LAST_KEY = 'cs_credits_last';
+  const CREDITS_SNAP_KEY = 'cs_credits_snap';
   const MAX_POLL_ERRORS = 8;
 
   let pollTimer = null;
@@ -26,6 +28,11 @@
   let pollPaused = false;
   let consecutiveErrors = 0;
   let pollInFlight = false;
+  let creditBalances = { cleaningCreditsLeft: null, videoAlterCreditsLeft: null };
+  let lastJobOptions = null;
+
+  const creditsCleaningEl = document.getElementById('credits-cleaning');
+  const creditsVideoAlterEl = document.getElementById('credits-video-alter');
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -66,6 +73,178 @@
     if (session.uploadReady) bits.push('Uploads on');
     if (session.metadataReady === false) bits.push('Metadata off');
     sessionMeta.textContent = bits.join(' · ');
+    if (session.cleaningCreditsLeft != null || session.videoAlterCreditsLeft != null) {
+      creditBalances = {
+        cleaningCreditsLeft:
+          session.cleaningCreditsLeft != null ? session.cleaningCreditsLeft : creditBalances.cleaningCreditsLeft,
+        videoAlterCreditsLeft:
+          session.videoAlterCreditsLeft != null
+            ? session.videoAlterCreditsLeft
+            : creditBalances.videoAlterCreditsLeft,
+      };
+    }
+    renderCredits();
+  }
+
+  function formatCredit(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    const num = Number(n);
+    if (Number.isInteger(num)) return String(num);
+    return String(Math.round(num * 10) / 10);
+  }
+
+  function loadLastCredits() {
+    try {
+      const raw = sessionStorage.getItem(CREDITS_LAST_KEY);
+      if (!raw) return { cleaningUsed: null, videoAlterUsed: null };
+      const parsed = JSON.parse(raw);
+      return {
+        cleaningUsed: parsed.cleaningUsed != null ? Number(parsed.cleaningUsed) : null,
+        videoAlterUsed: parsed.videoAlterUsed != null ? Number(parsed.videoAlterUsed) : null,
+      };
+    } catch {
+      return { cleaningUsed: null, videoAlterUsed: null };
+    }
+  }
+
+  function saveLastCredits(partial) {
+    const prev = loadLastCredits();
+    const next = {
+      cleaningUsed:
+        partial.cleaningUsed != null && Number.isFinite(Number(partial.cleaningUsed))
+          ? Number(partial.cleaningUsed)
+          : prev.cleaningUsed,
+      videoAlterUsed:
+        partial.videoAlterUsed != null && Number.isFinite(Number(partial.videoAlterUsed))
+          ? Number(partial.videoAlterUsed)
+          : prev.videoAlterUsed,
+      at: new Date().toISOString(),
+    };
+    try {
+      sessionStorage.setItem(CREDITS_LAST_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    return next;
+  }
+
+  function renderCredits() {
+    const last = loadLastCredits();
+    if (creditsCleaningEl) {
+      creditsCleaningEl.innerHTML =
+        `Cleaning credits: <span class="credit-muted">last used</span> ${formatCredit(last.cleaningUsed)}` +
+        ` · <span class="credit-muted">left</span> ${formatCredit(creditBalances.cleaningCreditsLeft)}`;
+    }
+    if (creditsVideoAlterEl) {
+      creditsVideoAlterEl.innerHTML =
+        `Video alter credits: <span class="credit-muted">last used</span> ${formatCredit(last.videoAlterUsed)}` +
+        ` · <span class="credit-muted">left</span> ${formatCredit(creditBalances.videoAlterCreditsLeft)}`;
+    }
+  }
+
+  async function refreshBalances() {
+    const { ok, data } = await api('/api/contentstation/balance');
+    if (!ok || !data) return creditBalances;
+    creditBalances = {
+      cleaningCreditsLeft:
+        data.cleaningCreditsLeft != null ? data.cleaningCreditsLeft : creditBalances.cleaningCreditsLeft,
+      videoAlterCreditsLeft:
+        data.videoAlterCreditsLeft != null
+          ? data.videoAlterCreditsLeft
+          : creditBalances.videoAlterCreditsLeft,
+    };
+    renderCredits();
+    return creditBalances;
+  }
+
+  function jobUsedVisual(workId, options) {
+    if (options && (options.removeWatermark || options.remix || options.mirror)) return true;
+    const id = String(workId || '');
+    return id.startsWith('gc:') || id.startsWith('pipe:gc:') || /^\d+$/.test(id);
+  }
+
+  function jobUsedCleaning(workId, options) {
+    if (options && options.cleanMetadata) return true;
+    return String(workId || '').startsWith('cc:');
+  }
+
+  function snapshotCreditsForJob(options) {
+    lastJobOptions = options || null;
+    try {
+      sessionStorage.setItem(
+        CREDITS_SNAP_KEY,
+        JSON.stringify({
+          videoAlterBefore: creditBalances.videoAlterCreditsLeft,
+          cleaningBefore: creditBalances.cleaningCreditsLeft,
+          options: options || null,
+          at: new Date().toISOString(),
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function loadCreditSnap() {
+    try {
+      const raw = sessionStorage.getItem(CREDITS_SNAP_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function recordCreditsOnReady(workId, data) {
+    const snap = loadCreditSnap();
+    const options = (snap && snap.options) || lastJobOptions || selectedOptions();
+    const usedVisual = jobUsedVisual(workId, options);
+    const usedCleaning = jobUsedCleaning(workId, options) || data?.stage === 'metadata';
+
+    const after = await refreshBalances();
+    const partial = {};
+
+    if (usedCleaning) {
+      const fromApi = data?.creditsUsed?.cleaning;
+      if (fromApi != null && Number.isFinite(Number(fromApi))) {
+        partial.cleaningUsed = Number(fromApi);
+      } else if (
+        snap &&
+        snap.cleaningBefore != null &&
+        after.cleaningCreditsLeft != null
+      ) {
+        const delta = Number(snap.cleaningBefore) - Number(after.cleaningCreditsLeft);
+        if (Number.isFinite(delta) && delta >= 0) partial.cleaningUsed = delta || 1;
+      } else {
+        partial.cleaningUsed = 1;
+      }
+    }
+
+    if (usedVisual) {
+      const fromApi = data?.creditsUsed?.videoAlter;
+      let alterUsed = null;
+      if (
+        snap &&
+        snap.videoAlterBefore != null &&
+        after.videoAlterCreditsLeft != null
+      ) {
+        const delta = Number(snap.videoAlterBefore) - Number(after.videoAlterCreditsLeft);
+        if (Number.isFinite(delta) && delta > 0) alterUsed = Math.round(delta * 10) / 10;
+      }
+      if (alterUsed == null && fromApi != null && Number.isFinite(Number(fromApi))) {
+        alterUsed = Number(fromApi);
+      }
+      if (alterUsed != null) partial.videoAlterUsed = alterUsed;
+    }
+
+    if (partial.cleaningUsed != null || partial.videoAlterUsed != null) {
+      saveLastCredits(partial);
+    }
+    try {
+      sessionStorage.removeItem(CREDITS_SNAP_KEY);
+    } catch {
+      /* ignore */
+    }
+    renderCredits();
   }
 
   function setStatus(label, detail) {
@@ -238,6 +417,9 @@
         setStatus(readyLabel, detailFor(workId, data));
         stopPoll({ clearStored: true, paused: false });
         cleanBtn.disabled = false;
+        recordCreditsOnReady(workId, data).catch(() => {
+          renderCredits();
+        });
       } else if (data.state === 'failed') {
         setError(data.error || 'Cleaning failed.');
         showDownload(null);
@@ -391,6 +573,9 @@
 
     cleanBtn.disabled = true;
     try {
+      await refreshBalances();
+      snapshotCreditsForJob(options);
+
       let workId;
       if (file.size <= DIRECT_MAX) {
         try {
@@ -463,6 +648,8 @@
     if (ok && data && data.authenticated) {
       window.__csSession = data;
       showApp(data);
+      // Refresh balances in background so left figures stay current.
+      refreshBalances().catch(() => {});
       return true;
     }
     window.__csSession = null;
