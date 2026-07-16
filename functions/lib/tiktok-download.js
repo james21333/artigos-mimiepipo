@@ -13,6 +13,7 @@ import {
 } from './cloudconvert.js';
 
 const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
+const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
 const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
 const MAX_BYTES = 90 * 1024 * 1024;
 
@@ -101,24 +102,60 @@ async function resolveViaTikLive(env, tiktokUrl) {
     return { ok: false, error: 'no_play_url', detail: 'No downloadable video URL returned' };
   }
 
-  const author =
-    d.author?.unique_id ||
-    d.author?.nickname ||
-    (typeof d.author === 'string' ? d.author : null) ||
-    null;
+  let meta = {
+    id: d.id ? String(d.id) : null,
+    title: d.title || d.desc || '',
+    duration: d.duration ?? null,
+    cover: d.cover || d.origin_cover || null,
+    author:
+      d.author?.unique_id ||
+      d.author?.nickname ||
+      (typeof d.author === 'string' ? d.author : null) ||
+      null,
+    size: d.size ?? null,
+    createTime: d.create_time ?? null,
+  };
+
+  // download-video often returns only URLs — enrich title/author from post-detail (best effort).
+  try {
+    const detailRes = await fetch(
+      `${TIKLIVE_POST_DETAIL}?url=${encodeURIComponent(tiktokUrl.trim())}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'X-Api-Key': key,
+          'User-Agent': 'ContentStation/1.0',
+        },
+      },
+    );
+    if (detailRes?.ok) {
+      const detailBody = await detailRes.json();
+      const pd =
+        detailBody?.data && typeof detailBody.data === 'object' ? detailBody.data : detailBody;
+      if (pd && typeof pd === 'object') {
+        meta = {
+          id: pd.id ? String(pd.id) : meta.id,
+          title: pd.title || pd.desc || meta.title,
+          duration: pd.duration ?? meta.duration,
+          cover: pd.cover || pd.origin_cover || meta.cover,
+          author:
+            pd.author?.unique_id ||
+            pd.author?.nickname ||
+            (typeof pd.author === 'string' ? pd.author : null) ||
+            meta.author,
+          size: pd.size ?? meta.size,
+          createTime: pd.create_time ?? meta.createTime,
+        };
+      }
+    }
+  } catch {
+    // ignore enrichment failures
+  }
 
   return {
     ok: true,
     playUrl,
-    meta: {
-      id: d.id ? String(d.id) : null,
-      title: d.title || d.desc || '',
-      duration: d.duration ?? null,
-      cover: d.cover || d.origin_cover || null,
-      author,
-      size: d.size ?? null,
-      createTime: d.create_time ?? null,
-    },
+    meta,
     provider: 'tiklive',
   };
 }
