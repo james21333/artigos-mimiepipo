@@ -6,16 +6,31 @@ import { ghostcutPost } from '../../../lib/ghostcut.js';
  * POST /api/contentstation/ghostcut/<path...>
  * Body: JSON payload forwarded to GhostCut (signed server-side).
  *
- * Examples:
- *   POST /api/contentstation/ghostcut/v-w-c/gateway/ve/point/query
- *   POST /api/contentstation/ghostcut/v-w-c/gateway/ve/work/status
+ * Allowlist: only known /v-w-c/gateway/ve/* ops paths (no arbitrary SSRF).
  */
+
+const ALLOWED_PATHS = new Set([
+  '/v-w-c/gateway/ve/point/query',
+  '/v-w-c/gateway/ve/work/status',
+  '/v-w-c/gateway/ve/work/free',
+]);
+
+// Prefix allow for series / material ops used by ops station (still GhostCut-only host).
+const ALLOWED_PREFIXES = [
+  '/v-w-c/gateway/ve/work/',
+  '/v-w-c/gateway/ve/point/',
+];
 
 function resolvePath(context) {
   const params = context.params?.path;
   if (!params) return '';
   if (Array.isArray(params)) return '/' + params.join('/');
   return '/' + String(params).replace(/^\/+/, '');
+}
+
+function isAllowedPath(path) {
+  if (ALLOWED_PATHS.has(path)) return true;
+  return ALLOWED_PREFIXES.some((p) => path.startsWith(p));
 }
 
 export async function onRequestPost(context) {
@@ -30,6 +45,17 @@ export async function onRequestPost(context) {
         message: 'Only /v-w-c/* GhostCut paths are allowed through this proxy.',
       },
       400,
+    );
+  }
+  if (!isAllowedPath(path)) {
+    return json(
+      {
+        error: 'path_not_allowlisted',
+        message: 'This GhostCut path is not on the Content Station allowlist.',
+        path,
+        allowed: [...ALLOWED_PATHS],
+      },
+      403,
     );
   }
 

@@ -71,14 +71,82 @@ label {
   font-size: 0.95rem;
 }
 
-input[type="password"] {
+input[type="password"],
+input[type="url"],
+input[type="text"],
+input[type="file"],
+select,
+textarea {
   width: 100%;
-  max-width: 22rem;
+  max-width: 100%;
   padding: 0.55rem 0.65rem;
   border: 1px solid #d2c6b4;
   background: #fffdf9;
   font: inherit;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  resize: vertical;
+}
+
+.stack {
+  margin: 0.75rem 0 1rem;
+}
+
+.notice {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  background: #f7efe3;
+  border: 1px solid #e4d3b8;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.media-list {
+  margin: 0.5rem 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.media-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #eadfce;
+}
+
+.media-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.muted-line {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.btn-link {
+  display: inline-block;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.optional-label {
+  margin-top: 0.35rem;
 }
 
 button {
