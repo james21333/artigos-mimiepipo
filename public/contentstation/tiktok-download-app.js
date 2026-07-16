@@ -148,7 +148,8 @@
       });
       if (!ok) {
         setStatus('Failed');
-        setError(data?.message || data?.error || 'Download failed');
+        const detail = data?.detail ? ` (${data.detail})` : '';
+        setError((data?.message || data?.error || 'Download failed') + detail);
         return;
       }
       setStatus('Saved', data.key || '');
