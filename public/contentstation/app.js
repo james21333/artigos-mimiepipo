@@ -160,7 +160,11 @@
   function jobUsedVisual(workId, options) {
     if (
       options &&
-      (options.removeWatermark || options.basicVideoRemix || options.remix || options.mirror)
+      (options.removeWatermark ||
+        options.basicVideoRemix ||
+        options.remix ||
+        options.deepAiRemake ||
+        options.mirror)
     ) {
       return true;
     }
@@ -289,6 +293,7 @@
       cleanMetadata: document.getElementById('opt-metadata').checked,
       basicVideoRemix: document.getElementById('opt-basic-video-remix').checked,
       remix: document.getElementById('opt-remix').checked,
+      deepAiRemake: document.getElementById('opt-deep-ai-remake').checked,
       mirror: document.getElementById('opt-mirror').checked,
     };
   }
@@ -566,6 +571,7 @@
       !options.cleanMetadata &&
       !options.basicVideoRemix &&
       !options.remix &&
+      !options.deepAiRemake &&
       !options.mirror
     ) {
       setError('Select at least one option.');

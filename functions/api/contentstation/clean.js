@@ -29,6 +29,7 @@ import {
  *   cleanMetadata    → CloudConvert ffmpeg -map_metadata -1 -c copy (after visual jobs)
  *   basicVideoRemix  → needTrim only + trim color/sharpness/speedup (Video Remaker defaults)
  *   remix            → needTrim + needRescale + needShift (+ trim color/sharpness/speedup)
+ *   deepAiRemake     → trim + rescale/shift + needMask template + transition + randomBorder
  *   mirror           → needMirror=1
  *
  * Pipeline order: GhostCut visual options first → then CloudConvert metadata strip.
@@ -79,6 +80,7 @@ function parseOptions(raw) {
     cleanMetadata: Boolean(src.cleanMetadata),
     basicVideoRemix: Boolean(src.basicVideoRemix),
     remix: Boolean(src.remix),
+    deepAiRemake: Boolean(src.deepAiRemake),
     mirror: Boolean(src.mirror),
   };
 }
@@ -89,12 +91,19 @@ function hasAnyCleanOption(opts) {
       opts.cleanMetadata ||
       opts.basicVideoRemix ||
       opts.remix ||
+      opts.deepAiRemake ||
       opts.mirror,
   );
 }
 
 function needsVisual(opts) {
-  return Boolean(opts.removeWatermark || opts.basicVideoRemix || opts.remix || opts.mirror);
+  return Boolean(
+    opts.removeWatermark ||
+      opts.basicVideoRemix ||
+      opts.remix ||
+      opts.deepAiRemake ||
+      opts.mirror,
+  );
 }
 
 /** Official Video Remaker “Basic Edit” sub-options (no crop trailer). */
@@ -177,16 +186,27 @@ export function buildCleanPayload(videoUrl, options) {
     ]);
   }
 
-  if (opts.basicVideoRemix || opts.remix) {
+  if (opts.deepAiRemake) {
+    // Strongest same-platform visual bundle on /work/free (beyond needTrim remaker).
+    // Skill 27: trim + AI template mask + dynamic zoom + smart pan.
+    // Community remake payloads also use needTransition + randomBorder (layout).
+    // Not included: product “高级二创” copy-rewrite + redub + auto stickers (no documented flag).
+    payload.needTrim = 1;
+    extra.extra_trim_config = videoRemakerTrimConfig();
+    payload.needRescale = 3;
+    payload.needShift = 1;
+    payload.needMask = 7; // 好物模式 — GhostCut example template (layout / effects)
+    payload.needTransition = 1;
+    payload.randomBorder = 1;
+  } else if (opts.basicVideoRemix || opts.remix) {
     // Video Remaker Basic Edit: color / sharpness / speedup (skill 27-video-basic-processing).
     payload.needTrim = 1;
     extra.extra_trim_config = videoRemakerTrimConfig();
-  }
-
-  if (opts.remix) {
-    // Subtle remix adds dynamic zoom + smart pan on top of Basic Edit.
-    payload.needRescale = 3;
-    payload.needShift = 1;
+    if (opts.remix) {
+      // Subtle remix adds dynamic zoom + smart pan on top of Basic Edit.
+      payload.needRescale = 3;
+      payload.needShift = 1;
+    }
   }
 
   if (opts.mirror) {
@@ -238,7 +258,9 @@ function workAgeMs(c) {
  * does not return an exact cost. Billing unit = 30s (ceil).
  * Mapping (internal): watermark advanced_lite = 4/unit;
  * basicVideoRemix (needTrim only) ≈ 0.5/unit;
- * remix (trim+rescale+shift) ≈ 1/unit; mirror ≈ 0.5/unit.
+ * remix (trim+rescale+shift) ≈ 1/unit;
+ * deepAiRemake (trim+rescale+shift+mask+transition+border) ≈ 2/unit;
+ * mirror ≈ 0.5/unit.
  * Prefer client balance-delta.
  */
 function estimateVideoAlterCredits(durationSec, optionsHint) {
@@ -248,7 +270,8 @@ function estimateVideoAlterCredits(durationSec, optionsHint) {
   const opts = optionsHint && typeof optionsHint === 'object' ? optionsHint : {};
   let perUnit = 0;
   if (opts.removeWatermark) perUnit += 4;
-  if (opts.remix) perUnit += 1;
+  if (opts.deepAiRemake) perUnit += 2;
+  else if (opts.remix) perUnit += 1;
   else if (opts.basicVideoRemix) perUnit += 0.5;
   if (opts.mirror) perUnit += 0.5;
   if (perUnit <= 0) perUnit = 4; // default assume watermark-class job
