@@ -86,6 +86,26 @@
     return base.replace(/\.mp4$/i, '').replace(/_/g, ' ');
   }
 
+  function uploadedMs(obj) {
+    if (!obj || !obj.uploaded) return 0;
+    const t = new Date(obj.uploaded).getTime();
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  /** Stable completion order: oldest uploaded = 1. Ties broken by key. */
+  function withSequenceNumbers(videos) {
+    const byAge = [...videos].sort((a, b) => {
+      const diff = uploadedMs(a) - uploadedMs(b);
+      if (diff !== 0) return diff;
+      return String(a.key || '').localeCompare(String(b.key || ''));
+    });
+    const seqByKey = new Map();
+    byAge.forEach((obj, i) => {
+      seqByKey.set(obj.key, i + 1);
+    });
+    return videos.map((obj) => ({ ...obj, seq: seqByKey.get(obj.key) }));
+  }
+
   function renderItems(objects) {
     galleryGrid.innerHTML = '';
     const videos = (objects || []).filter((o) => o && o.key && !o.key.endsWith('/'));
@@ -99,13 +119,26 @@
     galleryGrid.hidden = false;
     galleryStatus.textContent = `${videos.length} video${videos.length === 1 ? '' : 's'}`;
 
-    for (const obj of videos) {
+    // Numbers = completion order (oldest = 1). Grid shows newest first.
+    const numbered = withSequenceNumbers(videos).sort((a, b) => {
+      const diff = uploadedMs(b) - uploadedMs(a);
+      if (diff !== 0) return diff;
+      return String(b.key || '').localeCompare(String(a.key || ''));
+    });
+
+    for (const obj of numbered) {
       const src = obj.downloadPath;
       const card = document.createElement('article');
       card.className = 'gallery-card';
 
       const media = document.createElement('div');
       media.className = 'gallery-media';
+
+      const badge = document.createElement('span');
+      badge.className = 'gallery-seq';
+      badge.textContent = String(obj.seq);
+      badge.setAttribute('aria-label', `Cleaned video ${obj.seq}`);
+      media.appendChild(badge);
 
       const video = document.createElement('video');
       video.src = src;
@@ -120,7 +153,7 @@
 
       const title = document.createElement('p');
       title.className = 'gallery-title';
-      title.textContent = displayName(obj.key);
+      title.textContent = `#${obj.seq} · ${displayName(obj.key)}`;
 
       const info = document.createElement('p');
       info.className = 'muted-line';

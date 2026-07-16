@@ -278,10 +278,33 @@ a { color: var(--accent); }
 }
 
 .gallery-media {
+  position: relative;
   background: #0f1713;
   aspect-ratio: 9 / 16;
   max-height: 22rem;
   overflow: hidden;
+}
+
+.gallery-seq {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 2;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #f4f7f4;
+  background: rgba(12, 22, 16, 0.82);
+  border: 1px solid rgba(244, 247, 244, 0.28);
+  pointer-events: none;
+  user-select: none;
 }
 
 .gallery-media video {
