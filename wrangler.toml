@@ -1,6 +1,7 @@
 # Pages project config for mimi-pipo (synced to artigos-mimiepipo).
 name = "mimi-pipo"
 compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "public"
 
 # R2 media store for Content Station (session-gated Functions API).
