@@ -12,6 +12,7 @@ import {
   scheduleCleanArchive,
 } from '../../lib/clean-archive.js';
 import { setVideoAccount } from '../../lib/account-tags.js';
+import { recordCleanedSource, sanitizeSourceKey } from '../../lib/clean-source-map.js';
 
 /**
  * Consumer-facing clean-video API.
@@ -97,6 +98,8 @@ function parseOptions(raw) {
     mirror: Boolean(src.mirror),
     // Ready For Upload association (not a visual/audio clean option).
     account: sanitizeAccountOption(src.account),
+    // Pre-clean R2 key (tiktok/… or media/…) so we can track → cleaned/ later.
+    sourceKey: sanitizeSourceKey(src.sourceKey),
   };
 }
 
@@ -854,7 +857,7 @@ async function statusWork(env, workId) {
   return { ok: false, response: clientFail('Unknown work id.', 400) };
 }
 
-async function accountFromWorkId(workId) {
+async function optionsFromWorkId(workId) {
   if (!workId) return null;
   const s = String(workId);
   const candidates = [s];
@@ -868,11 +871,18 @@ async function accountFromWorkId(workId) {
   } else {
     candidates.push(s);
   }
+  let merged = null;
   for (const c of candidates) {
     const opts = await readJobOptionsCache(c);
-    if (opts && opts.account) return opts.account;
+    if (!opts) continue;
+    if (!merged) {
+      merged = { ...opts };
+      continue;
+    }
+    if (!merged.account && opts.account) merged.account = opts.account;
+    if (!merged.sourceKey && opts.sourceKey) merged.sourceKey = opts.sourceKey;
   }
-  return null;
+  return merged;
 }
 
 /**
@@ -883,31 +893,49 @@ async function attachLibraryFields(context, env, data) {
   if (!data || data.state !== 'ready' || !data.downloadUrl || !data.workId) {
     return data;
   }
-  const account = await accountFromWorkId(data.workId);
+  const opts = await optionsFromWorkId(data.workId);
+  const account = opts?.account || null;
+  const sourceKey = opts?.sourceKey || null;
   const existing = await resolveArchivedDownload(env, data.workId);
   if (existing) {
+    const followUps = [];
     if (account) {
-      const tagTask = setVideoAccount(env, existing.key, account).catch(() => null);
-      if (context && typeof context.waitUntil === 'function') context.waitUntil(tagTask);
+      followUps.push(setVideoAccount(env, existing.key, account).catch(() => null));
+    }
+    if (sourceKey) {
+      followUps.push(
+        recordCleanedSource(env, {
+          sourceKey,
+          cleanedKey: existing.key,
+          workId: data.workId,
+          account,
+        }).catch(() => null),
+      );
+    }
+    if (followUps.length && context && typeof context.waitUntil === 'function') {
+      context.waitUntil(Promise.all(followUps));
     }
     return {
       ...data,
       downloadUrl: existing.downloadPath,
       cleanedKey: existing.key,
       inLibrary: true,
-      account: account || null,
+      account,
+      sourceKey,
     };
   }
   scheduleCleanArchive(context, env, {
     workId: data.workId,
     sourceUrl: data.downloadUrl,
     account: account || undefined,
+    sourceKey: sourceKey || undefined,
   });
   return {
     ...data,
     inLibrary: false,
     savingToLibrary: true,
-    account: account || null,
+    account,
+    sourceKey,
   };
 }
 

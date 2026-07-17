@@ -106,9 +106,10 @@
     return videos.map((obj) => ({ ...obj, seq: seqByKey.get(obj.key) }));
   }
 
-  function renderItems(objects) {
+  function renderItems(objects, cleanMap) {
     galleryGrid.innerHTML = '';
     const videos = (objects || []).filter((o) => o && o.key && !o.key.endsWith('/'));
+    const map = cleanMap && typeof cleanMap === 'object' ? cleanMap : {};
     if (!videos.length) {
       galleryGrid.hidden = true;
       galleryEmpty.hidden = false;
@@ -117,7 +118,10 @@
     }
     galleryEmpty.hidden = true;
     galleryGrid.hidden = false;
-    galleryStatus.textContent = `${videos.length} video${videos.length === 1 ? '' : 's'}`;
+    const cleanedCount = videos.filter((v) => map[v.key] && map[v.key].cleanedKey).length;
+    galleryStatus.textContent = `${videos.length} video${videos.length === 1 ? '' : 's'}${
+      cleanedCount ? ` · ${cleanedCount} already cleaned` : ''
+    }`;
 
     // Numbers = completion order (oldest = 1). Grid shows newest first.
     const numbered = withSequenceNumbers(videos).sort((a, b) => {
@@ -128,6 +132,7 @@
 
     for (const obj of numbered) {
       const src = obj.downloadPath;
+      const cleanInfo = map[obj.key] || null;
       const card = document.createElement('article');
       card.className = 'gallery-card';
 
@@ -139,6 +144,16 @@
       badge.textContent = String(obj.seq);
       badge.setAttribute('aria-label', `Downloaded video ${obj.seq}`);
       media.appendChild(badge);
+
+      if (cleanInfo && cleanInfo.cleanedKey) {
+        const cleanedBadge = document.createElement('span');
+        cleanedBadge.className = 'gallery-cleaned-badge';
+        cleanedBadge.textContent = 'Cleaned';
+        cleanedBadge.title = cleanInfo.cleanedAt
+          ? `Cleaned ${formatWhen(cleanInfo.cleanedAt)}`
+          : 'Has a cleaned copy';
+        media.appendChild(cleanedBadge);
+      }
 
       const video = document.createElement('video');
       video.src = src;
@@ -158,6 +173,13 @@
       const info = document.createElement('p');
       info.className = 'muted-line';
       const bits = [formatWhen(obj.uploaded), formatBytes(obj.size)].filter(Boolean);
+      if (cleanInfo && cleanInfo.cleanedKey) {
+        bits.push(
+          cleanInfo.account
+            ? `Cleaned → ${cleanInfo.account}`
+            : 'Cleaned copy saved',
+        );
+      }
       info.textContent = bits.join(' · ');
 
       const actions = document.createElement('p');
@@ -165,16 +187,35 @@
       const dl = document.createElement('a');
       dl.className = 'btn-link';
       dl.href = `${src}${src.includes('?') ? '&' : '?'}download=1`;
-      dl.textContent = 'Download';
+      dl.textContent = 'Download original';
       dl.setAttribute('download', '');
       actions.appendChild(dl);
 
-      const cleanLink = document.createElement('a');
-      cleanLink.className = 'btn-link gallery-jump';
-      cleanLink.href = `./?media=${encodeURIComponent(obj.key)}`;
-      cleanLink.textContent = 'Clean this video';
-      actions.appendChild(document.createTextNode(' '));
-      actions.appendChild(cleanLink);
+      if (cleanInfo && cleanInfo.cleanedKey) {
+        const cleanedDl = document.createElement('a');
+        cleanedDl.className = 'btn-link';
+        const cleanedPath = `/api/contentstation/media?action=get&key=${encodeURIComponent(cleanInfo.cleanedKey)}`;
+        cleanedDl.href = `${cleanedPath}&download=1`;
+        cleanedDl.textContent = 'Open cleaned';
+        cleanedDl.setAttribute('download', '');
+        actions.appendChild(document.createTextNode(' '));
+        actions.appendChild(cleanedDl);
+        if (cleanInfo.account) {
+          const ready = document.createElement('a');
+          ready.className = 'btn-link';
+          ready.href = `./ready-account.html?account=${encodeURIComponent(cleanInfo.account)}`;
+          ready.textContent = 'Ready For Upload';
+          actions.appendChild(document.createTextNode(' '));
+          actions.appendChild(ready);
+        }
+      } else {
+        const cleanLink = document.createElement('a');
+        cleanLink.className = 'btn-link gallery-jump';
+        cleanLink.href = `./?media=${encodeURIComponent(obj.key)}`;
+        cleanLink.textContent = 'Clean this video';
+        actions.appendChild(document.createTextNode(' '));
+        actions.appendChild(cleanLink);
+      }
 
       meta.appendChild(title);
       if (bits.length) meta.appendChild(info);
@@ -191,13 +232,18 @@
     galleryStatus.textContent = 'Loading…';
     refreshBtn.disabled = true;
     try {
-      const { ok, data } = await api(
-        '/api/contentstation/media?action=list&prefix=tiktok/&limit=100',
-      );
-      if (!ok) {
-        throw new Error((data && (data.message || data.error)) || 'Could not load library.');
+      const [listRes, mapRes] = await Promise.all([
+        api('/api/contentstation/media?action=list&prefix=tiktok/&limit=100'),
+        api('/api/contentstation/media?action=clean-map'),
+      ]);
+      if (!listRes.ok) {
+        throw new Error(
+          (listRes.data && (listRes.data.message || listRes.data.error)) ||
+            'Could not load library.',
+        );
       }
-      renderItems(data.objects || []);
+      const cleanMap = mapRes.ok && mapRes.data ? mapRes.data.map || {} : {};
+      renderItems(listRes.data.objects || [], cleanMap);
     } catch (err) {
       galleryGrid.hidden = true;
       galleryEmpty.hidden = true;

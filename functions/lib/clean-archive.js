@@ -5,6 +5,7 @@
  */
 
 import { setVideoAccount } from './account-tags.js';
+import { recordCleanedSource } from './clean-source-map.js';
 
 const CLEANED_PREFIX = 'cleaned/';
 
@@ -44,7 +45,19 @@ export async function resolveArchivedDownload(env, workId) {
  * Fetch a finished clean URL and store it in cleaned/. Idempotent by workId key.
  * @returns {{ ok: true, key, downloadPath, existed?: boolean } | { ok: false, error: string }}
  */
-export async function archiveCleanedVideo(env, { workId, sourceUrl, filename, account } = {}) {
+async function trackSource(env, { sourceKey, cleanedKey, workId, account }) {
+  if (!sourceKey || !cleanedKey) return;
+  try {
+    await recordCleanedSource(env, { sourceKey, cleanedKey, workId, account });
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function archiveCleanedVideo(
+  env,
+  { workId, sourceUrl, filename, account, sourceKey } = {},
+) {
   const bucket = env.MEDIA_BUCKET;
   if (!bucket) {
     return { ok: false, error: 'Storage isn’t available.' };
@@ -66,6 +79,12 @@ export async function archiveCleanedVideo(env, { workId, sourceUrl, filename, ac
         /* best-effort tag */
       }
     }
+    await trackSource(env, {
+      sourceKey,
+      cleanedKey: existing.key,
+      workId,
+      account,
+    });
     return {
       ok: true,
       key: existing.key,
@@ -129,6 +148,7 @@ export async function archiveCleanedVideo(env, { workId, sourceUrl, filename, ac
       /* best-effort tag */
     }
   }
+  await trackSource(env, { sourceKey, cleanedKey: key, workId, account });
 
   return { ok: true, key, downloadPath: downloadPath(key), existed: false, account: account || null };
 }
@@ -136,9 +156,19 @@ export async function archiveCleanedVideo(env, { workId, sourceUrl, filename, ac
 /**
  * Fire-and-forget archive so clean status polling never blocks on R2 upload.
  */
-export function scheduleCleanArchive(context, env, { workId, sourceUrl, filename, account } = {}) {
+export function scheduleCleanArchive(
+  context,
+  env,
+  { workId, sourceUrl, filename, account, sourceKey } = {},
+) {
   if (!env.MEDIA_BUCKET || !workId || !sourceUrl) return;
-  const task = archiveCleanedVideo(env, { workId, sourceUrl, filename, account }).catch(() => null);
+  const task = archiveCleanedVideo(env, {
+    workId,
+    sourceUrl,
+    filename,
+    account,
+    sourceKey,
+  }).catch(() => null);
   if (context && typeof context.waitUntil === 'function') {
     context.waitUntil(task);
   }

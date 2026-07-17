@@ -667,7 +667,10 @@
 
       let workId;
       if (!file && pendingSource) {
-        workId = await submitByUrl(pendingSource.fetchUrl, options);
+        workId = await submitByUrl(pendingSource.fetchUrl, {
+          ...options,
+          sourceKey: pendingSource.key || null,
+        });
       } else if (file.size <= DIRECT_MAX) {
         try {
           workId = await submitDirect(file, options);

@@ -425,6 +425,23 @@ a { color: var(--accent); }
   overflow: hidden;
 }
 
+.gallery-cleaned-badge {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 2;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #0c1610;
+  background: #b8d4a8;
+  border: 1px solid rgba(12, 22, 16, 0.2);
+  pointer-events: none;
+  user-select: none;
+}
+
 .gallery-seq {
   position: absolute;
   top: 0.55rem;

@@ -4,7 +4,7 @@
   const MAX_POLL_ERRORS = 8;
   /** Cap concurrent GhostCut cleans to avoid vendor throttle / credit spikes. */
   const MAX_CLEAN_IN_FLIGHT = 3;
-  function autoCleanOptions(account) {
+  function autoCleanOptions(account, sourceKey) {
     return {
       removeWatermark: false,
       cleanMetadata: true,
@@ -14,6 +14,7 @@
       deepAiRemake: true,
       mirror: false,
       account: account || null,
+      sourceKey: sourceKey || null,
     };
   }
 
@@ -528,7 +529,7 @@
         body: JSON.stringify({
           action: 'submit',
           videoUrl,
-          options: autoCleanOptions(account),
+          options: autoCleanOptions(account, key),
         }),
       });
       if (!ok || !data?.workId) {

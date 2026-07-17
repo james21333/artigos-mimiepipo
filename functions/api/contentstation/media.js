@@ -1,5 +1,6 @@
 import { json, requireSession } from '../../lib/contentstation-auth.js';
 import { createR2PresignedPut, createR2PresignedGet } from '../../lib/r2-presign.js';
+import { readCleanSourceMap } from '../../lib/clean-source-map.js';
 
 /**
  * R2 media API (binding: MEDIA_BUCKET → content-station-media).
@@ -373,6 +374,10 @@ export async function onRequest(context) {
     if (method === 'GET' || method === 'HEAD') {
       if (action === 'get') return streamGet(bucket, url);
       if (action === 'meta') return getMeta(env, bucket, url);
+      if (action === 'clean-map') {
+        const map = await readCleanSourceMap(env);
+        return json({ ok: true, map });
+      }
       return listObjects(env, bucket, url);
     }
 
