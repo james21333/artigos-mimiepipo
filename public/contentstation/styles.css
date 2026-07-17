@@ -177,26 +177,7 @@ input[type="file"] {
   flex-shrink: 0;
 }
 
-.auto-clean-hint {
-  margin: -0.2rem 0 0.75rem 1.55rem;
-  max-width: 36rem;
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.account-picker {
-  margin: 0 0 1rem;
-  max-width: 28rem;
-}
-
-.account-picker label {
-  display: block;
-  margin: 0 0 0.35rem;
-}
-
-.account-picker select,
 .account-select,
-.account-create-inline input,
 #new-account-name {
   font: inherit;
   width: 100%;
@@ -205,16 +186,6 @@ input[type="file"] {
   border: 1px solid var(--rule);
   background: transparent;
   color: inherit;
-}
-
-.account-create-inline {
-  margin-top: 0.45rem;
-  align-items: center;
-}
-
-.account-create-inline input {
-  flex: 1;
-  min-width: 0;
 }
 
 .account-create-row {
