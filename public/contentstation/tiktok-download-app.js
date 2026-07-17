@@ -4,15 +4,18 @@
   const MAX_POLL_ERRORS = 8;
   /** Cap concurrent GhostCut cleans to avoid vendor throttle / credit spikes. */
   const MAX_CLEAN_IN_FLIGHT = 3;
-  const AUTO_CLEAN_OPTIONS = {
-    removeWatermark: false,
-    cleanMetadata: true,
-    alterAudio: true,
-    basicVideoRemix: false,
-    remix: false,
-    deepAiRemake: true,
-    mirror: false,
-  };
+  function autoCleanOptions(account) {
+    return {
+      removeWatermark: false,
+      cleanMetadata: true,
+      alterAudio: true,
+      basicVideoRemix: false,
+      remix: false,
+      deepAiRemake: true,
+      mirror: false,
+      account: account || null,
+    };
+  }
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -21,6 +24,10 @@
   const urlsInput = document.getElementById('tiktok-urls');
   const urlCount = document.getElementById('url-count');
   const autoCleanOpt = document.getElementById('opt-auto-clean');
+  const accountSelect = document.getElementById('account-select');
+  const newAccountInput = document.getElementById('new-account-input');
+  const createAccountBtn = document.getElementById('create-account-btn');
+  const accountPicker = document.getElementById('account-picker');
   const smallerNoHd = document.getElementById('opt-smaller-no-hd');
   const downloadBtn = document.getElementById('download-btn');
   const stopBtn = document.getElementById('stop-btn');
@@ -138,6 +145,57 @@
       autoCleanOpt && autoCleanOpt.checked ? 'Download & auto-clean' : 'Download videos';
   }
 
+  function updateAccountPickerVisibility() {
+    if (!accountPicker) return;
+    accountPicker.hidden = !(autoCleanOpt && autoCleanOpt.checked);
+  }
+
+  function fillAccountSelect(accounts, prefer) {
+    if (!accountSelect) return;
+    const current = prefer || accountSelect.value;
+    accountSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— Select account —';
+    accountSelect.appendChild(placeholder);
+    (accounts || []).forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      accountSelect.appendChild(opt);
+    });
+    if (current && [...accountSelect.options].some((o) => o.value === current)) {
+      accountSelect.value = current;
+    }
+  }
+
+  async function loadAccounts() {
+    const { ok, data } = await api('/api/contentstation/accounts?action=list');
+    if (!ok) return;
+    const names = (data.accounts || []).map((a) => a.name);
+    fillAccountSelect(names);
+  }
+
+  async function createAccountFromInput() {
+    const name = (newAccountInput && newAccountInput.value.trim()) || '';
+    if (!name) {
+      setError('Enter an account name to add.');
+      return;
+    }
+    setError('');
+    const { ok, data } = await api('/api/contentstation/accounts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', name }),
+    });
+    if (!ok) {
+      setError((data && (data.message || data.error)) || 'Could not create account.');
+      return;
+    }
+    const names = (data.accounts || []).map((a) => a.name);
+    fillAccountSelect(names, data.name || name);
+    if (newAccountInput) newAccountInput.value = '';
+  }
+
   function clearResults() {
     results.innerHTML = '';
     results.hidden = true;
@@ -231,20 +289,40 @@
 
   function markCardCleaned(card, data) {
     setCardError(card, '');
+    const account = data?.account || (accountSelect && accountSelect.value) || '';
     setCardStatus(
       card,
-      data?.inLibrary || data?.savingToLibrary
-        ? 'Cleaned · in Cleaned videos'
-        : 'Cleaned',
+      account
+        ? `Cleaned · Ready For Upload (${account})`
+        : data?.inLibrary || data?.savingToLibrary
+          ? 'Cleaned · in Cleaned videos'
+          : 'Cleaned',
     );
     const cleanLink = card.querySelector('.result-clean');
     const libLink = card.querySelector('.result-cleaned-lib');
     if (cleanLink) cleanLink.hidden = true;
-    if (libLink) libLink.hidden = false;
+    if (libLink) {
+      libLink.hidden = false;
+      if (account) {
+        libLink.href = `./ready-account.html?account=${encodeURIComponent(account)}`;
+        libLink.textContent = `Open ${account}`;
+      } else {
+        libLink.href = './cleaned.html';
+        libLink.textContent = 'Open Cleaned videos';
+      }
+    }
     if (libraryNote) {
       libraryNote.hidden = false;
-      libraryNote.innerHTML =
-        'Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Auto-cleaned clips go to <a class="btn-link" href="./cleaned.html">Cleaned videos</a> — keep this tab open until cleaning finishes.';
+      libraryNote.innerHTML = account
+        ? `Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Auto-cleaned clips are tagged for <a class="btn-link" href="./ready-account.html?account=${encodeURIComponent(account)}">${account}</a> under <a class="btn-link" href="./ready.html">Ready For Upload</a>.`
+        : 'Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Auto-cleaned clips go to <a class="btn-link" href="./cleaned.html">Cleaned videos</a>.';
+    }
+    // Backup tag if server returned cleanedKey + account.
+    if (data?.cleanedKey && account) {
+      api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'tag', key: data.cleanedKey, account }),
+      }).catch(() => {});
     }
   }
 
@@ -431,7 +509,7 @@
       const next = cleanSubmitQueue.shift();
       if (!next) break;
       // eslint-disable-next-line no-await-in-loop
-      await submitAutoClean(next.card, next.key);
+      await submitAutoClean(next.card, next.key, next.account);
     }
     refreshBatchStatus(
       batchActive ? statusLine.textContent : null,
@@ -439,7 +517,7 @@
     );
   }
 
-  async function submitAutoClean(card, key) {
+  async function submitAutoClean(card, key, account) {
     cleanSubmitActive += 1;
     setCardStatus(card, 'Starting auto-clean…');
     setCardError(card, '');
@@ -450,7 +528,7 @@
         body: JSON.stringify({
           action: 'submit',
           videoUrl,
-          options: AUTO_CLEAN_OPTIONS,
+          options: autoCleanOptions(account),
         }),
       });
       if (!ok || !data?.workId) {
@@ -476,22 +554,22 @@
     }
   }
 
-  function enqueueAutoClean(card, key) {
+  function enqueueAutoClean(card, key, account) {
     const cleanLink = card.querySelector('.result-clean');
     if (cleanLink) cleanLink.hidden = true;
 
     if (inFlightCleanCount() + cleanSubmitActive < MAX_CLEAN_IN_FLIGHT) {
-      return submitAutoClean(card, key);
+      return submitAutoClean(card, key, account);
     }
 
-    cleanSubmitQueue.push({ card, key });
+    cleanSubmitQueue.push({ card, key, account });
     setCardStatus(card, `Queued for auto-clean (${cleanSubmitQueue.length} waiting)…`);
     setCardError(card, '');
     return Promise.resolve();
   }
 
-  function startAutoClean(card, key) {
-    return enqueueAutoClean(card, key);
+  function startAutoClean(card, key, account) {
+    return enqueueAutoClean(card, key, account);
   }
 
   async function refreshSession() {
@@ -532,9 +610,26 @@
   urlsInput.addEventListener('input', updateUrlCount);
   updateUrlCount();
   if (autoCleanOpt) {
-    autoCleanOpt.addEventListener('change', updateDownloadButtonLabel);
+    autoCleanOpt.addEventListener('change', () => {
+      updateDownloadButtonLabel();
+      updateAccountPickerVisibility();
+    });
+  }
+  if (createAccountBtn) {
+    createAccountBtn.addEventListener('click', () => {
+      createAccountFromInput().catch(() => {});
+    });
+  }
+  if (newAccountInput) {
+    newAccountInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        createAccountFromInput().catch(() => {});
+      }
+    });
   }
   updateDownloadButtonLabel();
+  updateAccountPickerVisibility();
 
   stopBtn.addEventListener('click', () => {
     if (batchActive) {
@@ -579,6 +674,14 @@
 
     const smallerFile = Boolean(smallerNoHd && smallerNoHd.checked);
     const autoClean = Boolean(autoCleanOpt && autoCleanOpt.checked);
+    const selectedAccount = (accountSelect && accountSelect.value.trim()) || '';
+
+    if (autoClean && !selectedAccount) {
+      setError('Choose or create an account for Auto-Clean (Ready For Upload tag).');
+      batchActive = false;
+      return;
+    }
+
     downloadBtn.disabled = true;
     stopBtn.hidden = false;
 
@@ -602,7 +705,7 @@
         `Downloading ${i + 1} / ${urls.length}…`,
         [
           smallerFile ? 'Smaller (no HD)' : 'HD when available',
-          autoClean ? 'Auto-Clean on' : null,
+          autoClean ? `Auto-Clean → ${selectedAccount}` : null,
         ]
           .filter(Boolean)
           .join(' · '),
@@ -624,8 +727,10 @@
         fillCardSuccess(card, data);
 
         if (autoClean && data.key && !stopRequested) {
-          await startAutoClean(card, data.key);
-          if (pendingCleans.has(card)) autoCleanStarted += 1;
+          await startAutoClean(card, data.key, selectedAccount);
+          if (pendingCleans.has(card) || cleanSubmitQueue.some((q) => q.card === card)) {
+            autoCleanStarted += 1;
+          }
           refreshBatchStatus(
             `Downloading ${Math.min(i + 2, urls.length)} / ${urls.length}…`,
             `${okCount} saved · ${autoCleanStarted} auto-clean started`,
@@ -663,5 +768,7 @@
     stopRequested = false;
   });
 
-  refreshSession();
+  refreshSession().then((authed) => {
+    if (authed) return loadAccounts();
+  });
 })();

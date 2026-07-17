@@ -184,6 +184,91 @@ input[type="file"] {
   line-height: 1.4;
 }
 
+.account-picker {
+  margin: 0 0 1rem;
+  max-width: 28rem;
+}
+
+.account-picker label {
+  display: block;
+  margin: 0 0 0.35rem;
+}
+
+.account-picker select,
+.account-select,
+.account-create-inline input,
+#new-account-name {
+  font: inherit;
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: inherit;
+}
+
+.account-create-inline {
+  margin-top: 0.45rem;
+  align-items: center;
+}
+
+.account-create-inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-create-row {
+  margin: 0 0 1rem;
+  max-width: 28rem;
+}
+
+.account-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.account-list-item {
+  margin: 0;
+}
+
+.account-card-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+  color: inherit;
+}
+
+.account-card-link:hover .account-card-name {
+  color: var(--accent);
+}
+
+.account-card-name {
+  font-size: 1.15rem;
+}
+
+.tag-row {
+  margin: 0.55rem 0;
+}
+
+.tag-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.tag-row .account-select {
+  color: inherit;
+}
+
 button {
   font: inherit;
   padding: 0.55rem 1.1rem;

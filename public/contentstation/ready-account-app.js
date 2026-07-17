@@ -1,4 +1,7 @@
 (function () {
+  const params = new URLSearchParams(window.location.search);
+  const accountName = (params.get('account') || '').trim();
+
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
   const gateError = document.getElementById('gate-error');
@@ -8,7 +11,16 @@
   const galleryGrid = document.getElementById('gallery-grid');
   const galleryEmpty = document.getElementById('gallery-empty');
   const refreshBtn = document.getElementById('refresh-btn');
+  const accountTitle = document.getElementById('account-title');
+  const accountSub = document.getElementById('account-sub');
+
   let accountsCache = [];
+
+  if (accountName) {
+    accountTitle.textContent = accountName;
+    accountSub.textContent = accountName;
+    document.title = `Content Station | ${accountName}`;
+  }
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -39,14 +51,10 @@
     }
   }
 
-  function showApp(session) {
+  function showApp() {
     gate.hidden = true;
     app.hidden = false;
-    const bits = [];
-    if (session.ready || session.cleanReady) bits.push('Ready');
-    else bits.push('Setup incomplete');
-    if (session.uploadReady) bits.push('Library on');
-    sessionMeta.textContent = bits.join(' · ');
+    sessionMeta.textContent = 'Signed in';
   }
 
   function setError(msg) {
@@ -69,78 +77,57 @@
   function formatWhen(iso) {
     if (!iso) return '';
     try {
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return '';
-      return d.toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
+      return new Date(iso).toLocaleString();
     } catch {
       return '';
     }
   }
 
   function displayName(key) {
-    const base = String(key || '').split('/').pop() || 'video';
-    return base.replace(/\.mp4$/i, '').replace(/_/g, ' ');
+    const base = String(key || '').split('/').pop() || key;
+    return base.replace(/\.mp4$/i, '');
   }
 
-  function uploadedMs(obj) {
-    if (!obj || !obj.uploaded) return 0;
-    const t = new Date(obj.uploaded).getTime();
-    return Number.isFinite(t) ? t : 0;
+  async function loadAccountOptions() {
+    const { ok, data } = await api('/api/contentstation/accounts?action=list');
+    if (ok && data && Array.isArray(data.accounts)) {
+      accountsCache = data.accounts.map((a) => a.name);
+    }
   }
 
-  /** Stable completion order: oldest uploaded = 1. Ties broken by key. */
-  function withSequenceNumbers(videos) {
-    const byAge = [...videos].sort((a, b) => {
-      const diff = uploadedMs(a) - uploadedMs(b);
-      if (diff !== 0) return diff;
-      return String(a.key || '').localeCompare(String(b.key || ''));
+  async function retag(key, account) {
+    const { ok, data } = await api('/api/contentstation/accounts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'tag', key, account: account || '' }),
     });
-    const seqByKey = new Map();
-    byAge.forEach((obj, i) => {
-      seqByKey.set(obj.key, i + 1);
-    });
-    return videos.map((obj) => ({ ...obj, seq: seqByKey.get(obj.key) }));
+    if (!ok) {
+      throw new Error((data && (data.message || data.error)) || 'Could not update tag.');
+    }
+    if (data.accounts) {
+      accountsCache = data.accounts.map((a) => a.name);
+    }
   }
 
-  function renderItems(objects) {
+  function renderItems(videos) {
     galleryGrid.innerHTML = '';
-    const videos = (objects || []).filter((o) => o && o.key && !o.key.endsWith('/'));
-    if (!videos.length) {
+    const list = videos || [];
+    if (!list.length) {
       galleryGrid.hidden = true;
       galleryEmpty.hidden = false;
-      galleryStatus.textContent = 'Library empty';
+      galleryStatus.textContent = 'Queue empty';
       return;
     }
     galleryEmpty.hidden = true;
     galleryGrid.hidden = false;
-    galleryStatus.textContent = `${videos.length} video${videos.length === 1 ? '' : 's'}`;
+    galleryStatus.textContent = `${list.length} video${list.length === 1 ? '' : 's'}`;
 
-    // Numbers = completion order (oldest = 1). Grid shows newest first.
-    const numbered = withSequenceNumbers(videos).sort((a, b) => {
-      const diff = uploadedMs(b) - uploadedMs(a);
-      if (diff !== 0) return diff;
-      return String(b.key || '').localeCompare(String(a.key || ''));
-    });
-
-    for (const obj of numbered) {
+    for (const obj of list) {
       const src = obj.downloadPath;
       const card = document.createElement('article');
       card.className = 'gallery-card';
 
       const media = document.createElement('div');
       media.className = 'gallery-media';
-
-      const badge = document.createElement('span');
-      badge.className = 'gallery-seq';
-      badge.textContent = String(obj.seq);
-      badge.setAttribute('aria-label', `Cleaned video ${obj.seq}`);
-      media.appendChild(badge);
-
       const video = document.createElement('video');
       video.src = src;
       video.controls = true;
@@ -154,53 +141,50 @@
 
       const title = document.createElement('p');
       title.className = 'gallery-title';
-      title.textContent = `#${obj.seq} · ${displayName(obj.key)}`;
+      title.textContent = displayName(obj.key);
 
       const info = document.createElement('p');
       info.className = 'muted-line';
-      const bits = [formatWhen(obj.uploaded), formatBytes(obj.size)].filter(Boolean);
-      info.textContent = bits.join(' · ');
+      info.textContent = [formatWhen(obj.uploaded), formatBytes(obj.size)].filter(Boolean).join(' · ');
 
       const tagRow = document.createElement('div');
       tagRow.className = 'tag-row';
       const label = document.createElement('label');
-      label.textContent = 'Tag for account';
+      label.textContent = 'Account';
       const select = document.createElement('select');
       select.className = 'account-select';
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = '— Choose account —';
-      select.appendChild(placeholder);
-      accountsCache.forEach((name) => {
+      const unt = document.createElement('option');
+      unt.value = '';
+      unt.textContent = '— Untagged (Cleaned videos) —';
+      select.appendChild(unt);
+      const names = new Set(accountsCache);
+      if (accountName) names.add(accountName);
+      [...names].sort((a, b) => a.localeCompare(b)).forEach((name) => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;
+        if (name === accountName) opt.selected = true;
         select.appendChild(opt);
       });
       select.addEventListener('change', async () => {
-        if (!select.value) return;
         select.disabled = true;
         try {
-          const { ok, data } = await api('/api/contentstation/accounts', {
-            method: 'POST',
-            body: JSON.stringify({ action: 'tag', key: obj.key, account: select.value }),
-          });
-          if (!ok) {
-            throw new Error((data && (data.message || data.error)) || 'Could not tag video.');
-          }
-          card.remove();
-          if (!galleryGrid.children.length) {
-            galleryGrid.hidden = true;
-            galleryEmpty.hidden = false;
-            galleryStatus.textContent = 'Library empty';
-          } else {
-            galleryStatus.textContent = `${galleryGrid.children.length} untagged video${
-              galleryGrid.children.length === 1 ? '' : 's'
-            }`;
+          await retag(obj.key, select.value);
+          if (select.value !== accountName) {
+            card.remove();
+            if (!galleryGrid.children.length) {
+              galleryGrid.hidden = true;
+              galleryEmpty.hidden = false;
+              galleryStatus.textContent = 'Queue empty';
+            } else {
+              galleryStatus.textContent = `${galleryGrid.children.length} video${
+                galleryGrid.children.length === 1 ? '' : 's'
+              }`;
+            }
           }
         } catch (err) {
           setError(err && err.message ? err.message : String(err));
-          select.value = '';
+          select.value = accountName;
         } finally {
           select.disabled = false;
         }
@@ -216,14 +200,9 @@
       dl.textContent = 'Download';
       dl.setAttribute('download', '');
       actions.appendChild(dl);
-      const readyLink = document.createElement('a');
-      readyLink.className = 'btn-link';
-      readyLink.href = './ready.html';
-      readyLink.textContent = 'Ready For Upload';
-      actions.appendChild(readyLink);
 
       meta.appendChild(title);
-      if (bits.length) meta.appendChild(info);
+      if (info.textContent) meta.appendChild(info);
       meta.appendChild(tagRow);
       meta.appendChild(actions);
 
@@ -234,33 +213,23 @@
   }
 
   async function loadGallery() {
+    if (!accountName) {
+      setError('Missing account name in the URL.');
+      galleryStatus.textContent = 'No account';
+      return;
+    }
     setError('');
     galleryStatus.textContent = 'Loading…';
     refreshBtn.disabled = true;
     try {
-      const [mediaRes, tagsRes, accountsRes] = await Promise.all([
-        api('/api/contentstation/media?action=list&prefix=cleaned/&limit=100'),
-        api('/api/contentstation/accounts?action=tags'),
-        api('/api/contentstation/accounts?action=list'),
-      ]);
-      if (!mediaRes.ok) {
-        throw new Error(
-          (mediaRes.data && (mediaRes.data.message || mediaRes.data.error)) ||
-            'Could not load library.',
-        );
+      await loadAccountOptions();
+      const { ok, data } = await api(
+        `/api/contentstation/accounts?action=videos&account=${encodeURIComponent(accountName)}`,
+      );
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not load videos.');
       }
-      const tags = (tagsRes.ok && tagsRes.data && tagsRes.data.tags) || {};
-      accountsCache =
-        accountsRes.ok && accountsRes.data && Array.isArray(accountsRes.data.accounts)
-          ? accountsRes.data.accounts.map((a) => a.name)
-          : [];
-      const untagged = (mediaRes.data.objects || []).filter((o) => o && o.key && !tags[o.key]);
-      renderItems(untagged);
-      if (untagged.length) {
-        galleryStatus.textContent = `${untagged.length} untagged video${
-          untagged.length === 1 ? '' : 's'
-        }`;
-      }
+      renderItems(data.videos || []);
     } catch (err) {
       galleryGrid.hidden = true;
       galleryEmpty.hidden = true;
@@ -274,11 +243,9 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
-      window.__csSession = data;
-      showApp(data);
+      showApp();
       return true;
     }
-    window.__csSession = null;
     showGate();
     return false;
   }

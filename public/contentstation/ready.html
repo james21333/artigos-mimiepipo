@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | Downloaded videos</title>
+  <title>Content Station | Ready For Upload</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Library of TikTok videos downloaded to the station.">
+  <meta name="description" content="Cleaned videos tagged for each posting account.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -15,11 +15,11 @@
         <a href="./">Clean video</a>
         <a href="./cleaned.html">Cleaned videos</a>
         <a href="./tiktok-download.html">TikTok download</a>
-        <a href="./downloaded.html" aria-current="page">Downloaded videos</a>
-        <a href="./ready.html">Ready For Upload</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html" aria-current="page">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Downloaded videos</p>
+      <p class="sub">Ready For Upload</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -40,29 +40,35 @@
       </div>
 
       <section class="hero-flow">
-        <h1>Downloaded videos</h1>
-        <p class="lede">Your TikTok downloads library. Preview, download, or send a clip to Clean video.</p>
+        <h1>Ready For Upload</h1>
+        <p class="lede">Accounts you’ve tagged cleaned videos for. Open an account to preview and download.</p>
 
         <div class="row">
           <button type="button" id="refresh-btn">Refresh</button>
         </div>
 
+        <form id="create-account-form" class="account-create-row">
+          <label for="new-account-name">New account</label>
+          <div class="row">
+            <input id="new-account-name" type="text" maxlength="80" placeholder="e.g. 1 - GLP" autocomplete="off">
+            <button type="submit">Create</button>
+          </div>
+        </form>
+
         <p id="gallery-status" class="status" aria-live="polite">Loading…</p>
         <p id="gallery-error" class="error" hidden></p>
 
-        <div id="gallery-grid" class="gallery-grid" hidden></div>
-        <p id="gallery-empty" class="muted-line" hidden>No downloads yet. Save videos from the TikTok download page and they’ll show up here.</p>
+        <ul id="account-list" class="account-list" hidden></ul>
+        <p id="gallery-empty" class="muted-line" hidden>No accounts yet. Create one here or pick an account when you Auto-Clean downloads.</p>
       </section>
     </section>
 
     <p class="foot">
-      <a href="./tiktok-download.html">← TikTok download</a>
-      ·
-      <a href="./">Clean video</a>
+      <a href="./cleaned.html">Untagged cleaned videos</a>
       ·
       <a href="/">Artigos hub</a>
     </p>
   </main>
-  <script src="./downloaded-app.js"></script>
+  <script src="./ready-app.js"></script>
 </body>
 </html>

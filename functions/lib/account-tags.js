@@ -1,0 +1,135 @@
+/**
+ * Account tags for cleaned videos (Ready For Upload).
+ * Durable index in R2 — avoids re-uploading video bytes to retag.
+ *
+ *   meta/accounts.json      → string[] account names
+ *   meta/cleaned-tags.json  → { [cleanedKey]: accountName }
+ */
+
+const ACCOUNTS_KEY = 'meta/accounts.json';
+const TAGS_KEY = 'meta/cleaned-tags.json';
+
+export function sanitizeAccountName(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const name = raw
+    .trim()
+    .replace(/[\/\\]/g, '-')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  if (!name) return null;
+  return name;
+}
+
+function getBucket(env) {
+  return env.MEDIA_BUCKET || null;
+}
+
+async function readJson(bucket, key, fallback) {
+  try {
+    const obj = await bucket.get(key);
+    if (!obj) return fallback;
+    const text = await obj.text();
+    if (!text) return fallback;
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJson(bucket, key, value) {
+  await bucket.put(key, JSON.stringify(value, null, 2), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+export async function listAccounts(env) {
+  const bucket = getBucket(env);
+  if (!bucket) return [];
+  const list = await readJson(bucket, ACCOUNTS_KEY, []);
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((n) => sanitizeAccountName(n))
+    .filter(Boolean)
+    .filter((n, i, arr) => arr.indexOf(n) === i)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+export async function createAccount(env, nameRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const name = sanitizeAccountName(nameRaw);
+  if (!name) return { ok: false, error: 'Enter a valid account name.' };
+  const list = await listAccounts(env);
+  if (!list.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    list.push(name);
+    list.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    await writeJson(bucket, ACCOUNTS_KEY, list);
+  }
+  return { ok: true, name, accounts: await listAccounts(env) };
+}
+
+export async function readTagsMap(env) {
+  const bucket = getBucket(env);
+  if (!bucket) return {};
+  const map = await readJson(bucket, TAGS_KEY, {});
+  return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+}
+
+export async function getTagForKey(env, key) {
+  if (!key) return null;
+  const map = await readTagsMap(env);
+  const account = sanitizeAccountName(map[key]);
+  return account || null;
+}
+
+/**
+ * Set or clear account tag for a cleaned/ object key.
+ * @param {string|null|undefined} accountRaw — null/'' clears tag
+ */
+export async function setVideoAccount(env, keyRaw, accountRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const key = String(keyRaw || '').trim();
+  if (!key.startsWith('cleaned/') || key.includes('..')) {
+    return { ok: false, error: 'Invalid cleaned video key.' };
+  }
+
+  const clear = accountRaw == null || String(accountRaw).trim() === '';
+  const account = clear ? null : sanitizeAccountName(accountRaw);
+  if (!clear && !account) return { ok: false, error: 'Enter a valid account name.' };
+
+  if (account) {
+    await createAccount(env, account);
+  }
+
+  const map = await readTagsMap(env);
+  if (account) map[key] = account;
+  else delete map[key];
+  await writeJson(bucket, TAGS_KEY, map);
+
+  return { ok: true, key, account, tags: map };
+}
+
+export async function keysForAccount(env, accountRaw) {
+  const account = sanitizeAccountName(accountRaw);
+  if (!account) return [];
+  const map = await readTagsMap(env);
+  return Object.entries(map)
+    .filter(([, a]) => sanitizeAccountName(a) === account)
+    .map(([k]) => k);
+}
+
+export async function accountSummaries(env) {
+  const accounts = await listAccounts(env);
+  const map = await readTagsMap(env);
+  const counts = {};
+  for (const a of accounts) counts[a] = 0;
+  for (const a of Object.values(map)) {
+    const name = sanitizeAccountName(a);
+    if (!name) continue;
+    counts[name] = (counts[name] || 0) + 1;
+    if (!accounts.includes(name)) accounts.push(name);
+  }
+  accounts.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  return accounts.map((name) => ({ name, count: counts[name] || 0 }));
+}

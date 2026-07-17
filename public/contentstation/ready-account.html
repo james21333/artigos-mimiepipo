@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | Downloaded videos</title>
+  <title>Content Station | Account upload queue</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Library of TikTok videos downloaded to the station.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -15,11 +14,11 @@
         <a href="./">Clean video</a>
         <a href="./cleaned.html">Cleaned videos</a>
         <a href="./tiktok-download.html">TikTok download</a>
-        <a href="./downloaded.html" aria-current="page">Downloaded videos</a>
-        <a href="./ready.html">Ready For Upload</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html" aria-current="page">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Downloaded videos</p>
+      <p class="sub" id="account-sub">Account</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -40,8 +39,9 @@
       </div>
 
       <section class="hero-flow">
-        <h1>Downloaded videos</h1>
-        <p class="lede">Your TikTok downloads library. Preview, download, or send a clip to Clean video.</p>
+        <p class="muted-line"><a class="btn-link" href="./ready.html">← All accounts</a></p>
+        <h1 id="account-title">Account</h1>
+        <p class="lede">Videos tagged for this account. Change the tag anytime — untagged clips return to Cleaned videos.</p>
 
         <div class="row">
           <button type="button" id="refresh-btn">Refresh</button>
@@ -51,18 +51,16 @@
         <p id="gallery-error" class="error" hidden></p>
 
         <div id="gallery-grid" class="gallery-grid" hidden></div>
-        <p id="gallery-empty" class="muted-line" hidden>No downloads yet. Save videos from the TikTok download page and they’ll show up here.</p>
+        <p id="gallery-empty" class="muted-line" hidden>No videos tagged for this account yet.</p>
       </section>
     </section>
 
     <p class="foot">
-      <a href="./tiktok-download.html">← TikTok download</a>
-      ·
-      <a href="./">Clean video</a>
+      <a href="./ready.html">← Ready For Upload</a>
       ·
       <a href="/">Artigos hub</a>
     </p>
   </main>
-  <script src="./downloaded-app.js"></script>
+  <script src="./ready-account-app.js"></script>
 </body>
 </html>

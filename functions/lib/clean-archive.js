@@ -4,6 +4,8 @@
  * callers should catch / use scheduleCleanArchive (waitUntil).
  */
 
+import { setVideoAccount } from './account-tags.js';
+
 const CLEANED_PREFIX = 'cleaned/';
 
 function downloadPath(key) {
@@ -42,7 +44,7 @@ export async function resolveArchivedDownload(env, workId) {
  * Fetch a finished clean URL and store it in cleaned/. Idempotent by workId key.
  * @returns {{ ok: true, key, downloadPath, existed?: boolean } | { ok: false, error: string }}
  */
-export async function archiveCleanedVideo(env, { workId, sourceUrl, filename } = {}) {
+export async function archiveCleanedVideo(env, { workId, sourceUrl, filename, account } = {}) {
   const bucket = env.MEDIA_BUCKET;
   if (!bucket) {
     return { ok: false, error: 'Storage isn’t available.' };
@@ -57,7 +59,20 @@ export async function archiveCleanedVideo(env, { workId, sourceUrl, filename } =
 
   const existing = await resolveArchivedDownload(env, workId);
   if (existing) {
-    return { ok: true, key: existing.key, downloadPath: existing.downloadPath, existed: true };
+    if (account) {
+      try {
+        await setVideoAccount(env, existing.key, account);
+      } catch {
+        /* best-effort tag */
+      }
+    }
+    return {
+      ok: true,
+      key: existing.key,
+      downloadPath: existing.downloadPath,
+      existed: true,
+      account: account || null,
+    };
   }
 
   let res;
@@ -88,6 +103,7 @@ export async function archiveCleanedVideo(env, { workId, sourceUrl, filename } =
       httpMetadata: { contentType },
       customMetadata: {
         workId: String(workId),
+        account: account ? String(account).slice(0, 80) : '',
         sourceHost: (() => {
           try {
             return new URL(sourceUrl).hostname;
@@ -106,15 +122,23 @@ export async function archiveCleanedVideo(env, { workId, sourceUrl, filename } =
     };
   }
 
-  return { ok: true, key, downloadPath: downloadPath(key), existed: false };
+  if (account) {
+    try {
+      await setVideoAccount(env, key, account);
+    } catch {
+      /* best-effort tag */
+    }
+  }
+
+  return { ok: true, key, downloadPath: downloadPath(key), existed: false, account: account || null };
 }
 
 /**
  * Fire-and-forget archive so clean status polling never blocks on R2 upload.
  */
-export function scheduleCleanArchive(context, env, { workId, sourceUrl, filename } = {}) {
+export function scheduleCleanArchive(context, env, { workId, sourceUrl, filename, account } = {}) {
   if (!env.MEDIA_BUCKET || !workId || !sourceUrl) return;
-  const task = archiveCleanedVideo(env, { workId, sourceUrl, filename }).catch(() => null);
+  const task = archiveCleanedVideo(env, { workId, sourceUrl, filename, account }).catch(() => null);
   if (context && typeof context.waitUntil === 'function') {
     context.waitUntil(task);
   }

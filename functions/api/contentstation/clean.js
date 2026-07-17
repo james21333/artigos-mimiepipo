@@ -11,6 +11,7 @@ import {
   resolveArchivedDownload,
   scheduleCleanArchive,
 } from '../../lib/clean-archive.js';
+import { setVideoAccount } from '../../lib/account-tags.js';
 
 /**
  * Consumer-facing clean-video API.
@@ -74,6 +75,16 @@ function clientFail(message, status = 400, extra = {}) {
   return json({ ok: false, error: 'clean_failed', message: friendlyError(message), ...extra }, status);
 }
 
+function sanitizeAccountOption(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const name = raw
+    .trim()
+    .replace(/[\/\\]/g, '-')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  return name || null;
+}
+
 function parseOptions(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   return {
@@ -84,6 +95,8 @@ function parseOptions(raw) {
     remix: Boolean(src.remix),
     deepAiRemake: Boolean(src.deepAiRemake),
     mirror: Boolean(src.mirror),
+    // Ready For Upload association (not a visual/audio clean option).
+    account: sanitizeAccountOption(src.account),
   };
 }
 
@@ -841,6 +854,27 @@ async function statusWork(env, workId) {
   return { ok: false, response: clientFail('Unknown work id.', 400) };
 }
 
+async function accountFromWorkId(workId) {
+  if (!workId) return null;
+  const s = String(workId);
+  const candidates = [s];
+  if (s.startsWith('pipe:gc:')) {
+    candidates.push(s.slice(8));
+    candidates.push(`gc:${s.slice(8)}`);
+  } else if (s.startsWith('gc:')) {
+    candidates.push(s.slice(3));
+  } else if (s.startsWith('cc:')) {
+    candidates.push(s);
+  } else {
+    candidates.push(s);
+  }
+  for (const c of candidates) {
+    const opts = await readJobOptionsCache(c);
+    if (opts && opts.account) return opts.account;
+  }
+  return null;
+}
+
 /**
  * When a clean is ready, prefer an already-saved library copy; otherwise schedule
  * a background save to cleaned/. Never awaits the upload — polling stays fast.
@@ -849,23 +883,31 @@ async function attachLibraryFields(context, env, data) {
   if (!data || data.state !== 'ready' || !data.downloadUrl || !data.workId) {
     return data;
   }
+  const account = await accountFromWorkId(data.workId);
   const existing = await resolveArchivedDownload(env, data.workId);
   if (existing) {
+    if (account) {
+      const tagTask = setVideoAccount(env, existing.key, account).catch(() => null);
+      if (context && typeof context.waitUntil === 'function') context.waitUntil(tagTask);
+    }
     return {
       ...data,
       downloadUrl: existing.downloadPath,
       cleanedKey: existing.key,
       inLibrary: true,
+      account: account || null,
     };
   }
   scheduleCleanArchive(context, env, {
     workId: data.workId,
     sourceUrl: data.downloadUrl,
+    account: account || undefined,
   });
   return {
     ...data,
     inLibrary: false,
     savingToLibrary: true,
+    account: account || null,
   };
 }
 
