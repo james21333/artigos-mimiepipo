@@ -2,6 +2,8 @@
   const MAX_URLS = 10;
   const POLL_MS = 4000;
   const MAX_POLL_ERRORS = 8;
+  /** Cap concurrent GhostCut cleans to avoid vendor throttle / credit spikes. */
+  const MAX_CLEAN_IN_FLIGHT = 3;
   const AUTO_CLEAN_OPTIONS = {
     removeWatermark: false,
     cleanMetadata: true,
@@ -29,8 +31,11 @@
   const libraryNote = document.getElementById('library-note');
 
   let stopRequested = false;
-  /** @type {Map<HTMLElement, { workId: string, errors: number, done: boolean }>} */
+  /** @type {Map<HTMLElement, { workId: string, errors: number, done: boolean, failed?: boolean }>} */
   const pendingCleans = new Map();
+  /** @type {{ card: HTMLElement, key: string }[]} */
+  const cleanSubmitQueue = [];
+  let cleanSubmitActive = 0;
   let cleanPollTimer = null;
   let cleanPollInFlight = false;
   let batchActive = false;
@@ -138,6 +143,8 @@
     results.hidden = true;
     if (libraryNote) libraryNote.hidden = true;
     pendingCleans.clear();
+    cleanSubmitQueue.length = 0;
+    cleanSubmitActive = 0;
     stopCleanPoll();
   }
 
@@ -267,16 +274,18 @@
         cleaning += 1;
       }
     }
-    return { cleaning, cleaned, cleanFailed };
+    const queued = cleanSubmitQueue.length;
+    return { cleaning, cleaned, cleanFailed, queued };
   }
 
   function refreshBatchStatus(baseMain, baseDetail) {
-    const { cleaning, cleaned, cleanFailed } = summarizeBatch();
-    if (!cleaning && !cleaned && !cleanFailed) {
+    const { cleaning, cleaned, cleanFailed, queued } = summarizeBatch();
+    if (!cleaning && !cleaned && !cleanFailed && !queued) {
       if (baseMain) setStatus(baseMain, baseDetail);
       return;
     }
     const cleanBits = [];
+    if (queued) cleanBits.push(`${queued} clean queued`);
     if (cleaning) cleanBits.push(`${cleaning} cleaning`);
     if (cleaned) cleanBits.push(`${cleaned} cleaned`);
     if (cleanFailed) cleanBits.push(`${cleanFailed} clean failed`);
@@ -324,6 +333,7 @@
                   'Clean status check failed repeatedly.',
               );
               setCardStatus(card, 'Clean failed');
+              onCleanSlotFreed();
             }
             continue;
           }
@@ -334,11 +344,13 @@
             job.done = true;
             job.failed = false;
             markCardCleaned(card, data);
+            onCleanSlotFreed();
           } else if (data.state === 'failed') {
             job.done = true;
             job.failed = true;
             setCardError(card, data.error || data.message || 'Cleaning failed.');
             setCardStatus(card, 'Clean failed');
+            onCleanSlotFreed();
           } else {
             const label = data.label || 'Auto-cleaning…';
             const prog =
@@ -354,6 +366,7 @@
             job.failed = true;
             setCardError(card, 'Network error while checking clean status.');
             setCardStatus(card, 'Clean failed');
+            onCleanSlotFreed();
           }
         }
       }
@@ -363,7 +376,9 @@
         batchActive ? statusLine.textContent : null,
         batchActive ? statusDetail.textContent : null,
       );
-      if (![...pendingCleans.values()].some((j) => !j.done)) {
+      const stillBusy =
+        [...pendingCleans.values()].some((j) => !j.done) || cleanSubmitQueue.length > 0;
+      if (!stillBusy) {
         stopCleanPoll();
         if (!batchActive) {
           stopBtn.hidden = true;
@@ -386,16 +401,46 @@
       throw new Error((data && (data.message || data.error)) || 'Could not resolve media URL.');
     }
     const fetchUrl =
+      (data.object && (data.object.fetchUrl || data.object.publicUrl)) ||
       data.fetchUrl ||
-      data.publicUrl ||
-      (data.object && (data.object.fetchUrl || data.object.publicUrl));
+      data.publicUrl;
     if (!fetchUrl || !/^https?:\/\//i.test(fetchUrl)) {
       throw new Error('No public URL available for auto-clean.');
     }
     return fetchUrl;
   }
 
-  async function startAutoClean(card, key) {
+  function inFlightCleanCount() {
+    let n = 0;
+    for (const job of pendingCleans.values()) {
+      if (!job.done) n += 1;
+    }
+    return n;
+  }
+
+  function onCleanSlotFreed() {
+    drainCleanSubmitQueue().catch(() => {});
+  }
+
+  async function drainCleanSubmitQueue() {
+    while (
+      cleanSubmitQueue.length > 0 &&
+      inFlightCleanCount() < MAX_CLEAN_IN_FLIGHT &&
+      cleanSubmitActive < MAX_CLEAN_IN_FLIGHT
+    ) {
+      const next = cleanSubmitQueue.shift();
+      if (!next) break;
+      // eslint-disable-next-line no-await-in-loop
+      await submitAutoClean(next.card, next.key);
+    }
+    refreshBatchStatus(
+      batchActive ? statusLine.textContent : null,
+      batchActive ? statusDetail.textContent : null,
+    );
+  }
+
+  async function submitAutoClean(card, key) {
+    cleanSubmitActive += 1;
     setCardStatus(card, 'Starting auto-clean…');
     setCardError(card, '');
     try {
@@ -416,14 +461,37 @@
       const cleanLink = card.querySelector('.result-clean');
       if (cleanLink) cleanLink.hidden = true;
       ensureCleanPoll();
-      // Kick an immediate status check so the card updates quickly.
       pollPendingCleans().catch(() => {});
     } catch (err) {
       setCardError(card, String(err?.message || err));
       setCardStatus(card, 'Saved · auto-clean failed');
       const cleanLink = card.querySelector('.result-clean');
       if (cleanLink) cleanLink.hidden = false;
+    } finally {
+      cleanSubmitActive = Math.max(0, cleanSubmitActive - 1);
+      // Try to start another queued clean if a slot opened (submit failed or finished kickoff).
+      if (cleanSubmitQueue.length && inFlightCleanCount() < MAX_CLEAN_IN_FLIGHT) {
+        drainCleanSubmitQueue().catch(() => {});
+      }
     }
+  }
+
+  function enqueueAutoClean(card, key) {
+    const cleanLink = card.querySelector('.result-clean');
+    if (cleanLink) cleanLink.hidden = true;
+
+    if (inFlightCleanCount() + cleanSubmitActive < MAX_CLEAN_IN_FLIGHT) {
+      return submitAutoClean(card, key);
+    }
+
+    cleanSubmitQueue.push({ card, key });
+    setCardStatus(card, `Queued for auto-clean (${cleanSubmitQueue.length} waiting)…`);
+    setCardError(card, '');
+    return Promise.resolve();
+  }
+
+  function startAutoClean(card, key) {
+    return enqueueAutoClean(card, key);
   }
 
   async function refreshSession() {
@@ -474,14 +542,24 @@
       setStatus('Stopping…', 'Finishing the current download, then stopping. Auto-cleans already started keep running.');
       return;
     }
-    // After downloads finished: stop further clean polling.
+    // After downloads finished: stop queue + polling (already-submitted GhostCut jobs keep running).
+    const skippedQueue = cleanSubmitQueue.length;
+    cleanSubmitQueue.length = 0;
     stopCleanPoll();
     stopBtn.hidden = true;
     stopBtn.textContent = 'Stop';
     const { cleaning, cleaned, cleanFailed } = summarizeBatch();
     setStatus(
       'Polling stopped',
-      `${cleaning} still processing on GhostCut · ${cleaned} cleaned · ${cleanFailed} failed — check Cleaned videos later`,
+      [
+        cleaning ? `${cleaning} still processing on GhostCut` : null,
+        skippedQueue ? `${skippedQueue} queued cleans skipped` : null,
+        `${cleaned} cleaned`,
+        `${cleanFailed} failed`,
+        'check Cleaned videos later',
+      ]
+        .filter(Boolean)
+        .join(' · '),
     );
   });
 
