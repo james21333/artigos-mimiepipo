@@ -5,6 +5,7 @@ import {
   getTagForKey,
   keysForAccount,
   readTagsMap,
+  renameAccount,
   sanitizeAccountName,
   setVideoAccount,
 } from '../../lib/account-tags.js';
@@ -17,6 +18,7 @@ import {
  * GET  ?action=videos&account=   → cleaned keys for account
  * GET  ?action=tag&key=          → tag for one key
  * POST { action: "create", name }
+ * POST { action: "rename", from, to }
  * POST { action: "tag", key, account }   // account "" clears
  */
 
@@ -119,6 +121,20 @@ export async function onRequestPost(context) {
       ok: true,
       name: result.name,
       accounts: (await accountSummaries(env)),
+    });
+  }
+
+  if (action === 'rename') {
+    const result = await renameAccount(env, body.from, body.to);
+    if (!result.ok) {
+      return json({ ok: false, error: 'rename_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      from: result.from,
+      to: result.to,
+      renamed: result.renamed,
+      accounts: result.accounts,
     });
   }
 

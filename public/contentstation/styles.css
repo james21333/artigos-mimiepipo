@@ -232,6 +232,14 @@ input[type="file"] {
 
 .account-list-item {
   margin: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.account-card-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .account-card-link {
@@ -239,9 +247,32 @@ input[type="file"] {
   justify-content: space-between;
   gap: 1rem;
   align-items: baseline;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--rule);
+  flex: 1;
+  min-width: 0;
   text-decoration: none;
+  color: inherit;
+}
+
+.account-edit-btn {
+  flex-shrink: 0;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.account-rename-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.account-rename-row input {
+  font: inherit;
+  flex: 1;
+  min-width: 12rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: transparent;
   color: inherit;
 }
 

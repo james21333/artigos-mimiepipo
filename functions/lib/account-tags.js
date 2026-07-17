@@ -68,6 +68,67 @@ export async function createAccount(env, nameRaw) {
   return { ok: true, name, accounts: await listAccounts(env) };
 }
 
+/**
+ * Rename an account and retarget all video tags that used the old name.
+ */
+export async function renameAccount(env, fromRaw, toRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const from = sanitizeAccountName(fromRaw);
+  const to = sanitizeAccountName(toRaw);
+  if (!from) return { ok: false, error: 'Missing current account name.' };
+  if (!to) return { ok: false, error: 'Enter a valid new account name.' };
+
+  if (from.toLowerCase() === to.toLowerCase() && from !== to) {
+    // Case-only change: still rewrite stored spelling.
+  } else if (from === to) {
+    return { ok: true, from, to, accounts: await accountSummaries(env), renamed: 0 };
+  }
+
+  const list = await listAccounts(env);
+  const fromIdx = list.findIndex((n) => n.toLowerCase() === from.toLowerCase());
+  if (fromIdx < 0) {
+    // Allow rename if tags exist even when registry missed the name.
+    const mapProbe = await readTagsMap(env);
+    const hasTags = Object.values(mapProbe).some(
+      (a) => sanitizeAccountName(a)?.toLowerCase() === from.toLowerCase(),
+    );
+    if (!hasTags) return { ok: false, error: 'Account not found.' };
+  }
+
+  const conflict = list.find(
+    (n) => n.toLowerCase() === to.toLowerCase() && n.toLowerCase() !== from.toLowerCase(),
+  );
+  if (conflict) {
+    return { ok: false, error: `“${conflict}” already exists.` };
+  }
+
+  const nextList = list.filter((n) => n.toLowerCase() !== from.toLowerCase());
+  if (!nextList.some((n) => n.toLowerCase() === to.toLowerCase())) {
+    nextList.push(to);
+  }
+  nextList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  await writeJson(bucket, ACCOUNTS_KEY, nextList);
+
+  const map = await readTagsMap(env);
+  let renamed = 0;
+  for (const [key, value] of Object.entries(map)) {
+    if (sanitizeAccountName(value)?.toLowerCase() === from.toLowerCase()) {
+      map[key] = to;
+      renamed += 1;
+    }
+  }
+  await writeJson(bucket, TAGS_KEY, map);
+
+  return {
+    ok: true,
+    from,
+    to,
+    renamed,
+    accounts: await accountSummaries(env),
+  };
+}
+
 export async function readTagsMap(env) {
   const bucket = getBucket(env);
   if (!bucket) return {};

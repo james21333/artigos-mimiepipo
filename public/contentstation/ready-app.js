@@ -72,6 +72,10 @@
     for (const a of list) {
       const li = document.createElement('li');
       li.className = 'account-list-item';
+
+      const row = document.createElement('div');
+      row.className = 'account-card-row';
+
       const link = document.createElement('a');
       link.className = 'account-card-link';
       link.href = `./ready-account.html?account=${encodeURIComponent(a.name)}`;
@@ -83,9 +87,95 @@
       const n = a.count || 0;
       link.querySelector('.account-card-count').textContent =
         n === 1 ? '1 video ready' : `${n} videos ready`;
-      li.appendChild(link);
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'ghost account-edit-btn';
+      editBtn.textContent = 'Rename';
+      editBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        startRename(li, a.name);
+      });
+
+      row.appendChild(link);
+      row.appendChild(editBtn);
+      li.appendChild(row);
       accountList.appendChild(li);
     }
+  }
+
+  function startRename(li, currentName) {
+    setError('');
+    const row = document.createElement('div');
+    row.className = 'account-rename-row';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 80;
+    input.value = currentName;
+    input.setAttribute('aria-label', 'New account name');
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'ghost';
+    cancelBtn.textContent = 'Cancel';
+
+    const finish = () => loadAccounts().catch(() => {});
+
+    cancelBtn.addEventListener('click', () => finish());
+
+    const save = async () => {
+      const to = input.value.trim();
+      if (!to) {
+        setError('Enter a new account name.');
+        return;
+      }
+      if (to === currentName) {
+        finish();
+        return;
+      }
+      saveBtn.disabled = true;
+      cancelBtn.disabled = true;
+      input.disabled = true;
+      try {
+        const { ok, data } = await api('/api/contentstation/accounts', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'rename', from: currentName, to }),
+        });
+        if (!ok) {
+          throw new Error((data && (data.message || data.error)) || 'Could not rename.');
+        }
+        renderAccounts(data.accounts || []);
+      } catch (err) {
+        setError(err && err.message ? err.message : String(err));
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        input.disabled = false;
+      }
+    };
+
+    saveBtn.addEventListener('click', () => {
+      save().catch(() => {});
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        save().catch(() => {});
+      }
+      if (e.key === 'Escape') finish();
+    });
+
+    row.appendChild(input);
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
+    li.innerHTML = '';
+    li.appendChild(row);
+    input.focus();
+    input.select();
   }
 
   async function loadAccounts() {
