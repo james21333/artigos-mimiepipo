@@ -4,6 +4,7 @@
   const MAX_POLL_ERRORS = 8;
   /** Cap concurrent GhostCut cleans to avoid vendor throttle / credit spikes. */
   const MAX_CLEAN_IN_FLIGHT = 3;
+  // Auto-Clean is always on for admin (no UI checkbox). Download role never cleans.
   function autoCleanOptions(account, sourceKey) {
     return {
       removeWatermark: false,
@@ -24,7 +25,6 @@
   const sessionMeta = document.getElementById('session-meta');
   const urlsInput = document.getElementById('tiktok-urls');
   const urlCount = document.getElementById('url-count');
-  const autoCleanOpt = document.getElementById('opt-auto-clean');
   const smallerNoHd = document.getElementById('opt-smaller-no-hd');
   const downloadBtn = document.getElementById('download-btn');
   const stopBtn = document.getElementById('stop-btn');
@@ -34,6 +34,7 @@
   const results = document.getElementById('results');
   const libraryNote = document.getElementById('library-note');
 
+  let sessionRole = 'admin';
   let stopRequested = false;
   /** @type {Map<HTMLElement, { workId: string, errors: number, done: boolean, failed?: boolean }>} */
   const pendingCleans = new Map();
@@ -43,6 +44,11 @@
   let cleanPollTimer = null;
   let cleanPollInFlight = false;
   let batchActive = false;
+
+  /** Admin always cleans after download; download-only role never does. */
+  function shouldAutoClean() {
+    return sessionRole !== 'download';
+  }
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -63,29 +69,24 @@
   }
 
   function showGate(msg) {
-    gate.hidden = false;
-    app.hidden = true;
+    if (gate) gate.hidden = false;
+    if (app) app.hidden = true;
     if (msg) {
-      gateError.hidden = false;
-      gateError.textContent = msg;
-    } else {
+      if (gateError) {
+        gateError.hidden = false;
+        gateError.textContent = msg;
+      }
+    } else if (gateError) {
       gateError.hidden = true;
     }
   }
 
   function showApp(session) {
-    gate.hidden = true;
-    app.hidden = false;
-    sessionMeta.textContent = session && session.role === 'download' ? 'Download access' : 'Signed in';
-
-    // Auto-Clean requires admin (clean API). Hide for download-only.
-    if (session && session.role === 'download') {
-      if (autoCleanOpt) {
-        autoCleanOpt.checked = false;
-        const autoCleanLabel = autoCleanOpt.closest('label') || autoCleanOpt.parentElement;
-        if (autoCleanLabel) autoCleanLabel.hidden = true;
-      }
-      updateDownloadButtonLabel();
+    if (gate) gate.hidden = true;
+    if (app) app.hidden = false;
+    sessionRole = (session && session.role) || 'admin';
+    if (sessionMeta) {
+      sessionMeta.textContent = sessionRole === 'download' ? 'Download access' : 'Signed in';
     }
   }
 
@@ -110,6 +111,7 @@
   }
 
   function setError(msg) {
+    if (!downloadError) return;
     if (msg) {
       downloadError.hidden = false;
       downloadError.textContent = msg;
@@ -120,7 +122,8 @@
   }
 
   function setStatus(main, detail) {
-    statusLine.textContent = main || '';
+    if (statusLine) statusLine.textContent = main || '';
+    if (!statusDetail) return;
     if (detail) {
       statusDetail.hidden = false;
       statusDetail.textContent = detail;
@@ -155,6 +158,7 @@
   }
 
   function updateUrlCount() {
+    if (!urlCount || !urlsInput) return;
     const n = parseUrls(urlsInput.value).length;
     const totalLines = String(urlsInput.value || '')
       .split(/[\n\r]+/)
@@ -166,13 +170,8 @@
         : `${n} / ${MAX_URLS} links`;
   }
 
-  function updateDownloadButtonLabel() {
-    if (!downloadBtn) return;
-    downloadBtn.textContent =
-      autoCleanOpt && autoCleanOpt.checked ? 'Download & auto-clean' : 'Download videos';
-  }
-
   function clearResults() {
+    if (!results) return;
     results.innerHTML = '';
     results.hidden = true;
     if (libraryNote) libraryNote.hidden = true;
@@ -301,8 +300,8 @@
     if (libraryNote) {
       libraryNote.hidden = false;
       libraryNote.innerHTML = account
-        ? `Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Auto-cleaned clips are tagged for <a class="btn-link" href="./ready-account.html?account=${encodeURIComponent(account)}">${account}</a> under <a class="btn-link" href="./ready.html">Ready For Upload</a>.`
-        : 'Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Auto-cleaned clips go to <a class="btn-link" href="./cleaned.html">Cleaned videos</a>.';
+        ? `Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Cleaned clips are tagged for <a class="btn-link" href="./ready-account.html?account=${encodeURIComponent(account)}">${account}</a> under <a class="btn-link" href="./ready.html">Ready For Upload</a>.`
+        : 'Saved downloads live in <a class="btn-link" href="./downloaded.html">Downloaded videos</a>. Cleaned clips go to <a class="btn-link" href="./cleaned.html">Cleaned videos</a>.';
     }
   }
 
@@ -351,12 +350,14 @@
     if (batchActive) {
       setStatus(baseMain || 'Working…', [baseDetail, cleanLine].filter(Boolean).join(' · '));
     } else if (cleaning) {
-      setStatus('Auto-cleaning…', `${cleanLine} · keep this tab open`);
-      stopBtn.hidden = false;
-      stopBtn.textContent = 'Stop polling';
+      setStatus('Cleaning…', `${cleanLine} · keep this tab open`);
+      if (stopBtn) {
+        stopBtn.hidden = false;
+        stopBtn.textContent = 'Stop polling';
+      }
     } else {
       setStatus('Done', [baseDetail, cleanLine].filter(Boolean).join(' · '));
-      if (!batchActive) {
+      if (!batchActive && stopBtn) {
         stopBtn.hidden = true;
         stopBtn.textContent = 'Stop';
       }
@@ -410,7 +411,7 @@
             setCardStatus(card, 'Clean failed');
             onCleanSlotFreed();
           } else {
-            const label = data.label || 'Auto-cleaning…';
+            const label = data.label || 'Cleaning…';
             const prog =
               data.progress != null && data.progress !== ''
                 ? ` · ${data.progress}%`
@@ -431,16 +432,18 @@
     } finally {
       cleanPollInFlight = false;
       refreshBatchStatus(
-        batchActive ? statusLine.textContent : null,
-        batchActive ? statusDetail.textContent : null,
+        batchActive && statusLine ? statusLine.textContent : null,
+        batchActive && statusDetail ? statusDetail.textContent : null,
       );
       const stillBusy =
         [...pendingCleans.values()].some((j) => !j.done) || cleanSubmitQueue.length > 0;
       if (!stillBusy) {
         stopCleanPoll();
         if (!batchActive) {
-          stopBtn.hidden = true;
-          stopBtn.textContent = 'Stop';
+          if (stopBtn) {
+            stopBtn.hidden = true;
+            stopBtn.textContent = 'Stop';
+          }
           const { cleaned, cleanFailed } = summarizeBatch();
           setStatus(
             'Done',
@@ -463,7 +466,7 @@
       data.fetchUrl ||
       data.publicUrl;
     if (!fetchUrl || !/^https?:\/\//i.test(fetchUrl)) {
-      throw new Error('No public URL available for auto-clean.');
+      throw new Error('No public URL available for cleaning.');
     }
     return fetchUrl;
   }
@@ -492,14 +495,14 @@
       await submitAutoClean(next.card, next.key, next.account);
     }
     refreshBatchStatus(
-      batchActive ? statusLine.textContent : null,
-      batchActive ? statusDetail.textContent : null,
+      batchActive && statusLine ? statusLine.textContent : null,
+      batchActive && statusDetail ? statusDetail.textContent : null,
     );
   }
 
   async function submitAutoClean(card, key, account) {
     cleanSubmitActive += 1;
-    setCardStatus(card, 'Starting auto-clean…');
+    setCardStatus(card, 'Starting clean…');
     setCardError(card, '');
     try {
       const videoUrl = await resolveFetchUrl(key);
@@ -512,17 +515,18 @@
         }),
       });
       if (!ok || !data?.workId) {
-        throw new Error((data && (data.message || data.error)) || 'Could not start auto-clean.');
+        throw new Error((data && (data.message || data.error)) || 'Could not start clean.');
       }
       pendingCleans.set(card, { workId: data.workId, errors: 0, done: false });
-      setCardStatus(card, 'Auto-cleaning…');
+      setCardStatus(card, 'Cleaning…');
       const cleanLink = card.querySelector('.result-clean');
       if (cleanLink) cleanLink.hidden = true;
       ensureCleanPoll();
       pollPendingCleans().catch(() => {});
     } catch (err) {
+      // Download already succeeded — clean failure must not undo it.
       setCardError(card, String(err?.message || err));
-      setCardStatus(card, 'Saved · auto-clean failed');
+      setCardStatus(card, 'Saved · clean failed');
       const cleanLink = card.querySelector('.result-clean');
       if (cleanLink) cleanLink.hidden = false;
     } finally {
@@ -543,7 +547,7 @@
     }
 
     cleanSubmitQueue.push({ card, key, account });
-    setCardStatus(card, `Queued for auto-clean (${cleanSubmitQueue.length} waiting)…`);
+    setCardStatus(card, `Queued for clean (${cleanSubmitQueue.length} waiting)…`);
     setCardError(card, '');
     return Promise.resolve();
   }
@@ -552,163 +556,175 @@
     return enqueueAutoClean(card, key, account);
   }
 
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    setError('');
-    const password = document.getElementById('password').value;
-    const { ok, data } = await api('/api/contentstation/login', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    });
-    if (!ok) {
-      showGate(data?.error === 'invalid_password' ? 'Wrong password' : data?.error || 'Sign-in failed');
-      return;
-    }
-    document.getElementById('password').value = '';
-    await refreshSession();
-  });
-
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    await api('/api/contentstation/logout', { method: 'POST', body: '{}' });
-    showGate();
-  });
-
-  urlsInput.addEventListener('input', updateUrlCount);
-  updateUrlCount();
-  if (autoCleanOpt) {
-    autoCleanOpt.addEventListener('change', updateDownloadButtonLabel);
-  }
-  updateDownloadButtonLabel();
-
-  stopBtn.addEventListener('click', () => {
-    if (batchActive) {
-      stopRequested = true;
-      setStatus('Stopping…', 'Finishing the current download, then stopping. Auto-cleans already started keep running.');
-      return;
-    }
-    // After downloads finished: stop queue + polling (already-submitted GhostCut jobs keep running).
-    const skippedQueue = cleanSubmitQueue.length;
-    cleanSubmitQueue.length = 0;
-    stopCleanPoll();
-    stopBtn.hidden = true;
-    stopBtn.textContent = 'Stop';
-    const { cleaning, cleaned, cleanFailed } = summarizeBatch();
-    setStatus(
-      'Polling stopped',
-      [
-        cleaning ? `${cleaning} still processing on GhostCut` : null,
-        skippedQueue ? `${skippedQueue} queued cleans skipped` : null,
-        `${cleaned} cleaned`,
-        `${cleanFailed} failed`,
-        'check Cleaned videos later',
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    );
-  });
-
-  downloadBtn.addEventListener('click', async () => {
-    setError('');
-    clearResults();
-    stopRequested = false;
-    batchActive = true;
-    stopBtn.textContent = 'Stop';
-
-    const urls = parseUrls(urlsInput.value);
-    if (!urls.length) {
-      setError('Paste at least one TikTok URL (one per line).');
-      batchActive = false;
-      return;
-    }
-
-    const smallerFile = Boolean(smallerNoHd && smallerNoHd.checked);
-    const autoClean = Boolean(autoCleanOpt && autoCleanOpt.checked);
-
-    downloadBtn.disabled = true;
-    stopBtn.hidden = false;
-
-    let okCount = 0;
-    let failCount = 0;
-    let autoCleanStarted = 0;
-
-    for (let i = 0; i < urls.length; i++) {
-      if (stopRequested) {
-        refreshBatchStatus(
-          'Stopped',
-          `${okCount} saved · ${failCount} failed · ${urls.length - i} skipped`,
-        );
-        break;
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setError('');
+      const passwordEl = document.getElementById('password');
+      const password = passwordEl ? passwordEl.value : '';
+      const { ok, data } = await api('/api/contentstation/login', {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      });
+      if (!ok) {
+        showGate(data?.error === 'invalid_password' ? 'Wrong password' : data?.error || 'Sign-in failed');
+        return;
       }
+      if (passwordEl) passwordEl.value = '';
+      await refreshSession();
+    });
+  }
 
-      const url = urls[i];
-      const card = addResultCard(i, url);
-      setCardStatus(card, 'Downloading…');
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await api('/api/contentstation/logout', { method: 'POST', body: '{}' });
+      showGate();
+    });
+  }
+
+  if (urlsInput) urlsInput.addEventListener('input', updateUrlCount);
+  updateUrlCount();
+
+  if (stopBtn) {
+    stopBtn.addEventListener('click', () => {
+      if (batchActive) {
+        stopRequested = true;
+        setStatus('Stopping…', 'Finishing the current download, then stopping. Cleans already started keep running.');
+        return;
+      }
+      // After downloads finished: stop queue + polling (already-submitted GhostCut jobs keep running).
+      const skippedQueue = cleanSubmitQueue.length;
+      cleanSubmitQueue.length = 0;
+      stopCleanPoll();
+      stopBtn.hidden = true;
+      stopBtn.textContent = 'Stop';
+      const { cleaning, cleaned, cleanFailed } = summarizeBatch();
       setStatus(
-        `Downloading ${i + 1} / ${urls.length}…`,
+        'Polling stopped',
         [
-          smallerFile ? 'Smaller (no HD)' : 'HD when available',
-          autoClean ? 'Auto-Clean' : null,
+          cleaning ? `${cleaning} still processing on GhostCut` : null,
+          skippedQueue ? `${skippedQueue} queued cleans skipped` : null,
+          `${cleaned} cleaned`,
+          `${cleanFailed} failed`,
+          'check Cleaned videos later',
         ]
           .filter(Boolean)
           .join(' · '),
       );
+    });
+  }
 
-      try {
-        const { ok, data } = await api('/api/contentstation/tiktok-download', {
-          method: 'POST',
-          body: JSON.stringify({ url, smallerFile }),
-        });
-        if (!ok) {
-          failCount += 1;
-          const detail = data?.detail ? ` (${data.detail})` : '';
-          setCardError(card, (data?.message || data?.error || 'Download failed') + detail);
-          setCardStatus(card, 'Failed');
-          continue;
-        }
-        okCount += 1;
-        fillCardSuccess(card, data);
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', async () => {
+      setError('');
+      clearResults();
+      stopRequested = false;
+      batchActive = true;
+      if (stopBtn) stopBtn.textContent = 'Stop';
 
-        if (autoClean && data.key && !stopRequested) {
-          await startAutoClean(card, data.key, null);
-          if (pendingCleans.has(card) || cleanSubmitQueue.some((q) => q.card === card)) {
-            autoCleanStarted += 1;
-          }
+      const urls = parseUrls(urlsInput ? urlsInput.value : '');
+      if (!urls.length) {
+        setError('Paste at least one TikTok URL (one per line).');
+        batchActive = false;
+        return;
+      }
+
+      const smallerFile = Boolean(smallerNoHd && smallerNoHd.checked);
+      // Always-on for admin; download role never cleans (no UI checkbox).
+      const autoClean = shouldAutoClean();
+
+      downloadBtn.disabled = true;
+      if (stopBtn) stopBtn.hidden = false;
+
+      let okCount = 0;
+      let failCount = 0;
+      let cleanStarted = 0;
+
+      for (let i = 0; i < urls.length; i++) {
+        if (stopRequested) {
           refreshBatchStatus(
-            `Downloading ${Math.min(i + 2, urls.length)} / ${urls.length}…`,
-            `${okCount} saved · ${autoCleanStarted} auto-clean started`,
+            'Stopped',
+            `${okCount} saved · ${failCount} failed · ${urls.length - i} skipped`,
           );
+          break;
         }
-      } catch (err) {
-        failCount += 1;
-        setCardError(card, String(err?.message || err));
-        setCardStatus(card, 'Failed');
-      }
-    }
 
-    batchActive = false;
+        const url = urls[i];
+        const card = addResultCard(i, url);
+        setCardStatus(card, 'Downloading…');
+        setStatus(
+          `Downloading ${i + 1} / ${urls.length}…`,
+          [
+            smallerFile ? 'Smaller (no HD)' : 'HD when available',
+            autoClean ? 'then clean' : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        );
 
-    if (!stopRequested) {
-      const base = `${okCount} saved · ${failCount} failed · ${urls.length} total`;
-      if (autoClean && autoCleanStarted) {
-        refreshBatchStatus('Downloads done · auto-cleaning…', `${base} · keep this tab open`);
-        stopBtn.hidden = false;
-        stopBtn.textContent = 'Stop polling';
-      } else {
-        setStatus('Done', base);
-        stopBtn.hidden = true;
-        stopBtn.textContent = 'Stop';
-      }
-      if (failCount && !okCount) {
-        setError('All downloads failed. Check the errors on each card.');
-      }
-    } else {
-      stopBtn.hidden = ![...pendingCleans.values()].some((j) => !j.done);
-      stopBtn.textContent = stopBtn.hidden ? 'Stop' : 'Stop polling';
-    }
+        try {
+          const { ok, data } = await api('/api/contentstation/tiktok-download', {
+            method: 'POST',
+            body: JSON.stringify({ url, smallerFile }),
+          });
+          if (!ok) {
+            failCount += 1;
+            const detail = data?.detail ? ` (${data.detail})` : '';
+            setCardError(card, (data?.message || data?.error || 'Download failed') + detail);
+            setCardStatus(card, 'Failed');
+            continue;
+          }
+          okCount += 1;
+          fillCardSuccess(card, data);
 
-    downloadBtn.disabled = false;
-    stopRequested = false;
-  });
+          if (autoClean && data.key && !stopRequested) {
+            await startAutoClean(card, data.key, null);
+            if (pendingCleans.has(card) || cleanSubmitQueue.some((q) => q.card === card)) {
+              cleanStarted += 1;
+            }
+            refreshBatchStatus(
+              `Downloading ${Math.min(i + 2, urls.length)} / ${urls.length}…`,
+              `${okCount} saved · ${cleanStarted} queued for clean`,
+            );
+          }
+        } catch (err) {
+          failCount += 1;
+          setCardError(card, String(err?.message || err));
+          setCardStatus(card, 'Failed');
+        }
+      }
+
+      batchActive = false;
+
+      if (!stopRequested) {
+        const base = `${okCount} saved · ${failCount} failed · ${urls.length} total`;
+        if (autoClean && cleanStarted) {
+          refreshBatchStatus('Downloads done · cleaning…', `${base} · keep this tab open`);
+          if (stopBtn) {
+            stopBtn.hidden = false;
+            stopBtn.textContent = 'Stop polling';
+          }
+        } else {
+          setStatus('Done', base);
+          if (stopBtn) {
+            stopBtn.hidden = true;
+            stopBtn.textContent = 'Stop';
+          }
+        }
+        if (failCount && !okCount) {
+          setError('All downloads failed. Check the errors on each card.');
+        }
+      } else if (stopBtn) {
+        stopBtn.hidden = ![...pendingCleans.values()].some((j) => !j.done);
+        stopBtn.textContent = stopBtn.hidden ? 'Stop' : 'Stop polling';
+      }
+
+      downloadBtn.disabled = false;
+      stopRequested = false;
+    });
+  }
 
   refreshSession();
 })();
