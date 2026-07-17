@@ -40,10 +40,16 @@
     }
   }
 
-  function showApp() {
+  function showApp(session) {
     gate.hidden = true;
     app.hidden = false;
-    sessionMeta.textContent = 'Signed in';
+    sessionMeta.textContent =
+      session && session.role === 'ready' ? 'Ready For Upload access' : 'Signed in';
+    // Ready-only: view/manage queues; account create/rename is admin.
+    if (session && session.role === 'ready' && createForm) {
+      createForm.hidden = true;
+    }
+    window.__csRole = (session && session.role) || 'admin';
   }
 
   function setError(msg) {
@@ -98,7 +104,9 @@
       });
 
       row.appendChild(link);
-      row.appendChild(editBtn);
+      if (window.__csRole !== 'ready') {
+        row.appendChild(editBtn);
+      }
       li.appendChild(row);
       accountList.appendChild(li);
     }
@@ -201,7 +209,9 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
-      showApp();
+      if (window.CSAuth && !window.CSAuth.gatePage(data, 'ready')) return false;
+      if (window.CSAuth) window.CSAuth.applyNav(data.role);
+      showApp(data);
       return true;
     }
     showGate();

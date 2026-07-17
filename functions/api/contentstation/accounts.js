@@ -1,4 +1,4 @@
-import { json, requireSession } from '../../lib/contentstation-auth.js';
+import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
   accountSummaries,
   createAccount,
@@ -14,6 +14,11 @@ import {
 
 /**
  * Account tags for Ready For Upload.
+ *
+ * Roles:
+ *   admin    → all actions
+ *   download → list, tag, create (account picker on TikTok download)
+ *   ready    → list, tags, videos, tag, posted (no create/rename)
  *
  * GET  ?action=list              → accounts + counts
  * GET  ?action=tags              → full key→account map
@@ -65,13 +70,18 @@ async function enrichKeys(env, keys) {
   return out;
 }
 
+function forbidden(role) {
+  return json({ ok: false, error: 'forbidden', role }, 403);
+}
+
 export async function onRequestGet(context) {
-  const auth = await requireSession(context);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
   const url = new URL(request.url);
   const action = url.searchParams.get('action') || 'list';
+  const role = auth.role;
 
   if (action === 'list') {
     const accounts = await accountSummaries(env);
@@ -79,11 +89,14 @@ export async function onRequestGet(context) {
   }
 
   if (action === 'tags') {
+    // Full tag map is used by cleaned gallery (admin) and ready flows.
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
     const tags = await readTagsMap(env);
     return json({ ok: true, tags });
   }
 
   if (action === 'videos') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
     const account = sanitizeAccountName(url.searchParams.get('account'));
     if (!account) {
       return json({ ok: false, error: 'missing_account', message: 'Account name required.' }, 400);
@@ -103,10 +116,11 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const auth = await requireSession(context);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
+  const role = auth.role;
   let body;
   try {
     body = await request.json();
@@ -117,6 +131,8 @@ export async function onRequestPost(context) {
   const action = body.action || 'create';
 
   if (action === 'create') {
+    // Ready-only managers cannot create accounts; admin + download can.
+    if (role === ROLES.READY) return forbidden(role);
     const result = await createAccount(env, body.name);
     if (!result.ok) {
       return json({ ok: false, error: 'create_failed', message: result.error }, 400);
@@ -124,11 +140,12 @@ export async function onRequestPost(context) {
     return json({
       ok: true,
       name: result.name,
-      accounts: (await accountSummaries(env)),
+      accounts: await accountSummaries(env),
     });
   }
 
   if (action === 'rename') {
+    if (role !== ROLES.ADMIN) return forbidden(role);
     const result = await renameAccount(env, body.from, body.to);
     if (!result.ok) {
       return json({ ok: false, error: 'rename_failed', message: result.error }, 400);
@@ -156,6 +173,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'posted') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
     if (typeof body.posted !== 'boolean') {
       return json(
         { ok: false, error: 'invalid_posted', message: 'posted must be true or false.' },

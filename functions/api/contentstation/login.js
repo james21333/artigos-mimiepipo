@@ -3,6 +3,7 @@ import {
   createSessionToken,
   json,
   sessionCookieHeader,
+  anyPasswordConfigured,
 } from '../../lib/contentstation-auth.js';
 
 export async function onRequestPost(context) {
@@ -13,24 +14,26 @@ export async function onRequestPost(context) {
     return json({ error: 'invalid_json' }, 400);
   }
 
-  const password = body?.password;
-  if (!checkPassword(context.env, password)) {
-    return json({ error: 'invalid_password' }, 401);
-  }
-
-  if (!context.env.CONTENT_STATION_PASSWORD) {
+  if (!anyPasswordConfigured(context.env)) {
     return json(
       {
         error: 'password_not_configured',
-        message: 'Set CONTENT_STATION_PASSWORD in Cloudflare Pages environment variables.',
+        message:
+          'Set CONTENT_STATION_PASSWORD (and/or DOWNLOAD/READY role passwords) in Cloudflare Pages environment variables.',
       },
       500,
     );
   }
 
-  const token = await createSessionToken(context.env);
+  const password = body?.password;
+  const role = checkPassword(context.env, password);
+  if (!role) {
+    return json({ error: 'invalid_password' }, 401);
+  }
+
+  const token = await createSessionToken(context.env, role);
   return json(
-    { ok: true },
+    { ok: true, role },
     200,
     { 'Set-Cookie': sessionCookieHeader(token) },
   );

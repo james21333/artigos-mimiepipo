@@ -77,10 +77,41 @@
     }
   }
 
-  function showApp() {
+  function showApp(session) {
     gate.hidden = true;
     app.hidden = false;
-    sessionMeta.textContent = 'Signed in';
+    sessionMeta.textContent = session && session.role === 'download' ? 'Download access' : 'Signed in';
+
+    // Auto-Clean requires admin (clean API). Hide for download-only.
+    if (session && session.role === 'download') {
+      if (autoCleanOpt) {
+        autoCleanOpt.checked = false;
+        const autoCleanLabel = autoCleanOpt.closest('label') || autoCleanOpt.parentElement;
+        if (autoCleanLabel) autoCleanLabel.hidden = true;
+      }
+      if (accountPicker) accountPicker.hidden = true;
+      updateDownloadButtonLabel();
+    }
+  }
+
+  async function refreshSession() {
+    const { ok, status, data } = await api('/api/contentstation/session');
+    if (status === 401 || (data && data.authenticated === false)) {
+      showGate();
+      return false;
+    }
+    if (!ok) {
+      showGate(data?.error || 'Could not check session');
+      return false;
+    }
+    if (!data.authenticated) {
+      showGate();
+      return false;
+    }
+    if (window.CSAuth && !window.CSAuth.gatePage(data, 'tiktok-download')) return false;
+    if (window.CSAuth) window.CSAuth.applyNav(data.role);
+    showApp(data);
+    return true;
   }
 
   function setError(msg) {
@@ -582,20 +613,6 @@
 
   function startAutoClean(card, key, account) {
     return enqueueAutoClean(card, key, account);
-  }
-
-  async function refreshSession() {
-    const { ok, status, data } = await api('/api/contentstation/session');
-    if (status === 401 || (data && data.authenticated === false)) {
-      showGate();
-      return false;
-    }
-    if (!ok) {
-      showGate(data?.error || 'Could not check session');
-      return false;
-    }
-    showApp();
-    return true;
   }
 
   document.getElementById('login-form').addEventListener('submit', async (e) => {

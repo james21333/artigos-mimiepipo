@@ -740,7 +740,9 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
+      if (window.CSAuth && !window.CSAuth.gatePage(data, 'clean')) return false;
       window.__csSession = data;
+      if (window.CSAuth) window.CSAuth.applyNav(data.role);
       showApp(data);
       // Refresh balances in background so left figures stay current.
       refreshBalances().catch(() => {});

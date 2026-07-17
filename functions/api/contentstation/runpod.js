@@ -1,4 +1,4 @@
-import { json, requireSession } from '../../lib/contentstation-auth.js';
+import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 
 /**
  * RunPod Serverless proxy (session required).
@@ -74,7 +74,7 @@ function configPayload(env) {
 }
 
 export async function onRequest(context) {
-  const auth = await requireSession(context);
+  const auth = await requireRole(context, [ROLES.ADMIN]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;

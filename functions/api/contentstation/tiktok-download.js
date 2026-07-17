@@ -1,4 +1,4 @@
-import { json, requireSession } from '../../lib/contentstation-auth.js';
+import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
 
 /**
@@ -7,7 +7,7 @@ import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-downloa
  */
 export async function onRequestPost(context) {
   try {
-    const auth = await requireSession(context);
+    const auth = await requireRole(context, [ROLES.DOWNLOAD]);
     if (!auth.ok) return auth.response;
 
     const bucket = context.env.MEDIA_BUCKET;
@@ -92,7 +92,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestGet(context) {
-  const auth = await requireSession(context);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD]);
   if (!auth.ok) return auth.response;
   const ready = Boolean(
     context.env.MEDIA_BUCKET &&

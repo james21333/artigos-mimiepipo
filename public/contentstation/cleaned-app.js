@@ -274,6 +274,8 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
+      if (window.CSAuth && !window.CSAuth.gatePage(data, 'cleaned')) return false;
+      if (window.CSAuth) window.CSAuth.applyNav(data.role);
       window.__csSession = data;
       showApp(data);
       return true;

@@ -1,4 +1,4 @@
-import { json, requireSession } from '../../lib/contentstation-auth.js';
+import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import { fetchCreditBalances } from '../../lib/credits.js';
 
 /**
@@ -10,7 +10,7 @@ import { fetchCreditBalances } from '../../lib/credits.js';
  */
 
 export async function onRequestGet(context) {
-  const auth = await requireSession(context);
+  const auth = await requireRole(context, [ROLES.ADMIN]);
   if (!auth.ok) return auth.response;
 
   const balances = await fetchCreditBalances(context.env);

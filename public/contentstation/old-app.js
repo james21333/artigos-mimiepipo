@@ -131,6 +131,8 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
+      if (window.CSAuth && !window.CSAuth.gatePage(data, 'old')) return false;
+      if (window.CSAuth) window.CSAuth.applyNav(data.role);
       showApp(data);
       if (data.features?.r2) refreshMediaList().catch(() => {});
       return true;

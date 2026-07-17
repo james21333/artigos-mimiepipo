@@ -1,4 +1,11 @@
-import { json, requireSession } from '../../lib/contentstation-auth.js';
+import {
+  json,
+  requireRole,
+  ROLES,
+  mediaKeyAllowed,
+  mediaPrefixAllowed,
+  mediaWriteAllowed,
+} from '../../lib/contentstation-auth.js';
 import { createR2PresignedPut, createR2PresignedGet } from '../../lib/r2-presign.js';
 import { readCleanSourceMap } from '../../lib/clean-source-map.js';
 
@@ -336,8 +343,13 @@ async function uploadPart(bucket, request, url) {
   return json({ status: 'ok', partNumber: part.partNumber, etag: part.etag });
 }
 
+function forbidMedia(role) {
+  return json({ error: 'forbidden', role }, 403);
+}
+
 export async function onRequest(context) {
-  const auth = await requireSession(context);
+  // All authenticated roles may hit media; action/key checks narrow further.
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
   if (!auth.ok) return auth.response;
 
   const bucket = getBucket(context.env);
@@ -358,6 +370,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const action = url.searchParams.get('action') || '';
+  const role = auth.role;
 
   try {
     if (method === 'OPTIONS') {
@@ -372,14 +385,31 @@ export async function onRequest(context) {
     }
 
     if (method === 'GET' || method === 'HEAD') {
-      if (action === 'get') return streamGet(bucket, url);
-      if (action === 'meta') return getMeta(env, bucket, url);
+      if (action === 'get') {
+        const key = sanitizeKey(url.searchParams.get('key'));
+        if (!mediaKeyAllowed(role, key)) return forbidMedia(role);
+        return streamGet(bucket, url);
+      }
+      if (action === 'meta') {
+        const key = sanitizeKey(url.searchParams.get('key'));
+        if (!mediaKeyAllowed(role, key)) return forbidMedia(role);
+        return getMeta(env, bucket, url);
+      }
       if (action === 'clean-map') {
+        // Downloaded-videos library (admin) uses clean-map; limited roles do not.
+        if (role !== ROLES.ADMIN) return forbidMedia(role);
         const map = await readCleanSourceMap(env);
         return json({ ok: true, map });
       }
+      // Default list
+      const prefixRaw = url.searchParams.get('prefix') || PREFIX_DEFAULT;
+      const prefix = sanitizeKey(prefixRaw, { allowTrailingSlash: true }) || PREFIX_DEFAULT;
+      if (!mediaPrefixAllowed(role, prefix)) return forbidMedia(role);
       return listObjects(env, bucket, url);
     }
+
+    // Writes (upload / delete / multipart / sign-put) are admin-only.
+    if (!mediaWriteAllowed(role)) return forbidMedia(role);
 
     if (method === 'DELETE') {
       return deleteKey(bucket, url.searchParams.get('key'));

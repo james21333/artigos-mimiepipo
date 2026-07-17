@@ -1,4 +1,4 @@
-import { json, requireSession } from '../../../lib/contentstation-auth.js';
+import { json, requireRole, ROLES } from '../../../lib/contentstation-auth.js';
 import { ghostcutPost } from '../../../lib/ghostcut.js';
 
 /**
@@ -34,7 +34,7 @@ function isAllowedPath(path) {
 }
 
 export async function onRequestPost(context) {
-  const auth = await requireSession(context);
+  const auth = await requireRole(context, [ROLES.ADMIN]);
   if (!auth.ok) return auth.response;
 
   const path = resolvePath(context);

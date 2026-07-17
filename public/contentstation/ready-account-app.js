@@ -286,6 +286,8 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
+      if (window.CSAuth && !window.CSAuth.gatePage(data, 'ready-account')) return false;
+      if (window.CSAuth) window.CSAuth.applyNav(data.role);
       showApp();
       return true;
     }
