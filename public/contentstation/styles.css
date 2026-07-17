@@ -541,3 +541,35 @@ a { color: var(--accent); }
 .result-url {
   word-break: break-all;
 }
+
+.character-preview-wrap {
+  margin: 0.75rem 0 1rem;
+}
+
+.character-preview {
+  display: block;
+  max-width: 12rem;
+  max-height: 16rem;
+  object-fit: contain;
+  background: #0f1713;
+}
+
+.slider-row {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.65rem 0;
+}
+
+.slider-row span {
+  font-size: 0.95rem;
+}
+
+.slider-row em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.slider-row input[type='range'] {
+  width: 100%;
+}

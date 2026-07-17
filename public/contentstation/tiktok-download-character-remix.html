@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | TikTok Download Character Remix</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Download TikToks, strip speech captions, replace the character with RunPod WAN, restore non-speech hooks.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html" aria-current="page">Character remix</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">TikTok Download Character Remix</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>TikTok Download Character Remix</h1>
+        <p class="lede">
+          Paste up to 10 TikTok links and one character image. We download each clip, strip speech captions with GhostCut,
+          replace the person via RunPod WAN (same cuts/motion), then restore non-speech hooks and text.
+        </p>
+
+        <label for="tiktok-urls">TikTok URLs</label>
+        <textarea id="tiktok-urls" rows="8" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…
+(up to 10 links)"></textarea>
+        <p id="url-count" class="muted-line">0 / 10 links</p>
+
+        <label for="character-file">Character image</label>
+        <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+        <p id="character-meta" class="muted-line">Full body preferred. Face clearly visible. One image for all clips in this batch.</p>
+        <div id="character-preview-wrap" class="character-preview-wrap" hidden>
+          <img id="character-preview" alt="Character preview" class="character-preview">
+        </div>
+
+        <fieldset class="options">
+          <legend>Options</legend>
+          <label class="check">
+            <input type="checkbox" id="opt-smaller-no-hd">
+            <span>smaller file – NO HD (download)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="opt-strip-captions" checked>
+            <span>Strip speech captions (GhostCut OCR)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="opt-preserve-audio" checked>
+            <span>Preserve original audio</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="opt-restore-hooks" checked>
+            <span>Restore non-speech hooks &amp; text after remix</span>
+          </label>
+          <label class="slider-row" for="opt-character-strength">
+            <span>Character strength <em id="character-strength-val">0.90</em></span>
+            <input type="range" id="opt-character-strength" min="0.5" max="1" step="0.01" value="0.90">
+          </label>
+          <label class="slider-row" for="opt-scene-restyle">
+            <span>Scene restyle strength <em id="scene-restyle-val">0.62</em></span>
+            <input type="range" id="opt-scene-restyle" min="0.3" max="0.85" step="0.01" value="0.62">
+          </label>
+        </fieldset>
+
+        <p id="runpod-config" class="muted-line" hidden></p>
+
+        <div class="row">
+          <button type="button" id="remix-btn">Download &amp; remix</button>
+          <button type="button" id="stop-btn" class="ghost" hidden>Stop</button>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="remix-error" class="error" hidden></p>
+
+        <div id="results" class="download-results" hidden></div>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download.html">← TikTok download</a>
+      ·
+      <a href="./">Clean video</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./tiktok-download-character-remix-app.js"></script>
+</body>
+</html>
