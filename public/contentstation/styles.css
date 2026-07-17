@@ -300,6 +300,19 @@ input[type="file"] {
   color: inherit;
 }
 
+.posted-check {
+  margin: 0.45rem 0 0.65rem;
+  font-size: 1rem;
+  color: inherit;
+}
+
+.gallery-card.is-posted .gallery-title::after {
+  content: ' · Posted';
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.9em;
+}
+
 button {
   font: inherit;
   padding: 0.55rem 1.1rem;

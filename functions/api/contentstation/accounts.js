@@ -3,11 +3,13 @@ import {
   accountSummaries,
   createAccount,
   getTagForKey,
+  isVideoPosted,
   keysForAccount,
   readTagsMap,
   renameAccount,
   sanitizeAccountName,
   setVideoAccount,
+  setVideoPosted,
 } from '../../lib/account-tags.js';
 
 /**
@@ -20,6 +22,7 @@ import {
  * POST { action: "create", name }
  * POST { action: "rename", from, to }
  * POST { action: "tag", key, account }   // account "" clears
+ * POST { action: "posted", key, posted } // boolean — marked posted to TikTok
  */
 
 function downloadPath(key) {
@@ -49,6 +52,7 @@ async function enrichKeys(env, keys) {
       uploaded,
       downloadPath: downloadPath(key),
       account: await getTagForKey(env, key),
+      posted: await isVideoPosted(env, key),
     });
   }
   // Newest first
@@ -148,6 +152,25 @@ export async function onRequestPost(context) {
       key: result.key,
       account: result.account,
       accounts: await accountSummaries(env),
+    });
+  }
+
+  if (action === 'posted') {
+    if (typeof body.posted !== 'boolean') {
+      return json(
+        { ok: false, error: 'invalid_posted', message: 'posted must be true or false.' },
+        400,
+      );
+    }
+    const result = await setVideoPosted(env, body.key, body.posted);
+    if (!result.ok) {
+      return json({ ok: false, error: 'posted_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      key: result.key,
+      posted: result.posted,
+      postedAt: result.postedAt,
     });
   }
 

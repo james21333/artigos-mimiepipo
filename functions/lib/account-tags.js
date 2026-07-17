@@ -8,6 +8,7 @@
 
 const ACCOUNTS_KEY = 'meta/accounts.json';
 const TAGS_KEY = 'meta/cleaned-tags.json';
+const POSTED_KEY = 'meta/cleaned-posted.json';
 
 export function sanitizeAccountName(raw) {
   if (!raw || typeof raw !== 'string') return null;
@@ -193,4 +194,44 @@ export async function accountSummaries(env) {
   }
   accounts.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   return accounts.map((name) => ({ name, count: counts[name] || 0 }));
+}
+
+export async function readPostedMap(env) {
+  const bucket = getBucket(env);
+  if (!bucket) return {};
+  const map = await readJson(bucket, POSTED_KEY, {});
+  return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+}
+
+export async function isVideoPosted(env, key) {
+  if (!key) return false;
+  const map = await readPostedMap(env);
+  const entry = map[key];
+  if (!entry) return false;
+  if (entry === true) return true;
+  return Boolean(entry && entry.posted);
+}
+
+export async function setVideoPosted(env, keyRaw, posted) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const key = String(keyRaw || '').trim();
+  if (!key.startsWith('cleaned/') || key.includes('..')) {
+    return { ok: false, error: 'Invalid cleaned video key.' };
+  }
+
+  const map = await readPostedMap(env);
+  const want = Boolean(posted);
+  if (want) {
+    map[key] = { posted: true, postedAt: new Date().toISOString() };
+  } else {
+    delete map[key];
+  }
+  await writeJson(bucket, POSTED_KEY, map);
+  return {
+    ok: true,
+    key,
+    posted: want,
+    postedAt: want ? map[key].postedAt : null,
+  };
 }

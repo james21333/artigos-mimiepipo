@@ -172,15 +172,7 @@
           await retag(obj.key, select.value);
           if (select.value !== accountName) {
             card.remove();
-            if (!galleryGrid.children.length) {
-              galleryGrid.hidden = true;
-              galleryEmpty.hidden = false;
-              galleryStatus.textContent = 'Queue empty';
-            } else {
-              galleryStatus.textContent = `${galleryGrid.children.length} video${
-                galleryGrid.children.length === 1 ? '' : 's'
-              }`;
-            }
+            refreshStatusCount();
           }
         } catch (err) {
           setError(err && err.message ? err.message : String(err));
@@ -191,6 +183,40 @@
       });
       label.appendChild(select);
       tagRow.appendChild(label);
+
+      const postedRow = document.createElement('label');
+      postedRow.className = 'check posted-check';
+      const postedBox = document.createElement('input');
+      postedBox.type = 'checkbox';
+      postedBox.checked = Boolean(obj.posted);
+      const postedText = document.createElement('span');
+      postedText.textContent = 'Posted';
+      postedRow.appendChild(postedBox);
+      postedRow.appendChild(postedText);
+      if (obj.posted) card.classList.add('is-posted');
+      postedBox.addEventListener('change', async () => {
+        postedBox.disabled = true;
+        try {
+          const { ok, data } = await api('/api/contentstation/accounts', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'posted',
+              key: obj.key,
+              posted: postedBox.checked,
+            }),
+          });
+          if (!ok) {
+            throw new Error((data && (data.message || data.error)) || 'Could not update Posted.');
+          }
+          card.classList.toggle('is-posted', postedBox.checked);
+          refreshStatusCount();
+        } catch (err) {
+          setError(err && err.message ? err.message : String(err));
+          postedBox.checked = !postedBox.checked;
+        } finally {
+          postedBox.disabled = false;
+        }
+      });
 
       const actions = document.createElement('p');
       actions.className = 'gallery-actions';
@@ -203,6 +229,7 @@
 
       meta.appendChild(title);
       if (info.textContent) meta.appendChild(info);
+      meta.appendChild(postedRow);
       meta.appendChild(tagRow);
       meta.appendChild(actions);
 
@@ -210,6 +237,22 @@
       card.appendChild(meta);
       galleryGrid.appendChild(card);
     }
+    refreshStatusCount();
+  }
+
+  function refreshStatusCount() {
+    const cards = [...galleryGrid.querySelectorAll('.gallery-card')];
+    if (!cards.length) {
+      galleryGrid.hidden = true;
+      galleryEmpty.hidden = false;
+      galleryStatus.textContent = 'Queue empty';
+      return;
+    }
+    galleryEmpty.hidden = true;
+    galleryGrid.hidden = false;
+    const posted = cards.filter((c) => c.classList.contains('is-posted')).length;
+    const left = cards.length - posted;
+    galleryStatus.textContent = `${cards.length} video${cards.length === 1 ? '' : 's'} · ${posted} posted · ${left} left`;
   }
 
   async function loadGallery() {
