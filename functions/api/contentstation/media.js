@@ -60,11 +60,21 @@ function objectSummary(env, obj) {
   };
 }
 
-/** Prefer public CDN URL; otherwise a time-limited S3 GET for external processors. */
+/**
+ * Prefer the public R2_PUBLIC_BASE_URL (durable, no expiry, works for any external
+ * fetcher including GhostCut's China-side download step); otherwise fall back to a
+ * long-lived S3 presigned GET.
+ *
+ * R2_PUBLIC_BASE_URL should be set to the bucket's r2.dev URL (enable via
+ * `wrangler r2 bucket dev-url enable <bucket>`) or a custom domain attached to the
+ * bucket. Without it, GhostCut can fail with DownloadFailureError on larger videos —
+ * either because the presigned S3 URL's signed-query-string form isn't reachable/
+ * accepted from their fetcher, or because it expires before their job queue gets to it.
+ */
 async function fetchableUrl(env, key) {
   const pub = publicUrl(env, key);
   if (pub) return { url: pub, kind: 'public' };
-  const signed = await createR2PresignedGet(env, { key, expiresIn: 3600 });
+  const signed = await createR2PresignedGet(env, { key, expiresIn: 21600 });
   if (signed.ok) return { url: signed.url, kind: 'presigned-get', expiresIn: signed.expiresIn };
   return { url: null, kind: null, error: signed };
 }

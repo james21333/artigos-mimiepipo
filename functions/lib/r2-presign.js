@@ -160,7 +160,10 @@ export async function createR2PresignedGet(env, { key, expiresIn = 3600 }) {
   const signedHeaders = 'host;x-amz-date';
   const algorithm = 'AWS4-HMAC-SHA256';
   const payloadHash = 'UNSIGNED-PAYLOAD';
-  const ttl = Math.min(3600, Math.max(60, Number(expiresIn) || 3600));
+  // Longer cap than the PUT helper: external processors (GhostCut, CloudConvert)
+  // fetch this URL asynchronously after we hand it off, and job queues on their
+  // side can add real delay. S3 SigV4 allows up to 7 days (604800s).
+  const ttl = Math.min(604800, Math.max(60, Number(expiresIn) || 21600));
 
   const query = new URLSearchParams({
     'X-Amz-Algorithm': algorithm,
