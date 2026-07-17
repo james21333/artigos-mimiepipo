@@ -242,6 +242,17 @@
 
   function setCardError(card, msg) {
     const el = card.querySelector('.result-error');
+    const actions = card.querySelector('.result-actions');
+    const preview = card.querySelector('.result-preview');
+    const title = card.querySelector('.result-title');
+    const meta = card.querySelector('.result-meta');
+    if (actions) actions.hidden = true;
+    if (preview) {
+      preview.hidden = true;
+      preview.removeAttribute('src');
+    }
+    if (title) title.hidden = true;
+    if (meta) meta.hidden = true;
     if (!el) return;
     if (msg) {
       el.hidden = false;
@@ -465,7 +476,7 @@
           const { cleaned, cleanFailed } = summarizeBatch();
           setStatus(
             'Done',
-            `${cleaned} cleaned · ${cleanFailed} clean failed · see Cleaned videos`,
+            `${cleaned} cleaned · ${cleanFailed} clean failed · see Ready For Upload`,
           );
         }
       }

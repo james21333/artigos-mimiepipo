@@ -318,11 +318,27 @@ async function fetchBytesViaCloudConvert(env, playUrl, filename) {
 }
 
 export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
-  const preferHd = opts.preferHd !== false;
-  const resolved = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd });
+  let preferHd = opts.preferHd !== false;
+  let resolved = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd });
   if (!resolved.ok) return resolved;
 
-  if (resolved.meta?.size && Number(resolved.meta.size) > MAX_BYTES) {
+  const metaTooBig =
+    resolved.meta?.size != null && Number(resolved.meta.size) > MAX_BYTES;
+
+  // HD often exceeds the Pages/Worker body limit — fall back to standard when possible.
+  if (metaTooBig && preferHd) {
+    const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+    if (sd.ok) {
+      const sdSize = sd.meta?.size != null ? Number(sd.meta.size) : null;
+      const hdSize = Number(resolved.meta.size);
+      if (sdSize == null || sdSize <= MAX_BYTES || sdSize < hdSize) {
+        resolved = sd;
+        preferHd = false;
+      }
+    }
+  }
+
+  if (resolved.meta?.size != null && Number(resolved.meta.size) > MAX_BYTES) {
     return {
       ok: false,
       error: 'file_too_large',
@@ -334,8 +350,20 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   const authorPart = sanitizeFilenamePart(resolved.meta.author || 'tiktok');
   const filename = `${authorPart}_${idPart}.mp4`;
 
-  const transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
+  let transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
   if (!transferred.ok) return transferred;
+
+  if (transferred.bytes.byteLength > MAX_BYTES && preferHd) {
+    const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+    if (sd.ok && sd.playUrl && sd.playUrl !== resolved.playUrl) {
+      const retry = await fetchBytesViaCloudConvert(env, sd.playUrl, filename);
+      if (retry.ok && retry.bytes.byteLength <= MAX_BYTES) {
+        transferred = retry;
+        resolved = { ...resolved, playUrl: sd.playUrl, meta: { ...resolved.meta, ...sd.meta } };
+        preferHd = false;
+      }
+    }
+  }
 
   if (transferred.bytes.byteLength > MAX_BYTES) {
     return {
@@ -358,19 +386,22 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
         tiktokId: resolved.meta.id || '',
         title: String(resolved.meta.title || '').slice(0, 200),
         author: resolved.meta.author || '',
+        quality: preferHd ? 'hd' : 'standard',
       },
     });
   } catch (err) {
     return { ok: false, error: 'r2_put_failed', detail: String(err?.message || err) };
   }
 
+  const meta = { ...resolved.meta, quality: preferHd ? 'hd' : 'standard' };
   return {
     ok: true,
     key,
     size: transferred.bytes.byteLength,
     contentType: transferred.contentType || 'video/mp4',
     downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`,
-    meta: resolved.meta,
+    quality: preferHd ? 'hd' : 'standard',
+    meta,
     provider: resolved.provider,
   };
 }
