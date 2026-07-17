@@ -25,6 +25,7 @@
   const urlsInput = document.getElementById('tiktok-urls');
   const urlCount = document.getElementById('url-count');
   const autoCleanOpt = document.getElementById('opt-auto-clean');
+  const autoCleanHint = document.getElementById('auto-clean-hint');
   const accountSelect = document.getElementById('account-select');
   const newAccountInput = document.getElementById('new-account-input');
   const createAccountBtn = document.getElementById('create-account-btn');
@@ -89,6 +90,7 @@
         const autoCleanLabel = autoCleanOpt.closest('label') || autoCleanOpt.parentElement;
         if (autoCleanLabel) autoCleanLabel.hidden = true;
       }
+      if (autoCleanHint) autoCleanHint.hidden = true;
       if (accountPicker) accountPicker.hidden = true;
       updateDownloadButtonLabel();
     }
