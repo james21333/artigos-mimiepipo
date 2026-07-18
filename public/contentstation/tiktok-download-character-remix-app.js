@@ -375,10 +375,11 @@
         characterKey,
         options: {
           characterStrength: Number(characterStrength?.value || 0.9),
-          sceneRestyleStrength: Number(sceneRestyle?.value || 0.62),
+          sceneRestyleStrength: Number(sceneRestyle?.value || 0.85),
           preserveAudio: Boolean(preserveAudio?.checked),
           discardSpeechCaptions: Boolean(stripCaptions?.checked),
           restoreNonSpeechText: Boolean(restoreHooks?.checked),
+          enableSceneRestyle: true,
         },
       }),
     });
@@ -714,6 +715,155 @@
     return data;
   }
 
+  function ghostcutWorkId(data) {
+    const list = data?.body?.dataList;
+    if (Array.isArray(list) && list[0]?.id != null) return String(list[0].id);
+    return data?.workId || data?.id || null;
+  }
+
+  async function ghostcutFree(payload) {
+    const { ok, data } = await api('/api/contentstation/ghostcut/v-w-c/gateway/ve/work/free', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!ok || (data?.code != null && Number(data.code) !== 1000)) {
+      throw new Error(data?.msg || data?.message || data?.error || 'GhostCut submit failed');
+    }
+    const workId = ghostcutWorkId(data);
+    if (!workId) throw new Error('GhostCut returned no work id');
+    return workId;
+  }
+
+  async function ghostcutPoll(workId, { wantSrt = false, wantVideo = false } = {}) {
+    const deadline = Date.now() + 12 * 60 * 1000;
+    let errors = 0;
+    while (Date.now() < deadline) {
+      if (stopRequested) throw new Error('Stopped');
+      await sleep(POLL_MS);
+      const { ok, data } = await api('/api/contentstation/ghostcut/v-w-c/gateway/ve/work/status', {
+        method: 'POST',
+        body: JSON.stringify({
+          idWorks: [/^\d+$/.test(workId) ? Number(workId) : workId],
+        }),
+      });
+      if (!ok) {
+        errors += 1;
+        if (errors >= MAX_POLL_ERRORS) {
+          throw new Error(data?.msg || data?.error || 'GhostCut status failed');
+        }
+        continue;
+      }
+      errors = 0;
+      const content = Array.isArray(data?.body?.content) ? data.body.content[0] : null;
+      const status = Number(content?.processStatus);
+      if (status === 1) {
+        if (wantSrt) {
+          const srt = content?.srcSrtUrl || content?.tgtSrtUrl;
+          if (srt) return { srtUrl: srt, content };
+          throw new Error('GhostCut finished but no SRT URL');
+        }
+        if (wantVideo) {
+          const videoUrl = content?.videoUrl || content?.videoUrlOut;
+          if (videoUrl) return { videoUrl, content };
+          throw new Error('GhostCut finished but no video URL');
+        }
+        return { content };
+      }
+      if (Number.isFinite(status) && status > 1) {
+        throw new Error(content?.errorMsg || content?.msg || `GhostCut failed (${status})`);
+      }
+    }
+    throw new Error('GhostCut timed out');
+  }
+
+  /** OCR hooks from original − ASR speech → burn onto remixed MP4 (GhostCut). */
+  async function restoreHooksAfterRemix(saved, originalKey, jobId, tiktokUrl) {
+    const remixUrl = saved.publicUrl || (await mediaFetchUrl(saved.key));
+    const { ok, data: payloads } = await api('/api/contentstation/character-remix', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'hooks-payloads',
+        originalKey,
+        remixKey: saved.key,
+        remixVideoUrl: remixUrl,
+      }),
+    });
+    if (!ok || !payloads?.ocr || !payloads?.asr) {
+      throw new Error(payloads?.message || payloads?.error || 'Could not build hook payloads');
+    }
+
+    const ocrWorkId = await ghostcutFree(payloads.ocr);
+    let asrWorkId = null;
+    try {
+      asrWorkId = await ghostcutFree(payloads.asr);
+    } catch {
+      asrWorkId = null;
+    }
+
+    const ocrDone = await ghostcutPoll(ocrWorkId, { wantSrt: true });
+    let asrSrtUrl = null;
+    if (asrWorkId) {
+      try {
+        const asrDone = await ghostcutPoll(asrWorkId, { wantSrt: true });
+        asrSrtUrl = asrDone.srtUrl;
+      } catch {
+        asrSrtUrl = null;
+      }
+    }
+
+    const prepared = await api('/api/contentstation/character-remix', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'prepare-hooks-srt',
+        ocrSrtUrl: ocrDone.srtUrl,
+        asrSrtUrl,
+        runId: jobId,
+      }),
+    });
+    if (!prepared.ok) {
+      throw new Error(prepared.data?.error || 'Could not prepare hooks SRT');
+    }
+    if (prepared.data?.skipped) {
+      return {
+        ...saved,
+        hooksSkipped: true,
+        hooksReason: prepared.data.reason || 'no_non_speech_text',
+      };
+    }
+
+    const burnPayload = burnHooksPayloadClient(
+      payloads.remixVideoUrl || remixUrl,
+      prepared.data.srtUrl,
+      payloads.sourceLang || 'en',
+    );
+    const burnWorkId = await ghostcutFree(burnPayload);
+    const burned = await ghostcutPoll(burnWorkId, { wantVideo: true });
+    return saveRemix(burned.videoUrl, originalKey, `hooks:${jobId}`, tiktokUrl);
+  }
+
+  function burnHooksPayloadClient(videoUrl, srtUrl, lang) {
+    return {
+      urls: [videoUrl],
+      sourceLang: lang,
+      lang,
+      needWanyin: 1,
+      wyTaskType: 'NO_TTS',
+      wyNeedText: 1,
+      removeBgAudio: 0,
+      wyVoiceParam: JSON.stringify({
+        font_param: {
+          style: 'tpl-31-1-T',
+          font_size: 36,
+          position: 0.22,
+          subtitleLang: lang,
+        },
+      }),
+      extraOptions: JSON.stringify({
+        customer_input_srt: { source: srtUrl, translation: srtUrl },
+      }),
+    };
+  }
+
   /** Light uniquify via CloudConvert alter-audio (clean API, no GhostCut). */
   async function uniquifyAlterAudio(videoUrl, sourceKey) {
     const { ok, data } = await api('/api/contentstation/clean', {
@@ -794,6 +944,7 @@
     startedAt,
     backend,
     doAlterAudio,
+    doRestoreHooks,
   }) {
     const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
     const etaTracker = createEtaTracker();
@@ -809,6 +960,21 @@
     if (stopRequested) throw new Error('Stopped');
     setCardStage(card, 'Saving', 'Archiving final MP4…');
     let saved = await saveRemix(remixOut, originalKey || sourceKey, jobId, url);
+
+    const restoreOn = doRestoreHooks !== undefined ? doRestoreHooks : Boolean(restoreHooks?.checked);
+    if (restoreOn && originalKey) {
+      if (stopRequested) throw new Error('Stopped');
+      setCardStage(card, 'Restoring hooks', 'OCR hooks from original − speech, burn onto remix…');
+      try {
+        saved = await restoreHooksAfterRemix(saved, originalKey, jobId, url);
+      } catch (err) {
+        setCardStage(
+          card,
+          'Hooks skipped',
+          `Remix kept without hooks: ${err?.message || err}`,
+        );
+      }
+    }
 
     if (doAlterAudio) {
       if (stopRequested) throw new Error('Stopped');
@@ -857,6 +1023,7 @@
       startedAt,
       backend: backend || activeBackend,
       alterAudio: Boolean(alterAudio?.checked),
+      restoreHooks: Boolean(restoreHooks?.checked),
       index: index ?? 0,
     });
 
@@ -870,6 +1037,7 @@
         startedAt,
         backend: backend || activeBackend,
         doAlterAudio: Boolean(alterAudio?.checked),
+        doRestoreHooks: Boolean(restoreHooks?.checked),
       });
     } catch (err) {
       // Keep active job so refresh can resume, unless the GPU job is clearly gone.
@@ -937,6 +1105,10 @@
             startedAt: job.startedAt,
             backend: job.backend || activeBackend,
             doAlterAudio: Boolean(job.alterAudio),
+            doRestoreHooks:
+              job.restoreHooks !== undefined
+                ? Boolean(job.restoreHooks)
+                : Boolean(restoreHooks?.checked),
           })
             .catch((err) => {
               failures += 1;

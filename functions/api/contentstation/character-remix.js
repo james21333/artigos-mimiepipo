@@ -6,15 +6,18 @@
  * GET  ?action=list[&limit=][&cursor=]
  * POST { action: "run", sourceKey, originalKey?, characterKey, options? }
  * POST { action: "save", videoUrl?, videoBase64?, sourceKey?, filename?, runpodJobId?, tiktokUrl? }
+ * POST { action: "hooks-payloads", originalVideoUrl|originalKey, remixVideoUrl|remixKey, sourceLang? }
+ * POST { action: "prepare-hooks-srt", ocrSrtUrl, asrSrtUrl?, runId? }
  * POST { action: "cancel", jobId }
  *
  * Pipeline (client-driven):
  *   1) TikTok download → R2 tiktok/
- *   2) GhostCut removeWatermark only (caption strip)
+ *   2) Optional GhostCut removeWatermark (caption strip — off by default)
  *   3) This API → RunPod Serverless worker:
  *        segment → character replace → optional VACE scenery → stitch → audio → MP4
  *   4) save → character-remix/ (idempotent if worker already archived)
- *   5) optional CloudConvert alter-audio uniquify (client via /clean)
+ *   5) optional hooks: client GhostCut OCR/ASR → prepare-hooks-srt → burn → save
+ *   6) optional CloudConvert alter-audio uniquify (client via /clean)
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
@@ -41,6 +44,12 @@ import {
   statusComfyCharacterRemix,
   submitComfyCharacterRemix,
 } from '../../lib/comfyui-client.js';
+import {
+  asrExtractPayload,
+  burnHooksPayload,
+  ocrExtractPayload,
+  prepareHooksSrt,
+} from '../../lib/hooks-restore.js';
 
 async function resolveKeyUrl(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -456,6 +465,53 @@ export async function onRequest(context) {
       return json({ error: archived.error || 'archive_failed' }, 502);
     }
     return json({ ok: true, ...archived });
+  }
+
+  if (action === 'hooks-payloads') {
+    let originalUrl = body.originalVideoUrl || null;
+    let remixUrl = body.remixVideoUrl || body.videoUrl || null;
+    if (!originalUrl && body.originalKey) {
+      const resolved = await resolveKeyUrl(env, body.originalKey);
+      if (!resolved.ok) return json(resolved, 400);
+      originalUrl = resolved.url;
+    }
+    if (!remixUrl && body.remixKey) {
+      const resolved = await resolveKeyUrl(env, body.remixKey);
+      if (!resolved.ok) return json(resolved, 400);
+      remixUrl = resolved.url;
+    }
+    if (!originalUrl || !remixUrl) {
+      return json(
+        {
+          error: 'missing_urls',
+          message: 'originalKey/originalVideoUrl and remixKey/remixVideoUrl are required.',
+        },
+        400,
+      );
+    }
+    const lang = body.sourceLang || body.options?.sourceLang || 'en';
+    return json({
+      ok: true,
+      originalVideoUrl: originalUrl,
+      remixVideoUrl: remixUrl,
+      ocr: ocrExtractPayload(originalUrl),
+      asr: asrExtractPayload(originalUrl, lang),
+      // burn.srtUrl filled client-side after prepare-hooks-srt
+      burnTemplate: burnHooksPayload(remixUrl, 'SRT_URL_PLACEHOLDER', lang),
+      sourceLang: lang,
+    });
+  }
+
+  if (action === 'prepare-hooks-srt') {
+    const prepared = await prepareHooksSrt(env, {
+      ocrSrtUrl: body.ocrSrtUrl,
+      asrSrtUrl: body.asrSrtUrl || null,
+      runId: body.runId || body.runpodJobId || body.jobId || 'hooks',
+    });
+    if (!prepared.ok) {
+      return json({ ok: false, error: prepared.error || 'prepare_failed' }, 502);
+    }
+    return json(prepared);
   }
 
   if (action === 'run') {
