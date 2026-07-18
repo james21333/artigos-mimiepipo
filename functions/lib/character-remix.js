@@ -1,5 +1,5 @@
 /**
- * Character remix helpers: ComfyUI (preferred) or RunPod WAN + archive remixed MP4s to R2.
+ * Character remix helpers: RunPod Serverless (primary) + optional ComfyUI proxy debug.
  */
 
 import { createR2PresignedGet } from './r2-presign.js';
@@ -24,10 +24,13 @@ export function runpodConfigured(env) {
   return Boolean(env.RUNPOD_API_KEY && remixEndpointId(env));
 }
 
-/** Prefer ComfyUI proxy when set; else RunPod serverless. */
+/**
+ * Production path: RunPod Serverless.
+ * COMFYUI_BASE_URL is debug-only (manual pod proxy) and only used when Serverless is unset.
+ */
 export function remixBackend(env) {
-  if (comfyConfigured(env)) return 'comfyui';
   if (runpodConfigured(env)) return 'runpod';
+  if (comfyConfigured(env)) return 'comfyui';
   return null;
 }
 
@@ -109,6 +112,7 @@ export function buildRemixInput({
     output_height: 1280,
     output_fps: opts.outputFps ?? 24,
     seed: opts.seed ?? Math.floor(Math.random() * 1e9),
+    frame_load_cap: opts.frameLoadCap ?? 81,
   };
 }
 
@@ -189,33 +193,117 @@ export function extractOutputVideoUrl(data) {
   return null;
 }
 
+/** Base64 MP4 from worker when R2 upload is not configured on the endpoint. */
+export function extractOutputVideoBase64(data) {
+  if (!data || typeof data !== 'object') return null;
+  const out = data.output ?? data;
+  if (!out || typeof out !== 'object') return null;
+  const b64 = out.video_base64 || out.videoBase64;
+  if (typeof b64 !== 'string' || b64.length < 32) return null;
+  return {
+    base64: b64,
+    mime: out.video_mime || out.videoMime || 'video/mp4',
+  };
+}
+
+/**
+ * Archive base64 worker output into character-remix/ on R2.
+ * When `key` or `runpodJobId` is provided, uses a stable key so status polls are idempotent.
+ */
+export async function archiveRemixVideoFromBase64(
+  env,
+  { base64, filename, sourceKey, runpodJobId, mime, key: forcedKey } = {},
+) {
+  const bucket = env.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'MEDIA_BUCKET not bound' };
+  if (!base64 || typeof base64 !== 'string') {
+    return { ok: false, error: 'missing_base64' };
+  }
+
+  let key = forcedKey;
+  if (!key && runpodJobId) {
+    key = `${CHARACTER_REMIX_PREFIX}runpod/${safeName(runpodJobId, 'job')}.mp4`;
+  }
+  if (!key) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const base = safeName(filename || sourceKey || 'remix');
+    key = `${CHARACTER_REMIX_PREFIX}${stamp}_${base}.mp4`;
+  }
+
+  // Idempotent: if we already archived this job, reuse it.
+  try {
+    const existing = await bucket.head(key);
+    if (existing) {
+      return {
+        ok: true,
+        key,
+        downloadPath: downloadPath(key),
+        publicUrl: publicMediaUrl(env, key),
+        reused: true,
+      };
+    }
+  } catch {
+    // head miss — continue to put
+  }
+
+  let bytes;
+  try {
+    const cleaned = base64.replace(/^data:[^;]+;base64,/, '');
+    const bin = atob(cleaned);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
+    bytes = arr;
+  } catch (err) {
+    return { ok: false, error: err?.message || 'base64_decode_failed' };
+  }
+
+  await bucket.put(key, bytes, {
+    httpMetadata: { contentType: mime || 'video/mp4' },
+    customMetadata: {
+      source: 'character-remix',
+      runpodJobId: runpodJobId ? String(runpodJobId) : '',
+      sourceKey: sourceKey ? String(sourceKey) : '',
+    },
+  });
+
+  return {
+    ok: true,
+    key,
+    downloadPath: downloadPath(key),
+    publicUrl: publicMediaUrl(env, key),
+  };
+}
+
 export function configPayload(env) {
   const ep = remixEndpointId(env);
   const backend = remixBackend(env);
   const comfy = comfyConfigured(env);
   const runpod = runpodConfigured(env);
   let message;
-  if (backend === 'comfyui') {
-    message = 'Character remix via ComfyUI proxy (COMFYUI_BASE_URL). Start the pod before running jobs.';
-  } else if (backend === 'runpod') {
-    message = 'Character remix RunPod serverless endpoint ready.';
+  if (backend === 'runpod') {
+    message = 'Character remix via RunPod Serverless (auto GPU scale-to-zero).';
+  } else if (backend === 'comfyui') {
+    message =
+      'Debug: ComfyUI proxy (COMFYUI_BASE_URL). Production uses RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
   } else {
     message =
-      'Set COMFYUI_BASE_URL (ComfyUI proxy while pod is up), or RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
+      'Set RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID (RunPod Serverless). See runpod/character-remix/README.md.';
   }
   return {
     configured: Boolean(backend),
     backend,
     backends: {
-      comfyui: {
-        configured: comfy,
-        preferred: comfy,
-      },
       runpod: {
         configured: runpod,
+        preferred: true,
         hasApiKey: Boolean(env.RUNPOD_API_KEY),
         hasEndpointId: Boolean(ep),
         endpointId: ep,
+      },
+      comfyui: {
+        configured: comfy,
+        preferred: false,
+        debugOnly: true,
       },
     },
     hasApiKey: Boolean(env.RUNPOD_API_KEY),

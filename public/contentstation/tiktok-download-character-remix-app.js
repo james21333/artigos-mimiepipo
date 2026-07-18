@@ -157,18 +157,18 @@
     if (!ok || !data?.configured) {
       remixConfig.textContent =
         data?.message ||
-        'Not configured — set COMFYUI_BASE_URL (pod proxy) or RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
+        'Not configured — set RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID (RunPod Serverless).';
       return;
     }
-    if (data.backend === 'comfyui') {
+    if (data.backend === 'runpod') {
       remixConfig.textContent =
         data.message ||
-        'ComfyUI proxy ready (COMFYUI_BASE_URL). Start the RunPod pod before remixing.';
+        `RunPod Serverless ready${data.endpointId ? ` (${data.endpointId})` : ''} — GPU scales from zero.`;
       return;
     }
     remixConfig.textContent =
       data.message ||
-      `RunPod serverless ready${data.endpointId ? ` (${data.endpointId})` : ''}.`;
+      'Debug ComfyUI proxy mode. Production uses RunPod Serverless.';
   }
 
   function createCard(url, index) {
@@ -369,25 +369,52 @@
         throw new Error('Remix finished but no output video was found');
       }
       if (status === 'COMPLETED' && st.data?.videoUrl) {
-        return st.data.videoUrl;
+        return { videoUrl: st.data.videoUrl, archivedKey: st.data.archivedKey || null };
       }
       if (st.data?.remixReady && st.data?.videoUrl) {
-        return st.data.videoUrl;
+        return { videoUrl: st.data.videoUrl, archivedKey: st.data.archivedKey || null };
+      }
+      if (st.data?.remixReady && st.data?.videoBase64) {
+        return {
+          videoUrl: null,
+          videoBase64: st.data.videoBase64,
+          videoMime: st.data.videoMime || 'video/mp4',
+          archivedKey: null,
+        };
+      }
+      if (st.data?.remixReady && st.data?.downloadPath && st.data?.archivedKey) {
+        return {
+          videoUrl: st.data.videoUrl || st.data.downloadPath,
+          archivedKey: st.data.archivedKey,
+        };
       }
     }
   }
 
-  async function saveRemix(videoUrl, sourceKey, jobId) {
+  async function saveRemix(videoRef, sourceKey, jobId) {
+    const payload = {
+      action: 'save',
+      sourceKey,
+      runpodJobId: jobId,
+      jobId,
+      filename: sourceKey,
+    };
+    if (typeof videoRef === 'string') {
+      payload.videoUrl = videoRef;
+    } else if (videoRef?.videoBase64) {
+      payload.videoBase64 = videoRef.videoBase64;
+      payload.videoMime = videoRef.videoMime || 'video/mp4';
+    } else if (videoRef?.archivedKey) {
+      // Already archived during status poll (base64 materialize).
+      return { ok: true, key: videoRef.archivedKey, downloadPath: videoRef.videoUrl };
+    } else if (videoRef?.videoUrl) {
+      payload.videoUrl = videoRef.videoUrl;
+    } else {
+      throw new Error('No remix video to save');
+    }
     const { ok, data } = await api('/api/contentstation/character-remix', {
       method: 'POST',
-      body: JSON.stringify({
-        action: 'save',
-        videoUrl,
-        sourceKey,
-        runpodJobId: jobId,
-        jobId,
-        filename: sourceKey,
-      }),
+      body: JSON.stringify(payload),
     });
     if (!ok || !data?.key) {
       throw new Error(data?.message || data?.error || 'Could not save remix to library');
@@ -475,16 +502,16 @@
     }
 
     if (stopRequested) throw new Error('Stopped');
-    const backendLabel = activeBackend === 'comfyui' ? 'ComfyUI remix' : 'RunPod remix';
+    const backendLabel = activeBackend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Serverless remix';
     setCardStage(card, backendLabel, 'Character replace (WAN Animate)…');
     const { jobId, backend } = await runRemix(sourceKey, originalKey, characterKey);
-    const label = backend === 'comfyui' ? 'ComfyUI remix' : 'RunPod remix';
-    setCardStage(card, label, `Job ${jobId} — waiting…`);
-    const videoUrl = await pollRemix(jobId);
+    const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Serverless remix';
+    setCardStage(card, label, `Job ${jobId} — waiting (GPU may cold-start)…`);
+    const remixOut = await pollRemix(jobId);
 
     if (stopRequested) throw new Error('Stopped');
     setCardStage(card, 'Saving', 'Uploading remix to library…');
-    let saved = await saveRemix(videoUrl, originalKey, jobId);
+    let saved = await saveRemix(remixOut, originalKey, jobId);
 
     if (alterAudio?.checked) {
       if (stopRequested) throw new Error('Stopped');

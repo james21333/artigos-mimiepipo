@@ -4,13 +4,13 @@
  * GET  ?action=config
  * GET  ?action=status&jobId=…
  * POST { action: "run", sourceKey, originalKey?, characterKey, options? }
- * POST { action: "save", videoUrl, sourceKey?, filename?, runpodJobId? }
+ * POST { action: "save", videoUrl?, videoBase64?, sourceKey?, filename?, runpodJobId? }
  * POST { action: "cancel", jobId }
  *
  * Pipeline (client-driven):
  *   1) TikTok download → R2 tiktok/
  *   2) GhostCut removeWatermark only (caption strip)
- *   3) This API → ComfyUI (COMFYUI_BASE_URL) or RunPod WAN
+ *   3) This API → RunPod Serverless (primary) or ComfyUI proxy (debug)
  *   4) save → character-remix/
  *   5) optional CloudConvert alter-audio uniquify (client via /clean)
  */
@@ -18,11 +18,14 @@
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
   archiveRemixVideo,
+  archiveRemixVideoFromBase64,
   buildRemixInput,
   configPayload,
+  extractOutputVideoBase64,
   extractOutputVideoUrl,
   fetchableMediaUrl,
   isComfyJobId,
+  publicMediaUrl,
   remixBackend,
   remixConfigured,
   remixEndpointId,
@@ -50,7 +53,7 @@ async function resolveKeyUrl(env, key) {
     return {
       ok: false,
       error: 'no_fetchable_url',
-      message: 'Set R2_PUBLIC_BASE_URL so ComfyUI/RunPod/GhostCut can download media.',
+      message: 'Set R2_PUBLIC_BASE_URL so RunPod/GhostCut can download media.',
     };
   }
   return { ok: true, key, url: fetchable.url, kind: fetchable.kind };
@@ -76,14 +79,67 @@ async function statusRunpod(env, jobId, endpointId) {
   if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
   const result = await runpodFetch(env, `/${ep}/status/${encodeURIComponent(jobId)}`);
   const data = result.data || {};
-  const videoUrl = extractOutputVideoUrl(data);
+  const status = String(data.status || '').toUpperCase();
+  let videoUrl = extractOutputVideoUrl(data);
+  const b64 = !videoUrl && status === 'COMPLETED' ? extractOutputVideoBase64(data) : null;
+
+  // Strip bulky worker payloads from the client-facing status response.
+  const slim = { ...data };
+  if (slim.output && typeof slim.output === 'object') {
+    const { video_base64: _vb, videoBase64: _vb2, ...restOut } = slim.output;
+    slim.output = restOut;
+  }
+
+  // Materialize base64 worker output into R2 once so the client gets a fetchable URL.
+  if (b64 && !videoUrl) {
+    const archived = await archiveRemixVideoFromBase64(env, {
+      base64: b64.base64,
+      mime: b64.mime,
+      runpodJobId: jobId,
+      filename: jobId,
+    });
+    if (archived.ok) {
+      videoUrl = archived.publicUrl || null;
+      return json(
+        {
+          ...slim,
+          output: undefined,
+          backend: 'runpod',
+          jobId,
+          videoUrl,
+          archivedKey: archived.key,
+          downloadPath: archived.downloadPath,
+          remixReady: true,
+          status: 'COMPLETED',
+        },
+        200,
+      );
+    }
+    // Still mark ready with base64 so client can POST action=save with videoBase64.
+    return json(
+      {
+        ...slim,
+        output: undefined,
+        backend: 'runpod',
+        jobId,
+        videoUrl: null,
+        videoBase64: b64.base64,
+        videoMime: b64.mime,
+        archiveError: archived.error,
+        remixReady: true,
+        status: 'COMPLETED',
+      },
+      result.ok ? 200 : result.status || 502,
+    );
+  }
+
   return json(
     {
-      ...data,
+      ...slim,
       backend: 'runpod',
       jobId,
       videoUrl,
-      remixReady: Boolean(videoUrl) && String(data.status || '').toUpperCase() === 'COMPLETED',
+      remixReady: Boolean(videoUrl) && status === 'COMPLETED',
     },
     result.ok ? 200 : result.status || 502,
   );
@@ -249,6 +305,23 @@ export async function onRequest(context) {
   }
 
   if (action === 'save') {
+    if (body.videoBase64) {
+      const archived = await archiveRemixVideoFromBase64(env, {
+        base64: body.videoBase64,
+        mime: body.videoMime || 'video/mp4',
+        filename: body.filename,
+        sourceKey: body.sourceKey,
+        runpodJobId: body.runpodJobId || body.jobId,
+      });
+      if (!archived.ok) {
+        return json({ error: archived.error || 'archive_failed' }, 502);
+      }
+      return json({
+        ok: true,
+        ...archived,
+        publicUrl: archived.publicUrl || publicMediaUrl(env, archived.key),
+      });
+    }
     const archived = await archiveRemixVideo(env, {
       sourceUrl: body.videoUrl,
       filename: body.filename,

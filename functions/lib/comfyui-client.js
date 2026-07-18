@@ -1,6 +1,9 @@
 /**
  * ComfyUI HTTP client for Character Remix (Wan Animate Replace Person).
- * Env: COMFYUI_BASE_URL = https://xxxxx-8188.proxy.runpod.net (no trailing slash)
+ *
+ * Debug-only path when COMFYUI_BASE_URL is set (manual pod proxy).
+ * Production uses RunPod Serverless — see runpod/character-remix/ and
+ * RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.
  *
  * Workflow is a plain JS module export so Cloudflare Pages Functions bundling
  * does not depend on JSON import attributes.
