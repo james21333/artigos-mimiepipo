@@ -10,35 +10,30 @@
  * Pipeline (client-driven):
  *   1) TikTok download → R2 tiktok/
  *   2) GhostCut removeWatermark only (caption strip)
- *   3) This API → RunPod WAN (character + scene restyle; hooks from original_video_url)
+ *   3) This API → ComfyUI (COMFYUI_BASE_URL) or RunPod WAN
  *   4) save → character-remix/
+ *   5) optional CloudConvert alter-audio uniquify (client via /clean)
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
   archiveRemixVideo,
   buildRemixInput,
+  configPayload,
   extractOutputVideoUrl,
   fetchableMediaUrl,
+  isComfyJobId,
+  remixBackend,
+  remixConfigured,
   remixEndpointId,
   runpodConfigured,
   runpodFetch,
 } from '../../lib/character-remix.js';
-
-function configPayload(env) {
-  const ep = remixEndpointId(env);
-  return {
-    configured: runpodConfigured(env),
-    hasApiKey: Boolean(env.RUNPOD_API_KEY),
-    hasEndpointId: Boolean(ep),
-    endpointId: ep,
-    templateId: env.RUNPOD_TEMPLATE_ID ? String(env.RUNPOD_TEMPLATE_ID) : null,
-    r2Public: Boolean(env.R2_PUBLIC_BASE_URL),
-    message: runpodConfigured(env)
-      ? 'Character remix RunPod endpoint ready.'
-      : 'Set RUNPOD_API_KEY and RUNPOD_CHARACTER_REMIX_ENDPOINT_ID (or RUNPOD_ENDPOINT_ID).',
-  };
-}
+import {
+  cancelComfyCharacterRemix,
+  statusComfyCharacterRemix,
+  submitComfyCharacterRemix,
+} from '../../lib/comfyui-client.js';
 
 async function resolveKeyUrl(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -55,10 +50,137 @@ async function resolveKeyUrl(env, key) {
     return {
       ok: false,
       error: 'no_fetchable_url',
-      message: 'Set R2_PUBLIC_BASE_URL so RunPod/GhostCut can download media.',
+      message: 'Set R2_PUBLIC_BASE_URL so ComfyUI/RunPod/GhostCut can download media.',
     };
   }
   return { ok: true, key, url: fetchable.url, kind: fetchable.kind };
+}
+
+async function statusComfy(env, jobId) {
+  const result = await statusComfyCharacterRemix(env, jobId);
+  if (!result.ok) {
+    return json(
+      { ...result, ...configPayload(env) },
+      result.status && result.status >= 400 ? result.status : 502,
+    );
+  }
+  return json({
+    ...result,
+    backend: 'comfyui',
+    id: result.promptId,
+  });
+}
+
+async function statusRunpod(env, jobId, endpointId) {
+  const ep = remixEndpointId(env, endpointId);
+  if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
+  const result = await runpodFetch(env, `/${ep}/status/${encodeURIComponent(jobId)}`);
+  const data = result.data || {};
+  const videoUrl = extractOutputVideoUrl(data);
+  return json(
+    {
+      ...data,
+      backend: 'runpod',
+      jobId,
+      videoUrl,
+      remixReady: Boolean(videoUrl) && String(data.status || '').toUpperCase() === 'COMPLETED',
+    },
+    result.ok ? 200 : result.status || 502,
+  );
+}
+
+async function runComfy(env, body) {
+  const sourceKey = body.sourceKey;
+  const characterKey = body.characterKey;
+  if (!sourceKey || !characterKey) {
+    return json({ error: 'missing_keys', message: 'sourceKey and characterKey are required.' }, 400);
+  }
+
+  const source = await resolveKeyUrl(env, sourceKey);
+  if (!source.ok) return json(source, 400);
+  const character = await resolveKeyUrl(env, characterKey);
+  if (!character.ok) return json(character, 400);
+
+  const opts = body.options || {};
+  const submitted = await submitComfyCharacterRemix(env, {
+    videoUrl: source.url,
+    imageUrl: character.url,
+    options: {
+      frameLoadCap: opts.frameLoadCap,
+    },
+  });
+
+  if (!submitted.ok) {
+    return json(
+      {
+        ok: false,
+        backend: 'comfyui',
+        error: submitted.error || 'comfy_submit_failed',
+        message: submitted.message || 'ComfyUI submit failed',
+        detail: submitted.detail || submitted.data || null,
+        ...configPayload(env),
+      },
+      submitted.status && submitted.status >= 400 ? submitted.status : 502,
+    );
+  }
+
+  return json({
+    ok: true,
+    backend: 'comfyui',
+    jobId: submitted.jobId,
+    promptId: submitted.promptId,
+    uploaded: submitted.uploaded,
+  });
+}
+
+async function runRunpod(env, body) {
+  if (!runpodConfigured(env)) {
+    return json({ error: 'runpod_unconfigured', ...configPayload(env) }, 503);
+  }
+  const ep = remixEndpointId(env, body.endpointId);
+  if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
+
+  const sourceKey = body.sourceKey;
+  const originalKey = body.originalKey || body.sourceKey;
+  const characterKey = body.characterKey;
+  if (!sourceKey || !characterKey) {
+    return json({ error: 'missing_keys', message: 'sourceKey and characterKey are required.' }, 400);
+  }
+
+  const source = await resolveKeyUrl(env, sourceKey);
+  if (!source.ok) return json(source, 400);
+  const character = await resolveKeyUrl(env, characterKey);
+  if (!character.ok) return json(character, 400);
+  let originalUrl = source.url;
+  if (originalKey && originalKey !== sourceKey) {
+    const original = await resolveKeyUrl(env, originalKey);
+    if (original.ok) originalUrl = original.url;
+  }
+
+  const input = buildRemixInput({
+    sourceVideoUrl: source.url,
+    originalVideoUrl: originalUrl,
+    characterImageUrl: character.url,
+    options: body.options || {},
+  });
+
+  const result = await runpodFetch(env, `/${ep}/run`, {
+    method: 'POST',
+    body: { input },
+  });
+
+  const jobId = result.data?.id || result.data?.jobId || null;
+  return json(
+    {
+      ok: result.ok,
+      backend: 'runpod',
+      jobId,
+      endpointId: ep,
+      input,
+      runpod: result.data,
+    },
+    result.ok ? 200 : result.status || 502,
+  );
 }
 
 export async function onRequest(context) {
@@ -83,25 +205,16 @@ export async function onRequest(context) {
   if (method === 'GET' || method === 'HEAD') {
     const action = url.searchParams.get('action') || 'config';
     if (action === 'config') {
-      return json(configPayload(env), runpodConfigured(env) ? 200 : 503);
+      const payload = configPayload(env);
+      return json(payload, payload.configured ? 200 : 503);
     }
     if (action === 'status') {
       const jobId = url.searchParams.get('jobId');
       if (!jobId) return json({ error: 'missing_jobId' }, 400);
-      const ep = remixEndpointId(env, url.searchParams.get('endpointId'));
-      if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
-      const result = await runpodFetch(env, `/${ep}/status/${encodeURIComponent(jobId)}`);
-      const data = result.data || {};
-      const videoUrl = extractOutputVideoUrl(data);
-      return json(
-        {
-          ...data,
-          jobId,
-          videoUrl,
-          remixReady: Boolean(videoUrl) && String(data.status || '').toUpperCase() === 'COMPLETED',
-        },
-        result.ok ? 200 : result.status || 502,
-      );
+      if (isComfyJobId(jobId)) {
+        return statusComfy(env, jobId);
+      }
+      return statusRunpod(env, jobId, url.searchParams.get('endpointId'));
     }
     return json({ error: 'unknown_action' }, 400);
   }
@@ -122,13 +235,17 @@ export async function onRequest(context) {
   if (action === 'cancel') {
     const jobId = body.jobId;
     if (!jobId) return json({ error: 'missing_jobId' }, 400);
+    if (isComfyJobId(jobId)) {
+      const result = await cancelComfyCharacterRemix(env, jobId);
+      return json({ ...result, backend: 'comfyui' });
+    }
     const ep = remixEndpointId(env, body.endpointId);
     if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
     const result = await runpodFetch(env, `/${ep}/cancel/${encodeURIComponent(jobId)}`, {
       method: 'POST',
       body: {},
     });
-    return json(result.data, result.ok ? 200 : result.status || 502);
+    return json({ ...(result.data || {}), backend: 'runpod' }, result.ok ? 200 : result.status || 502);
   }
 
   if (action === 'save') {
@@ -136,7 +253,7 @@ export async function onRequest(context) {
       sourceUrl: body.videoUrl,
       filename: body.filename,
       sourceKey: body.sourceKey,
-      runpodJobId: body.runpodJobId,
+      runpodJobId: body.runpodJobId || body.jobId,
     });
     if (!archived.ok) {
       return json({ error: archived.error || 'archive_failed' }, 502);
@@ -145,52 +262,14 @@ export async function onRequest(context) {
   }
 
   if (action === 'run') {
-    if (!runpodConfigured(env)) {
-      return json({ error: 'runpod_unconfigured', ...configPayload(env) }, 503);
+    if (!remixConfigured(env)) {
+      return json({ error: 'remix_unconfigured', ...configPayload(env) }, 503);
     }
-    const ep = remixEndpointId(env, body.endpointId);
-    if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
-
-    const sourceKey = body.sourceKey;
-    const originalKey = body.originalKey || body.sourceKey;
-    const characterKey = body.characterKey;
-    if (!sourceKey || !characterKey) {
-      return json({ error: 'missing_keys', message: 'sourceKey and characterKey are required.' }, 400);
+    const backend = remixBackend(env);
+    if (backend === 'comfyui') {
+      return runComfy(env, body);
     }
-
-    const source = await resolveKeyUrl(env, sourceKey);
-    if (!source.ok) return json(source, 400);
-    const character = await resolveKeyUrl(env, characterKey);
-    if (!character.ok) return json(character, 400);
-    let originalUrl = source.url;
-    if (originalKey && originalKey !== sourceKey) {
-      const original = await resolveKeyUrl(env, originalKey);
-      if (original.ok) originalUrl = original.url;
-    }
-
-    const input = buildRemixInput({
-      sourceVideoUrl: source.url,
-      originalVideoUrl: originalUrl,
-      characterImageUrl: character.url,
-      options: body.options || {},
-    });
-
-    const result = await runpodFetch(env, `/${ep}/run`, {
-      method: 'POST',
-      body: { input },
-    });
-
-    const jobId = result.data?.id || result.data?.jobId || null;
-    return json(
-      {
-        ok: result.ok,
-        jobId,
-        endpointId: ep,
-        input,
-        runpod: result.data,
-      },
-      result.ok ? 200 : result.status || 502,
-    );
+    return runRunpod(env, body);
   }
 
   return json({ error: 'unknown_action' }, 400);

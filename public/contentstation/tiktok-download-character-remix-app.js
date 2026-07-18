@@ -19,12 +19,13 @@
   const smallerNoHd = document.getElementById('opt-smaller-no-hd');
   const stripCaptions = document.getElementById('opt-strip-captions');
   const preserveAudio = document.getElementById('opt-preserve-audio');
+  const alterAudio = document.getElementById('opt-alter-audio');
   const restoreHooks = document.getElementById('opt-restore-hooks');
   const characterStrength = document.getElementById('opt-character-strength');
   const sceneRestyle = document.getElementById('opt-scene-restyle');
   const characterStrengthVal = document.getElementById('character-strength-val');
   const sceneRestyleVal = document.getElementById('scene-restyle-val');
-  const runpodConfig = document.getElementById('runpod-config');
+  const remixConfig = document.getElementById('remix-config') || document.getElementById('runpod-config');
   const remixBtn = document.getElementById('remix-btn');
   const stopBtn = document.getElementById('stop-btn');
   const statusLine = document.getElementById('status-line');
@@ -36,6 +37,8 @@
   let batchActive = false;
   /** @type {string|null} */
   let uploadedCharacterKey = null;
+  /** @type {'comfyui'|'runpod'|null} */
+  let activeBackend = null;
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -148,15 +151,24 @@
 
   async function loadConfig() {
     const { ok, data } = await api('/api/contentstation/character-remix?action=config');
-    if (!runpodConfig) return;
-    runpodConfig.hidden = false;
+    if (!remixConfig) return;
+    remixConfig.hidden = false;
+    activeBackend = data?.backend || null;
     if (!ok || !data?.configured) {
-      runpodConfig.textContent =
+      remixConfig.textContent =
         data?.message ||
-        'RunPod not configured — set RUNPOD_API_KEY and RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
+        'Not configured — set COMFYUI_BASE_URL (pod proxy) or RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
       return;
     }
-    runpodConfig.textContent = `RunPod remix endpoint ready${data.endpointId ? ` (${data.endpointId})` : ''}.`;
+    if (data.backend === 'comfyui') {
+      remixConfig.textContent =
+        data.message ||
+        'ComfyUI proxy ready (COMFYUI_BASE_URL). Start the RunPod pod before remixing.';
+      return;
+    }
+    remixConfig.textContent =
+      data.message ||
+      `RunPod serverless ready${data.endpointId ? ` (${data.endpointId})` : ''}.`;
   }
 
   function createCard(url, index) {
@@ -309,7 +321,7 @@
     }
   }
 
-  async function runRunpod(sourceKey, originalKey, characterKey) {
+  async function runRemix(sourceKey, originalKey, characterKey) {
     const { ok, data } = await api('/api/contentstation/character-remix', {
       method: 'POST',
       body: JSON.stringify({
@@ -327,12 +339,13 @@
       }),
     });
     if (!ok || !data?.jobId) {
-      throw new Error(data?.message || data?.error || 'RunPod submit failed');
+      throw new Error(data?.message || data?.error || 'Remix submit failed');
     }
-    return data.jobId;
+    if (data.backend) activeBackend = data.backend;
+    return { jobId: data.jobId, backend: data.backend || activeBackend };
   }
 
-  async function pollRunpod(jobId) {
+  async function pollRemix(jobId) {
     let errors = 0;
     for (;;) {
       if (stopRequested) throw new Error('Stopped');
@@ -343,32 +356,36 @@
       if (!st.ok) {
         errors += 1;
         if (errors >= MAX_POLL_ERRORS) {
-          throw new Error(st.data?.message || st.data?.error || 'RunPod status failed');
+          throw new Error(st.data?.message || st.data?.error || 'Remix status failed');
         }
         continue;
       }
       errors = 0;
       const status = String(st.data?.status || '').toUpperCase();
       if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
-        throw new Error(st.data?.error || st.data?.message || `RunPod ${status}`);
+        throw new Error(st.data?.error || st.data?.message || `Remix ${status}`);
+      }
+      if (status === 'COMPLETED' && st.data?.error === 'no_output_video') {
+        throw new Error('Remix finished but no output video was found');
       }
       if (status === 'COMPLETED' && st.data?.videoUrl) {
         return st.data.videoUrl;
       }
-      if (status === 'COMPLETED' && st.data?.remixReady && st.data?.videoUrl) {
+      if (st.data?.remixReady && st.data?.videoUrl) {
         return st.data.videoUrl;
       }
     }
   }
 
-  async function saveRemix(videoUrl, sourceKey, runpodJobId) {
+  async function saveRemix(videoUrl, sourceKey, jobId) {
     const { ok, data } = await api('/api/contentstation/character-remix', {
       method: 'POST',
       body: JSON.stringify({
         action: 'save',
         videoUrl,
         sourceKey,
-        runpodJobId,
+        runpodJobId: jobId,
+        jobId,
         filename: sourceKey,
       }),
     });
@@ -376,6 +393,69 @@
       throw new Error(data?.message || data?.error || 'Could not save remix to library');
     }
     return data;
+  }
+
+  /** Light uniquify via CloudConvert alter-audio (clean API, no GhostCut). */
+  async function uniquifyAlterAudio(videoUrl, sourceKey) {
+    const { ok, data } = await api('/api/contentstation/clean', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'submit',
+        videoUrl,
+        options: {
+          removeWatermark: false,
+          cleanMetadata: false,
+          alterAudio: true,
+          basicVideoRemix: false,
+          remix: false,
+          deepAiRemake: false,
+          mirror: false,
+          sourceKey: sourceKey || null,
+        },
+      }),
+    });
+    if (!ok) {
+      throw new Error(data?.message || data?.error || 'Alter-audio uniquify failed to start');
+    }
+    const workId = data.workId || data.id;
+    if (!workId) throw new Error('No uniquify workId');
+
+    let errors = 0;
+    for (;;) {
+      if (stopRequested) throw new Error('Stopped');
+      await sleep(POLL_MS);
+      const st = await api('/api/contentstation/clean', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'status', workId }),
+      });
+      if (!st.ok) {
+        errors += 1;
+        if (errors >= MAX_POLL_ERRORS) {
+          throw new Error(st.data?.message || st.data?.error || 'Uniquify status failed');
+        }
+        continue;
+      }
+      errors = 0;
+      const state = String(st.data?.state || '').toLowerCase();
+      if (state === 'failed') {
+        throw new Error(st.data?.error || st.data?.message || 'Uniquify failed');
+      }
+      if (st.data?.cleanedKey) {
+        return {
+          key: st.data.cleanedKey,
+          downloadPath:
+            st.data.downloadPath ||
+            `/api/contentstation/media?action=get&key=${encodeURIComponent(st.data.cleanedKey)}`,
+          publicUrl: st.data.publicUrl || null,
+        };
+      }
+      if (state === 'ready' && st.data?.downloadUrl) {
+        if (st.data.savingToLibrary) continue;
+        // Re-archive uniquified file into character-remix/
+        const saved = await saveRemix(st.data.downloadUrl, sourceKey, `uniquify:${workId}`);
+        return saved;
+      }
+    }
   }
 
   function sleep(ms) {
@@ -395,14 +475,31 @@
     }
 
     if (stopRequested) throw new Error('Stopped');
-    setCardStage(card, 'RunPod remix', 'Character replace + scene restyle…');
-    const jobId = await runRunpod(sourceKey, originalKey, characterKey);
-    setCardStage(card, 'RunPod remix', `Job ${jobId} — waiting…`);
-    const videoUrl = await pollRunpod(jobId);
+    const backendLabel = activeBackend === 'comfyui' ? 'ComfyUI remix' : 'RunPod remix';
+    setCardStage(card, backendLabel, 'Character replace (WAN Animate)…');
+    const { jobId, backend } = await runRemix(sourceKey, originalKey, characterKey);
+    const label = backend === 'comfyui' ? 'ComfyUI remix' : 'RunPod remix';
+    setCardStage(card, label, `Job ${jobId} — waiting…`);
+    const videoUrl = await pollRemix(jobId);
 
     if (stopRequested) throw new Error('Stopped');
     setCardStage(card, 'Saving', 'Uploading remix to library…');
-    const saved = await saveRemix(videoUrl, originalKey, jobId);
+    let saved = await saveRemix(videoUrl, originalKey, jobId);
+
+    if (alterAudio?.checked) {
+      if (stopRequested) throw new Error('Stopped');
+      setCardStage(card, 'Uniquify', 'Light audio alter (CloudConvert)…');
+      const fetchUrl = saved.publicUrl || (await mediaFetchUrl(saved.key));
+      try {
+        saved = await uniquifyAlterAudio(fetchUrl, originalKey);
+      } catch (err) {
+        // Remix is already saved — surface uniquify failure but keep result
+        setCardStage(card, 'Done', `Remix ready (uniquify skipped: ${err?.message || err})`);
+        showCardResult(card, saved);
+        return saved;
+      }
+    }
+
     setCardStage(card, 'Done', 'Remix ready');
     showCardResult(card, saved);
     return saved;
@@ -453,7 +550,10 @@
           while (!stopRequested && inFlight < MAX_RUNPOD_IN_FLIGHT && next < cards.length) {
             const item = cards[next++];
             inFlight += 1;
-            setStatus(`Remixing ${next} / ${cards.length}…`, `Up to ${MAX_RUNPOD_IN_FLIGHT} RunPod jobs at a time`);
+            setStatus(
+              `Remixing ${next} / ${cards.length}…`,
+              `Up to ${MAX_RUNPOD_IN_FLIGHT} ${activeBackend === 'comfyui' ? 'ComfyUI' : 'remix'} jobs at a time`,
+            );
             processOne(item.url, item.card, characterKey)
               .catch((err) => {
                 failures += 1;

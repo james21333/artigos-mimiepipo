@@ -1,8 +1,9 @@
 /**
- * Character remix helpers: RunPod WAN endpoint + archive remixed MP4s to R2.
+ * Character remix helpers: ComfyUI (preferred) or RunPod WAN + archive remixed MP4s to R2.
  */
 
 import { createR2PresignedGet } from './r2-presign.js';
+import { comfyConfigured } from './comfyui-client.js';
 
 export const CHARACTER_REMIX_PREFIX = 'character-remix/';
 export const CHARACTERS_PREFIX = 'characters/';
@@ -21,6 +22,21 @@ export function remixEndpointId(env, override) {
 
 export function runpodConfigured(env) {
   return Boolean(env.RUNPOD_API_KEY && remixEndpointId(env));
+}
+
+/** Prefer ComfyUI proxy when set; else RunPod serverless. */
+export function remixBackend(env) {
+  if (comfyConfigured(env)) return 'comfyui';
+  if (runpodConfigured(env)) return 'runpod';
+  return null;
+}
+
+export function remixConfigured(env) {
+  return remixBackend(env) != null;
+}
+
+export function isComfyJobId(jobId) {
+  return String(jobId || '').startsWith('comfy:');
 }
 
 export async function runpodFetch(env, path, { method = 'GET', body } = {}) {
@@ -171,4 +187,42 @@ export function extractOutputVideoUrl(data) {
     }
   }
   return null;
+}
+
+export function configPayload(env) {
+  const ep = remixEndpointId(env);
+  const backend = remixBackend(env);
+  const comfy = comfyConfigured(env);
+  const runpod = runpodConfigured(env);
+  let message;
+  if (backend === 'comfyui') {
+    message = 'Character remix via ComfyUI proxy (COMFYUI_BASE_URL). Start the pod before running jobs.';
+  } else if (backend === 'runpod') {
+    message = 'Character remix RunPod serverless endpoint ready.';
+  } else {
+    message =
+      'Set COMFYUI_BASE_URL (ComfyUI proxy while pod is up), or RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
+  }
+  return {
+    configured: Boolean(backend),
+    backend,
+    backends: {
+      comfyui: {
+        configured: comfy,
+        preferred: comfy,
+      },
+      runpod: {
+        configured: runpod,
+        hasApiKey: Boolean(env.RUNPOD_API_KEY),
+        hasEndpointId: Boolean(ep),
+        endpointId: ep,
+      },
+    },
+    hasApiKey: Boolean(env.RUNPOD_API_KEY),
+    hasEndpointId: Boolean(ep),
+    endpointId: ep,
+    templateId: env.RUNPOD_TEMPLATE_ID ? String(env.RUNPOD_TEMPLATE_ID) : null,
+    r2Public: Boolean(env.R2_PUBLIC_BASE_URL),
+    message,
+  };
 }

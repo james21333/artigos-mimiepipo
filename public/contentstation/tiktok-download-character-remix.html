@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content Station | TikTok Download Character Remix</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Download TikToks, strip speech captions, replace the character with RunPod WAN, restore non-speech hooks.">
+  <meta name="description" content="Download TikToks, strip speech captions, replace the character with ComfyUI WAN Animate, optional audio uniquify.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -44,7 +44,7 @@
         <h1>TikTok Download Character Remix</h1>
         <p class="lede">
           Paste up to 10 TikTok links and one character image. We download each clip, strip speech captions with GhostCut,
-          replace the person via RunPod WAN (same cuts/motion), then restore non-speech hooks and text.
+          replace the person via ComfyUI WAN Animate (or RunPod serverless), then optionally light-uniquify audio.
         </p>
 
         <label for="tiktok-urls">TikTok URLs</label>
@@ -75,6 +75,10 @@
             <span>Preserve original audio</span>
           </label>
           <label class="check">
+            <input type="checkbox" id="opt-alter-audio" checked>
+            <span>Light uniquify (alter audio after remix)</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="opt-restore-hooks" checked>
             <span>Restore non-speech hooks &amp; text after remix</span>
           </label>
@@ -88,7 +92,7 @@
           </label>
         </fieldset>
 
-        <p id="runpod-config" class="muted-line" hidden></p>
+        <p id="remix-config" class="muted-line" hidden></p>
 
         <div class="row">
           <button type="button" id="remix-btn">Download &amp; remix</button>
