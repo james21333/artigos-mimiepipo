@@ -76,11 +76,40 @@ async function statusComfy(env, jobId) {
   });
 }
 
+function runpodJobMissing(result) {
+  if (!result) return false;
+  if (result.status === 404) return true;
+  const data = result.data || {};
+  if (data.status === 404) return true;
+  const detail = String(data.detail || data.error || data.title || data.message || '');
+  return /job not found|not found/i.test(detail);
+}
+
 async function statusRunpod(env, jobId, endpointId) {
   const ep = remixEndpointId(env, endpointId);
   if (!ep) return json({ error: 'missing_endpoint', ...configPayload(env) }, 503);
   const result = await runpodFetch(env, `/${ep}/status/${encodeURIComponent(jobId)}`);
   const data = result.data || {};
+
+  // Gone / expired / never existed — return FAILED (200) so the UI stops polling.
+  if (runpodJobMissing(result)) {
+    return json(
+      {
+        backend: 'runpod',
+        jobId,
+        endpointId: ep,
+        status: 'FAILED',
+        error: 'job_not_found',
+        message:
+          'RunPod job not found (finished, expired, or never submitted on this endpoint). Refresh and retry.',
+        remixReady: false,
+        videoUrl: null,
+        progress: null,
+      },
+      200,
+    );
+  }
+
   const status = String(data.status || '').toUpperCase();
   let videoUrl = extractOutputVideoUrl(data);
   const b64 = !videoUrl && status === 'COMPLETED' ? extractOutputVideoBase64(data) : null;
@@ -154,6 +183,25 @@ async function statusRunpod(env, jobId, endpointId) {
         status: 'FAILED',
         error: workerError,
         message: data.output?.message || String(workerError),
+      },
+      200,
+    );
+  }
+
+  // COMPLETED with no URL/base64/error — worker exited without a usable output.
+  if (status === 'COMPLETED' && !videoUrl && !b64) {
+    return json(
+      {
+        ...slim,
+        output: undefined,
+        backend: 'runpod',
+        jobId,
+        videoUrl: null,
+        remixReady: false,
+        progress,
+        status: 'FAILED',
+        error: 'no_output_video',
+        message: 'Remix finished on RunPod but no output video was returned. Refresh and retry.',
       },
       200,
     );

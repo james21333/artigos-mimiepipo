@@ -2,6 +2,8 @@
   const MAX_URLS = 10;
   const POLL_MS = 4000;
   const MAX_POLL_ERRORS = 10;
+  /** Hard stop so cards cannot sit on "Processing…" forever. */
+  const MAX_REMIX_POLL_MS = 45 * 60 * 1000;
   const MAX_RUNPOD_IN_FLIGHT = 2;
 
   const gate = document.getElementById('gate');
@@ -372,13 +374,26 @@
 
   async function pollRemix(jobId, onProgress) {
     let errors = 0;
+    const started = Date.now();
     for (;;) {
       if (stopRequested) throw new Error('Stopped');
+      if (Date.now() - started > MAX_REMIX_POLL_MS) {
+        throw new Error(
+          'Remix timed out after 45 minutes with no usable result. Refresh and retry — the GPU job may have finished or vanished.',
+        );
+      }
       await sleep(POLL_MS);
       const st = await api(
         `/api/contentstation/character-remix?action=status&jobId=${encodeURIComponent(jobId)}`,
       );
       if (!st.ok) {
+        // Missing job / gone — fail immediately (do not soft-retry into a hang).
+        if (st.status === 404 || st.data?.error === 'job_not_found') {
+          throw new Error(
+            st.data?.message ||
+              'RunPod job not found (finished, expired, or never submitted). Refresh and retry.',
+          );
+        }
         errors += 1;
         if (errors >= MAX_POLL_ERRORS) {
           throw new Error(st.data?.message || st.data?.error || 'Remix status failed');
@@ -390,8 +405,14 @@
       if (typeof onProgress === 'function') {
         onProgress(st.data?.progress || null, status);
       }
-      if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
-        throw new Error(st.data?.message || st.data?.error || `Remix ${status}`);
+      if (
+        status === 'FAILED' ||
+        status === 'CANCELLED' ||
+        status === 'TIMED_OUT' ||
+        status === '404' ||
+        st.data?.error === 'job_not_found'
+      ) {
+        throw new Error(st.data?.message || st.data?.error || `Remix ${status || 'FAILED'}`);
       }
       if (status === 'COMPLETED' && st.data?.error === 'no_output_video') {
         throw new Error('Remix finished but no output video was found');
@@ -431,6 +452,24 @@
           downloadPath: st.data.downloadPath,
           progress: st.data.progress || null,
         };
+      }
+      // COMPLETED without video/remixReady used to loop forever on "Processing…".
+      if (status === 'COMPLETED') {
+        throw new Error(
+          st.data?.message ||
+            st.data?.error ||
+            'Remix completed but no output video was returned. Refresh and retry.',
+        );
+      }
+      // Empty/unknown non-terminal status — count toward soft errors, then fail clearly.
+      if (!status || !['IN_QUEUE', 'IN_PROGRESS', 'QUEUED', 'RUNNING', 'PENDING'].includes(status)) {
+        errors += 1;
+        if (errors >= MAX_POLL_ERRORS) {
+          throw new Error(
+            st.data?.message ||
+              `Remix status stuck (${status || 'empty'}). Job may be gone — refresh and retry.`,
+          );
+        }
       }
     }
   }
