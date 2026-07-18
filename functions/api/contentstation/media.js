@@ -147,7 +147,9 @@ async function streamGet(bucket, url) {
   if (obj.size != null) headers.set('Content-Length', String(obj.size));
   if (obj.httpEtag) headers.set('ETag', obj.httpEtag);
   const disposition = url.searchParams.get('download') === '1' ? 'attachment' : 'inline';
-  const filename = key.split('/').pop() || 'file';
+  // Neutral download name — avoid echoing tool-ish R2 path segments.
+  const leaf = key.split('/').pop() || 'video.mp4';
+  const filename = /\.(mp4|webm|mov|mkv)$/i.test(leaf) ? leaf : 'video.mp4';
   headers.set('Content-Disposition', `${disposition}; filename="${filename}"`);
   return new Response(obj.body, { status: 200, headers });
 }

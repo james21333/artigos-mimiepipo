@@ -121,7 +121,7 @@ export function buildRemixInput({
   };
 }
 
-/** Plain-language note for UI — never surface raw vace_* mode keys as badges. */
+/** Plain-language note for UI — never surface stack/mode keys as badges. */
 export function sceneRestyleNote(meta) {
   if (!meta || typeof meta !== 'object') return null;
   const mode = String(meta.mode || meta.debug?.mode || '');
@@ -129,44 +129,81 @@ export function sceneRestyleNote(meta) {
     meta.vace_failed === true ||
     meta.debug?.vace_failed === true ||
     /vace_failed/i.test(mode);
-  if (failed) return 'Scene restyle failed, used character-only';
+  if (failed) return "Scene restyle couldn't apply";
   if (/vace_scene_partial/i.test(mode)) return 'Scene restyle partially applied';
-  return typeof meta.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
+  // Only pass through notes that are already plain language (no stack fingerprints).
+  const note = typeof meta.note === 'string' ? meta.note.trim() : '';
+  if (!note) return null;
+  if (/vace|comfy|wan[_-]?animate|prompt_id|diffusion|workflow/i.test(note)) return null;
+  return note;
 }
 
+const WORKER_OUTPUT_FINGERPRINT_KEYS = new Set([
+  'prompt_id',
+  'prompt_ids',
+  'promptId',
+  'promptIds',
+  'comfy',
+  'comfy_url',
+  'workflow',
+  'workflow_name',
+]);
+
 /**
- * Keep VACE/debug fields for our UI under `debug`, but soft-gate scary AI keys
- * from the top-level client status shape. Never affects the media file.
+ * Client-facing processing_metadata only — no mode/vace_*/comfy/prompt fingerprints.
+ * Worker/RunPod logs may still carry the full metadata. Never affects the media file.
  */
 export function clientSafeProcessingMetadata(meta) {
   if (!meta || typeof meta !== 'object') return meta;
   const note = sceneRestyleNote(meta);
-  const debug = {
-    mode: meta.mode ?? null,
-    delivery_metadata_stripped: meta.delivery_metadata_stripped ?? null,
-    vace_enabled: meta.vace_enabled ?? null,
-    vace_available: meta.vace_available ?? null,
-    vace_succeeded_chunks: meta.vace_succeeded_chunks ?? null,
-    vace_attempted_chunks: meta.vace_attempted_chunks ?? null,
-    vace_failed: meta.vace_failed ?? null,
-    vace_error: meta.vace_error ?? null,
-    vace_errors: meta.vace_errors ?? null,
-    vace_chunks: meta.vace_chunks ?? null,
-    vace_workflow: meta.vace_workflow ?? null,
-    comfy: meta.comfy ?? null,
-    r2_key: meta.r2_key ?? null,
-    stages: meta.stages ?? null,
-    scene_restyle_strength: meta.scene_restyle_strength ?? null,
-  };
+  const hooks = meta.hooks_restore;
   return {
     stage: meta.stage ?? null,
     note,
     preserve_audio: meta.preserve_audio ?? null,
     max_source_seconds: meta.max_source_seconds ?? null,
     chunk_seconds: meta.chunk_seconds ?? null,
-    hooks_restore: meta.hooks_restore ?? null,
-    debug,
+    hooks_restore: hooks === 'skipped' ? 'skipped' : hooks ? 'optional' : null,
+    scene_restyle_strength:
+      typeof meta.scene_restyle_strength === 'number' ? meta.scene_restyle_strength : null,
   };
+}
+
+/** Drop stack fingerprints from worker/error strings shown in the browser. */
+export function clientSafeWorkerMessage(msg, fallback = 'Processing failed. Please retry.') {
+  if (msg == null || msg === '') return null;
+  const s = String(msg);
+  if (/vace|comfy|wan[_-]?animate|prompt_id|diffusion|workflow_missing/i.test(s)) return fallback;
+  return s;
+}
+
+/** Strip AI-stack fingerprint fields from worker `output` before browser/API JSON. */
+export function clientSafeWorkerOutput(output) {
+  if (!output || typeof output !== 'object') return output;
+  const {
+    video_base64: _vb,
+    videoBase64: _vb2,
+    processing_metadata: rawMeta,
+    ...rest
+  } = output;
+  const safe = {};
+  for (const [k, v] of Object.entries(rest)) {
+    if (WORKER_OUTPUT_FINGERPRINT_KEYS.has(k)) continue;
+    if (/^vace_/i.test(k)) continue;
+    if (/prompt_?id/i.test(k)) continue;
+    safe[k] = v;
+  }
+  if (rawMeta != null) {
+    safe.processing_metadata = clientSafeProcessingMetadata(rawMeta);
+  }
+  if (typeof safe.message === 'string') {
+    safe.message = clientSafeWorkerMessage(safe.message);
+  }
+  if (typeof safe.error === 'string') {
+    const scrubbed = clientSafeWorkerMessage(safe.error, 'processing_failed');
+    safe.error = scrubbed || 'processing_failed';
+  }
+  return safe;
 }
 
 /** Pull worker progress / stage from RunPod status payloads. */
@@ -189,7 +226,7 @@ export function extractRemixProgress(data) {
       null,
     chunk: progress && typeof progress === 'object' ? progress.chunk ?? null : null,
     chunks: progress && typeof progress === 'object' ? progress.chunks ?? null : null,
-    // Plain note for UI; raw mode stays under debug only.
+    // Plain note for UI only (no stack fingerprints).
     note,
     chunkCount: data.output?.chunk_count ?? meta?.chunk_count ?? null,
     durationSeconds: data.output?.duration_seconds ?? null,
@@ -368,24 +405,24 @@ export function configPayload(env) {
   let message;
   if (backend === 'runpod') {
     message =
-      'Full remix via RunPod Serverless: character replace, optional VACE scenery, segment+stitch ≤18s → one MP4.';
+      'Full remix via RunPod Serverless: character replace, optional scene restyle, segment+stitch ≤18s → one MP4.';
   } else if (backend === 'comfyui') {
     message =
-      'Debug: ComfyUI proxy (character only, no stitch). Production uses RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
+      'Debug proxy (character only, no stitch). Production uses RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
   } else {
     message =
-      'Set RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID (RunPod Serverless). See runpod/character-remix/README.md.';
+      'Set RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID (RunPod Serverless).';
   }
   return {
     configured: Boolean(backend),
     backend,
     pipeline: {
-      captionStrip: 'ghostcut_removeWatermark',
-      characterReplace: 'wan_animate_replace_person',
-      sceneRestyle: 'wan21_vace_if_workflow_present',
+      captionStrip: 'optional',
+      characterReplace: 'replace_person',
+      sceneRestyle: 'optional',
       segmentStitch: { maxSeconds: 18, chunkFrames: 81, chunkFps: 16 },
-      hooksRestore: 'ghostcut_ocr_minus_asr_burn',
-      alterAudio: 'cloudconvert_optional',
+      hooksRestore: 'optional',
+      alterAudio: 'optional',
       output: 'character-remix/ mp4',
     },
     backends: {

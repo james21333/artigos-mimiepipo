@@ -27,7 +27,8 @@ import {
   archiveRemixVideoFromBase64,
   buildRemixInput,
   configPayload,
-  clientSafeProcessingMetadata,
+  clientSafeWorkerMessage,
+  clientSafeWorkerOutput,
   extractOutputVideoBase64,
   extractOutputVideoUrl,
   extractRemixProgress,
@@ -174,15 +175,11 @@ async function statusRunpod(env, jobId, endpointId) {
       ? data.output.error || null
       : null;
 
-  // Strip bulky worker payloads from the client-facing status response.
-  // Soft-gate raw vace_* keys into processing_metadata.debug (still available for us).
+  // Strip bulky + AI-stack fingerprint fields from the client-facing status JSON.
+  // Full worker metadata remains in RunPod logs only.
   const slim = { ...data };
   if (slim.output && typeof slim.output === 'object') {
-    const { video_base64: _vb, videoBase64: _vb2, ...restOut } = slim.output;
-    if (restOut.processing_metadata) {
-      restOut.processing_metadata = clientSafeProcessingMetadata(restOut.processing_metadata);
-    }
-    slim.output = restOut;
+    slim.output = clientSafeWorkerOutput(slim.output);
   }
 
   // Materialize base64 worker output into R2 once so the client gets a fetchable URL.
@@ -240,8 +237,10 @@ async function statusRunpod(env, jobId, endpointId) {
         remixReady: false,
         progress,
         status: 'FAILED',
-        error: workerError,
-        message: data.output?.message || String(workerError),
+        error: clientSafeWorkerMessage(workerError, 'processing_failed') || 'processing_failed',
+        message:
+          clientSafeWorkerMessage(data.output?.message || workerError) ||
+          'Remix failed. Please retry.',
       },
       200,
     );
