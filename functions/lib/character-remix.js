@@ -168,7 +168,10 @@ function safeName(raw, fallback = 'remix') {
 /**
  * Download a finished remix URL into character-remix/ on R2.
  */
-export async function archiveRemixVideo(env, { sourceUrl, filename, sourceKey, runpodJobId } = {}) {
+export async function archiveRemixVideo(
+  env,
+  { sourceUrl, filename, sourceKey, runpodJobId, tiktokUrl } = {},
+) {
   const bucket = env.MEDIA_BUCKET;
   if (!bucket) return { ok: false, error: 'MEDIA_BUCKET not bound' };
   if (!sourceUrl || typeof sourceUrl !== 'string') {
@@ -195,6 +198,7 @@ export async function archiveRemixVideo(env, { sourceUrl, filename, sourceKey, r
       source: 'character-remix',
       runpodJobId: runpodJobId ? String(runpodJobId) : '',
       sourceKey: sourceKey ? String(sourceKey) : '',
+      tiktokUrl: tiktokUrl ? String(tiktokUrl).slice(0, 500) : '',
     },
   });
 
@@ -243,7 +247,7 @@ export function extractOutputVideoBase64(data) {
  */
 export async function archiveRemixVideoFromBase64(
   env,
-  { base64, filename, sourceKey, runpodJobId, mime, key: forcedKey } = {},
+  { base64, filename, sourceKey, runpodJobId, mime, key: forcedKey, tiktokUrl } = {},
 ) {
   const bucket = env.MEDIA_BUCKET;
   if (!bucket) return { ok: false, error: 'MEDIA_BUCKET not bound' };
@@ -294,6 +298,7 @@ export async function archiveRemixVideoFromBase64(
       source: 'character-remix',
       runpodJobId: runpodJobId ? String(runpodJobId) : '',
       sourceKey: sourceKey ? String(sourceKey) : '',
+      tiktokUrl: tiktokUrl ? String(tiktokUrl).slice(0, 500) : '',
     },
   });
 

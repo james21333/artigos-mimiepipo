@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | Downloaded videos</title>
+  <title>Content Station | Recent remixes</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Library of TikTok videos downloaded to the station.">
+  <meta name="description" content="Library of character-remixed TikTok videos archived on the station.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -16,12 +16,12 @@
         <a href="./cleaned.html">Cleaned videos</a>
         <a href="./tiktok-download.html">TikTok download</a>
         <a href="./tiktok-download-character-remix.html">Character remix</a>
-        <a href="./character-remixes.html">Recent remixes</a>
-        <a href="./downloaded.html" aria-current="page">Downloaded videos</a>
+        <a href="./character-remixes.html" aria-current="page">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Downloaded videos</p>
+      <p class="sub">Recent remixes</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -42,8 +42,12 @@
       </div>
 
       <section class="hero-flow">
-        <h1>Downloaded videos</h1>
-        <p class="lede">Your TikTok downloads library. Clips marked Cleaned already have a cleaned copy (safe to delete these originals later).</p>
+        <h1>Recent remixes</h1>
+        <p class="lede">
+          Archived character remixes from
+          <a class="btn-link" href="./tiktok-download-character-remix.html">Character remix</a>.
+          Run new jobs there — this page only lists finished MP4s.
+        </p>
 
         <div class="row">
           <button type="button" id="refresh-btn">Refresh</button>
@@ -53,12 +57,12 @@
         <p id="gallery-error" class="error" hidden></p>
 
         <div id="gallery-grid" class="gallery-grid" hidden></div>
-        <p id="gallery-empty" class="muted-line" hidden>No downloads yet. Save videos from the TikTok download page and they’ll show up here.</p>
+        <p id="gallery-empty" class="muted-line" hidden>No remixes yet. Finish a job on Character remix and it will show up here.</p>
       </section>
     </section>
 
     <p class="foot">
-      <a href="./tiktok-download.html">← TikTok download</a>
+      <a href="./tiktok-download-character-remix.html">← Character remix</a>
       ·
       <a href="./">Clean video</a>
       ·
@@ -66,6 +70,6 @@
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./downloaded-app.js"></script>
+  <script src="./character-remixes-app.js"></script>
 </body>
 </html>

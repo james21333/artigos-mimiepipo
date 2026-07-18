@@ -18,6 +18,7 @@
     { match: /(?:^|\/)(?:index\.html)?$/, roles: ['admin'], label: 'Clean' },
     { match: /cleaned\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix\.html/, roles: ['admin'] },
+    { match: /character-remixes\.html/, roles: ['admin'] },
     { match: /tiktok-download\.html/, roles: ['admin', 'download'] },
     { match: /downloaded\.html/, roles: ['admin'] },
     { match: /ready(?:-account)?\.html/, roles: ['admin', 'ready'] },
@@ -29,6 +30,7 @@
     downloaded: ['admin'],
     'tiktok-download': ['admin', 'download'],
     'tiktok-download-character-remix': ['admin'],
+    'character-remixes': ['admin'],
     ready: ['admin', 'ready'],
     'ready-account': ['admin', 'ready'],
     old: ['admin'],
@@ -74,6 +76,8 @@
       if (/ready(?:-account)?\.html/.test(href) || href.includes('ready.html')) {
         allowed = r === 'ready';
       } else if (/tiktok-download-character-remix\.html/.test(href)) {
+        allowed = false;
+      } else if (/character-remixes\.html/.test(href)) {
         allowed = false;
       } else if (/tiktok-download\.html/.test(href)) {
         allowed = r === 'download';

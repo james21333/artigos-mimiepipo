@@ -3,8 +3,9 @@
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
+ * GET  ?action=list[&limit=][&cursor=]
  * POST { action: "run", sourceKey, originalKey?, characterKey, options? }
- * POST { action: "save", videoUrl?, videoBase64?, sourceKey?, filename?, runpodJobId? }
+ * POST { action: "save", videoUrl?, videoBase64?, sourceKey?, filename?, runpodJobId?, tiktokUrl? }
  * POST { action: "cancel", jobId }
  *
  * Pipeline (client-driven):
@@ -18,6 +19,7 @@
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
+  CHARACTER_REMIX_PREFIX,
   archiveRemixVideo,
   archiveRemixVideoFromBase64,
   buildRemixInput,
@@ -59,6 +61,47 @@ async function resolveKeyUrl(env, key) {
     };
   }
   return { ok: true, key, url: fetchable.url, kind: fetchable.kind };
+}
+
+function remixDownloadPath(key) {
+  return `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+}
+
+async function listArchivedRemixes(env, url) {
+  const bucket = env.MEDIA_BUCKET;
+  if (!bucket) return json({ error: 'MEDIA_BUCKET not bound' }, 503);
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50) || 50));
+  const cursor = url.searchParams.get('cursor') || undefined;
+  const listed = await bucket.list({
+    prefix: CHARACTER_REMIX_PREFIX,
+    limit,
+    cursor,
+    include: ['httpMetadata', 'customMetadata'],
+  });
+  const objects = (listed.objects || [])
+    .filter((o) => o && o.key && !o.key.endsWith('/'))
+    .map((o) => {
+      const meta = o.customMetadata || {};
+      return {
+        key: o.key,
+        size: o.size,
+        uploaded: o.uploaded ? new Date(o.uploaded).toISOString() : null,
+        contentType: o.httpMetadata?.contentType || null,
+        downloadPath: remixDownloadPath(o.key),
+        publicUrl: publicMediaUrl(env, o.key),
+        sourceKey: meta.sourceKey || '',
+        tiktokUrl: meta.tiktokUrl || '',
+        runpodJobId: meta.runpodJobId || '',
+        customMetadata: meta,
+      };
+    });
+  return json({
+    status: 'ok',
+    prefix: CHARACTER_REMIX_PREFIX,
+    truncated: Boolean(listed.truncated),
+    cursor: listed.truncated ? listed.cursor : null,
+    objects,
+  });
 }
 
 async function statusComfy(env, jobId) {
@@ -347,6 +390,9 @@ export async function onRequest(context) {
       }
       return statusRunpod(env, jobId, url.searchParams.get('endpointId'));
     }
+    if (action === 'list') {
+      return listArchivedRemixes(env, url);
+    }
     return json({ error: 'unknown_action' }, 400);
   }
 
@@ -380,6 +426,7 @@ export async function onRequest(context) {
   }
 
   if (action === 'save') {
+    const tiktokUrl = body.tiktokUrl || body.sourceUrl || null;
     if (body.videoBase64) {
       const archived = await archiveRemixVideoFromBase64(env, {
         base64: body.videoBase64,
@@ -387,6 +434,7 @@ export async function onRequest(context) {
         filename: body.filename,
         sourceKey: body.sourceKey,
         runpodJobId: body.runpodJobId || body.jobId,
+        tiktokUrl,
       });
       if (!archived.ok) {
         return json({ error: archived.error || 'archive_failed' }, 502);
@@ -402,6 +450,7 @@ export async function onRequest(context) {
       filename: body.filename,
       sourceKey: body.sourceKey,
       runpodJobId: body.runpodJobId || body.jobId,
+      tiktokUrl,
     });
     if (!archived.ok) {
       return json({ error: archived.error || 'archive_failed' }, 502);

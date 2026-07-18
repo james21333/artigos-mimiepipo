@@ -5,6 +5,10 @@
   /** Hard stop so cards cannot sit on "Processing…" forever. */
   const MAX_REMIX_POLL_MS = 45 * 60 * 1000;
   const MAX_RUNPOD_IN_FLIGHT = 2;
+  /** Active RunPod/Comfy jobs that should resume after refresh. */
+  const ACTIVE_STORAGE_KEY = 'cs_character_remix_active_v1';
+  /** Drop stale active entries older than this (job likely expired). */
+  const ACTIVE_JOB_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -37,10 +41,47 @@
 
   let stopRequested = false;
   let batchActive = false;
+  let resumeActive = false;
   /** @type {string|null} */
   let uploadedCharacterKey = null;
   /** @type {'comfyui'|'runpod'|null} */
   let activeBackend = null;
+
+  function loadActiveJobs() {
+    try {
+      const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr)) return [];
+      const now = Date.now();
+      return arr.filter((j) => {
+        if (!j || !j.jobId) return false;
+        const started = Number(j.startedAt) || 0;
+        return !started || now - started < ACTIVE_JOB_MAX_AGE_MS;
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  function saveActiveJobs(jobs) {
+    try {
+      localStorage.setItem(ACTIVE_STORAGE_KEY, JSON.stringify(jobs || []));
+    } catch {
+      // quota / private mode — ignore
+    }
+  }
+
+  function upsertActiveJob(job) {
+    if (!job?.jobId) return;
+    const jobs = loadActiveJobs().filter((j) => j.jobId !== job.jobId);
+    jobs.push(job);
+    saveActiveJobs(jobs);
+  }
+
+  function removeActiveJob(jobId) {
+    if (!jobId) return;
+    saveActiveJobs(loadActiveJobs().filter((j) => j.jobId !== jobId));
+  }
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -76,6 +117,7 @@
     if (app) app.hidden = false;
     if (sessionMeta) sessionMeta.textContent = 'Signed in';
     void loadConfig();
+    void resumeActiveJobs();
   }
 
   async function refreshSession() {
@@ -637,13 +679,14 @@
     }
   }
 
-  async function saveRemix(videoRef, sourceKey, jobId) {
+  async function saveRemix(videoRef, sourceKey, jobId, tiktokUrl) {
     const payload = {
       action: 'save',
       sourceKey,
       runpodJobId: jobId,
       jobId,
       filename: sourceKey,
+      tiktokUrl: tiktokUrl || null,
     };
     if (typeof videoRef === 'string') {
       payload.videoUrl = videoRef;
@@ -738,7 +781,56 @@
     return new Promise((r) => setTimeout(r, ms));
   }
 
-  async function processOne(url, card, characterKey) {
+  /**
+   * Poll → save → optional uniquify for a job that already has a RunPod/Comfy id.
+   * Used by fresh batches and by refresh-resume.
+   */
+  async function finishRemixJob({
+    jobId,
+    card,
+    url,
+    sourceKey,
+    originalKey,
+    startedAt,
+    backend,
+    doAlterAudio,
+  }) {
+    const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
+    const etaTracker = createEtaTracker();
+    if (startedAt && Number.isFinite(Number(startedAt))) {
+      etaTracker.startedAt = Number(startedAt);
+    }
+    setCardStage(card, 'Starting GPU… often 2–10 min cold start', `${label} · job ${jobId}`);
+    const remixOut = await pollRemix(jobId, (progress, status) => {
+      const { stageLine, detail } = formatRemixCardProgress(progress, status, etaTracker);
+      setCardStage(card, stageLine, detail || `${label} · job ${jobId}`);
+    });
+
+    if (stopRequested) throw new Error('Stopped');
+    setCardStage(card, 'Saving', 'Archiving final MP4…');
+    let saved = await saveRemix(remixOut, originalKey || sourceKey, jobId, url);
+
+    if (doAlterAudio) {
+      if (stopRequested) throw new Error('Stopped');
+      setCardStage(card, 'Uniquify', 'Light audio alter (CloudConvert)…');
+      const fetchUrl = saved.publicUrl || (await mediaFetchUrl(saved.key));
+      try {
+        saved = await uniquifyAlterAudio(fetchUrl, originalKey || sourceKey);
+      } catch (err) {
+        setCardStage(card, 'Done', `Remix ready (uniquify skipped: ${err?.message || err})`);
+        showCardResult(card, saved);
+        removeActiveJob(jobId);
+        return saved;
+      }
+    }
+
+    setCardStage(card, 'Done', 'Remix ready');
+    showCardResult(card, saved);
+    removeActiveJob(jobId);
+    return saved;
+  }
+
+  async function processOne(url, card, characterKey, index) {
     setCardStage(card, 'Downloading', 'Fetching TikTok…');
     const originalKey = await downloadTikTok(url);
     if (stopRequested) throw new Error('Stopped');
@@ -754,39 +846,127 @@
     const backendLabel = activeBackend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
     setCardStage(card, backendLabel, 'Submitting segment → character → scenery → stitch…');
     const { jobId, backend } = await runRemix(sourceKey, originalKey, characterKey);
-    const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
-    const etaTracker = createEtaTracker();
-    setCardStage(card, 'Starting GPU… often 2–10 min cold start', `${label} · job ${jobId}`);
-    const remixOut = await pollRemix(jobId, (progress, status) => {
-      const { stageLine, detail } = formatRemixCardProgress(progress, status, etaTracker);
-      setCardStage(card, stageLine, detail || `${label} · job ${jobId}`);
+    if (backend) activeBackend = backend;
+    const startedAt = Date.now();
+    upsertActiveJob({
+      jobId,
+      url,
+      sourceKey,
+      originalKey,
+      characterKey,
+      startedAt,
+      backend: backend || activeBackend,
+      alterAudio: Boolean(alterAudio?.checked),
+      index: index ?? 0,
     });
 
-    if (stopRequested) throw new Error('Stopped');
-    setCardStage(card, 'Saving', 'Archiving final MP4…');
-    let saved = await saveRemix(remixOut, originalKey, jobId);
+    try {
+      return await finishRemixJob({
+        jobId,
+        card,
+        url,
+        sourceKey,
+        originalKey,
+        startedAt,
+        backend: backend || activeBackend,
+        doAlterAudio: Boolean(alterAudio?.checked),
+      });
+    } catch (err) {
+      // Keep active job so refresh can resume, unless the GPU job is clearly gone.
+      if (isTerminalRemixError(err)) removeActiveJob(jobId);
+      throw err;
+    }
+  }
 
-    if (alterAudio?.checked) {
-      if (stopRequested) throw new Error('Stopped');
-      setCardStage(card, 'Uniquify', 'Light audio alter (CloudConvert)…');
-      const fetchUrl = saved.publicUrl || (await mediaFetchUrl(saved.key));
-      try {
-        saved = await uniquifyAlterAudio(fetchUrl, originalKey);
-      } catch (err) {
-        // Remix is already saved — surface uniquify failure but keep result
-        setCardStage(card, 'Done', `Remix ready (uniquify skipped: ${err?.message || err})`);
-        showCardResult(card, saved);
-        return saved;
-      }
+  function isTerminalRemixError(err) {
+    const msg = String(err?.message || err || '');
+    if (!msg || msg === 'Stopped') return false;
+    return (
+      /job not found/i.test(msg) ||
+      /timed out after 45/i.test(msg) ||
+      /no output video/i.test(msg) ||
+      /\bCANCELLED\b/i.test(msg) ||
+      /\bTIMED_OUT\b/i.test(msg) ||
+      /\bFAILED\b/i.test(msg)
+    );
+  }
+
+  async function resumeActiveJobs() {
+    if (resumeActive || batchActive) return;
+    const jobs = loadActiveJobs();
+    if (!jobs.length) return;
+
+    resumeActive = true;
+    stopRequested = false;
+    if (remixBtn) remixBtn.disabled = true;
+    if (stopBtn) stopBtn.hidden = false;
+    if (results) {
+      results.hidden = false;
+      // Keep any in-DOM cards; append resume cards if empty or missing job cards.
     }
 
-    setCardStage(card, 'Done', 'Remix ready');
-    showCardResult(card, saved);
-    return saved;
+    const sorted = [...jobs].sort((a, b) => (Number(a.index) || 0) - (Number(b.index) || 0));
+    setStatus(
+      `Resuming ${sorted.length} remix job${sorted.length === 1 ? '' : 's'}…`,
+      'Progress survived refresh — polling GPU until done',
+    );
+
+    let failures = 0;
+    let inFlight = 0;
+    let next = 0;
+
+    await new Promise((resolve) => {
+      const pump = () => {
+        if (stopRequested && inFlight === 0) {
+          resolve();
+          return;
+        }
+        while (!stopRequested && inFlight < MAX_RUNPOD_IN_FLIGHT && next < sorted.length) {
+          const job = sorted[next++];
+          const card = createCard(job.url || job.jobId, job.index ?? next - 1);
+          card.dataset.jobId = job.jobId;
+          results.appendChild(card);
+          inFlight += 1;
+          if (job.backend) activeBackend = job.backend;
+          finishRemixJob({
+            jobId: job.jobId,
+            card,
+            url: job.url || '',
+            sourceKey: job.sourceKey || job.originalKey || '',
+            originalKey: job.originalKey || job.sourceKey || '',
+            startedAt: job.startedAt,
+            backend: job.backend || activeBackend,
+            doAlterAudio: Boolean(job.alterAudio),
+          })
+            .catch((err) => {
+              failures += 1;
+              setCardStage(card, 'Failed', err?.message || String(err));
+              card.classList.add('is-failed');
+              if (isTerminalRemixError(err)) removeActiveJob(job.jobId);
+            })
+            .finally(() => {
+              inFlight -= 1;
+              if (next >= sorted.length && inFlight === 0) resolve();
+              else pump();
+            });
+        }
+        if (next >= sorted.length && inFlight === 0) resolve();
+      };
+      pump();
+    });
+
+    if (stopRequested) setStatus('Stopped. Active jobs kept for next visit.');
+    else if (failures) setStatus(`Resumed with ${failures} failure(s).`);
+    else setStatus('Resumed jobs finished.');
+    resumeActive = false;
+    if (!batchActive) {
+      if (remixBtn) remixBtn.disabled = false;
+      if (stopBtn) stopBtn.hidden = true;
+    }
   }
 
   async function runBatch() {
-    if (batchActive) return;
+    if (batchActive || resumeActive) return;
     setError('');
     const urls = parseUrls(urlsInput?.value);
     if (!urls.length) {
@@ -814,7 +994,7 @@
       const cards = urls.map((u, i) => {
         const card = createCard(u, i);
         results.appendChild(card);
-        return { url: u, card };
+        return { url: u, card, index: i };
       });
 
       let inFlight = 0;
@@ -834,7 +1014,7 @@
               `Remixing ${next} / ${cards.length}…`,
               `Up to ${MAX_RUNPOD_IN_FLIGHT} ${activeBackend === 'comfyui' ? 'ComfyUI' : 'remix'} jobs at a time`,
             );
-            processOne(item.url, item.card, characterKey)
+            processOne(item.url, item.card, characterKey, item.index)
               .catch((err) => {
                 failures += 1;
                 setCardStage(item.card, 'Failed', err?.message || String(err));
@@ -851,7 +1031,7 @@
         pump();
       });
 
-      if (stopRequested) setStatus('Stopped.');
+      if (stopRequested) setStatus('Stopped. In-flight remix jobs will resume if you refresh.');
       else if (failures) setStatus(`Finished with ${failures} failure(s).`);
       else setStatus('All remixed.');
     } catch (err) {
