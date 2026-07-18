@@ -27,6 +27,7 @@ import {
   archiveRemixVideoFromBase64,
   buildRemixInput,
   configPayload,
+  clientSafeProcessingMetadata,
   extractOutputVideoBase64,
   extractOutputVideoUrl,
   extractRemixProgress,
@@ -91,6 +92,7 @@ async function listArchivedRemixes(env, url) {
     .filter((o) => o && o.key && !o.key.endsWith('/'))
     .map((o) => {
       const meta = o.customMetadata || {};
+      const jobId = meta.jobId || meta.runpodJobId || '';
       return {
         key: o.key,
         size: o.size,
@@ -100,7 +102,8 @@ async function listArchivedRemixes(env, url) {
         publicUrl: publicMediaUrl(env, o.key),
         sourceKey: meta.sourceKey || '',
         tiktokUrl: meta.tiktokUrl || '',
-        runpodJobId: meta.runpodJobId || '',
+        runpodJobId: jobId,
+        jobId,
         customMetadata: meta,
       };
     });
@@ -172,9 +175,13 @@ async function statusRunpod(env, jobId, endpointId) {
       : null;
 
   // Strip bulky worker payloads from the client-facing status response.
+  // Soft-gate raw vace_* keys into processing_metadata.debug (still available for us).
   const slim = { ...data };
   if (slim.output && typeof slim.output === 'object') {
     const { video_base64: _vb, videoBase64: _vb2, ...restOut } = slim.output;
+    if (restOut.processing_metadata) {
+      restOut.processing_metadata = clientSafeProcessingMetadata(restOut.processing_metadata);
+    }
     slim.output = restOut;
   }
 

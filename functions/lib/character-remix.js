@@ -121,6 +121,54 @@ export function buildRemixInput({
   };
 }
 
+/** Plain-language note for UI — never surface raw vace_* mode keys as badges. */
+export function sceneRestyleNote(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  const mode = String(meta.mode || meta.debug?.mode || '');
+  const failed =
+    meta.vace_failed === true ||
+    meta.debug?.vace_failed === true ||
+    /vace_failed/i.test(mode);
+  if (failed) return 'Scene restyle failed, used character-only';
+  if (/vace_scene_partial/i.test(mode)) return 'Scene restyle partially applied';
+  return typeof meta.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
+}
+
+/**
+ * Keep VACE/debug fields for our UI under `debug`, but soft-gate scary AI keys
+ * from the top-level client status shape. Never affects the media file.
+ */
+export function clientSafeProcessingMetadata(meta) {
+  if (!meta || typeof meta !== 'object') return meta;
+  const note = sceneRestyleNote(meta);
+  const debug = {
+    mode: meta.mode ?? null,
+    delivery_metadata_stripped: meta.delivery_metadata_stripped ?? null,
+    vace_enabled: meta.vace_enabled ?? null,
+    vace_available: meta.vace_available ?? null,
+    vace_succeeded_chunks: meta.vace_succeeded_chunks ?? null,
+    vace_attempted_chunks: meta.vace_attempted_chunks ?? null,
+    vace_failed: meta.vace_failed ?? null,
+    vace_error: meta.vace_error ?? null,
+    vace_errors: meta.vace_errors ?? null,
+    vace_chunks: meta.vace_chunks ?? null,
+    vace_workflow: meta.vace_workflow ?? null,
+    comfy: meta.comfy ?? null,
+    r2_key: meta.r2_key ?? null,
+    stages: meta.stages ?? null,
+    scene_restyle_strength: meta.scene_restyle_strength ?? null,
+  };
+  return {
+    stage: meta.stage ?? null,
+    note,
+    preserve_audio: meta.preserve_audio ?? null,
+    max_source_seconds: meta.max_source_seconds ?? null,
+    chunk_seconds: meta.chunk_seconds ?? null,
+    hooks_restore: meta.hooks_restore ?? null,
+    debug,
+  };
+}
+
 /** Pull worker progress / stage from RunPod status payloads. */
 export function extractRemixProgress(data) {
   if (!data || typeof data !== 'object') return null;
@@ -132,6 +180,7 @@ export function extractRemixProgress(data) {
     meta?.stage ||
     null;
   if (!stage && !meta && progress == null) return null;
+  const note = sceneRestyleNote(meta);
   return {
     stage: stage ? String(stage) : null,
     message:
@@ -140,9 +189,8 @@ export function extractRemixProgress(data) {
       null,
     chunk: progress && typeof progress === 'object' ? progress.chunk ?? null : null,
     chunks: progress && typeof progress === 'object' ? progress.chunks ?? null : null,
-    mode: meta?.mode || null,
-    vaceEnabled: meta?.vace_enabled ?? null,
-    vaceAvailable: meta?.vace_available ?? null,
+    // Plain note for UI; raw mode stays under debug only.
+    note,
     chunkCount: data.output?.chunk_count ?? meta?.chunk_count ?? null,
     durationSeconds: data.output?.duration_seconds ?? null,
   };
@@ -193,11 +241,12 @@ export async function archiveRemixVideo(
     return { ok: false, error: `download_failed_${res.status}` };
   }
   const buf = await res.arrayBuffer();
+  // Neutral R2 object metadata — no AI/tool brand strings TikTok-facing paths could echo.
   await bucket.put(key, buf, {
     httpMetadata: { contentType: 'video/mp4' },
     customMetadata: {
-      source: 'character-remix',
-      runpodJobId: runpodJobId ? String(runpodJobId) : '',
+      source: 'archive',
+      jobId: runpodJobId ? String(runpodJobId) : '',
       sourceKey: sourceKey ? String(sourceKey) : '',
       tiktokUrl: tiktokUrl ? String(tiktokUrl).slice(0, 500) : '',
     },
@@ -296,8 +345,8 @@ export async function archiveRemixVideoFromBase64(
   await bucket.put(key, bytes, {
     httpMetadata: { contentType: mime || 'video/mp4' },
     customMetadata: {
-      source: 'character-remix',
-      runpodJobId: runpodJobId ? String(runpodJobId) : '',
+      source: 'archive',
+      jobId: runpodJobId ? String(runpodJobId) : '',
       sourceKey: sourceKey ? String(sourceKey) : '',
       tiktokUrl: tiktokUrl ? String(tiktokUrl).slice(0, 500) : '',
     },

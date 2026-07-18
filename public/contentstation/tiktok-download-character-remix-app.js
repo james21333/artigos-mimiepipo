@@ -573,9 +573,9 @@
       return { stageLine: `Starting GPU… ${eta}`, detail: '' };
     }
     if (!label) {
-      return { stageLine: `Working · ${eta}`, detail: '' };
+      return { stageLine: `Working · ${eta}`, detail: progress?.note || '' };
     }
-    return { stageLine: `${label} · ${eta}`, detail: '' };
+    return { stageLine: `${label} · ${eta}`, detail: progress?.note || '' };
   }
 
   async function pollRemix(jobId, onProgress) {
@@ -632,6 +632,7 @@
           archivedKey: st.data.archivedKey || null,
           downloadPath: st.data.downloadPath || null,
           progress: st.data.progress || null,
+          note: st.data.progress?.note || null,
         };
       }
       if (st.data?.remixReady && st.data?.videoUrl) {
@@ -640,6 +641,7 @@
           archivedKey: st.data.archivedKey || null,
           downloadPath: st.data.downloadPath || null,
           progress: st.data.progress || null,
+          note: st.data.progress?.note || null,
         };
       }
       if (st.data?.remixReady && st.data?.videoBase64) {
@@ -649,6 +651,7 @@
           videoMime: st.data.videoMime || 'video/mp4',
           archivedKey: null,
           progress: st.data.progress || null,
+          note: st.data.progress?.note || null,
         };
       }
       if (st.data?.remixReady && st.data?.downloadPath && st.data?.archivedKey) {
@@ -657,6 +660,7 @@
           archivedKey: st.data.archivedKey,
           downloadPath: st.data.downloadPath,
           progress: st.data.progress || null,
+          note: st.data.progress?.note || null,
         };
       }
       // COMPLETED without video/remixReady used to loop forever on "Processing…".
@@ -873,7 +877,8 @@
         videoUrl,
         options: {
           removeWatermark: false,
-          cleanMetadata: false,
+          // Alter-audio path always strips map_metadata in CloudConvert (clean pipeline).
+          cleanMetadata: true,
           alterAudio: true,
           basicVideoRemix: false,
           remix: false,
@@ -990,7 +995,10 @@
       }
     }
 
-    setCardStage(card, 'Done', 'Remix ready');
+    const doneDetail = remixOut?.note
+      ? `Remix ready — ${remixOut.note}`
+      : 'Remix ready';
+    setCardStage(card, 'Done', doneDetail);
     showCardResult(card, saved);
     removeActiveJob(jobId);
     return saved;
