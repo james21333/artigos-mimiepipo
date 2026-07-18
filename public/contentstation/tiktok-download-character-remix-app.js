@@ -345,7 +345,32 @@
     return { jobId: data.jobId, backend: data.backend || activeBackend };
   }
 
-  async function pollRemix(jobId) {
+  function formatRemixProgress(progress, fallback) {
+    if (!progress) return fallback || 'Working…';
+    const stage = String(progress.stage || '').toLowerCase();
+    if (progress.message) return progress.message;
+    if (stage.includes('segment')) return 'Splitting into ~5s chunks…';
+    if (stage.includes('character_and_scene') || stage.includes('scene')) {
+      if (progress.chunk && progress.chunks) {
+        return `Character + scenery chunk ${progress.chunk}/${progress.chunks}…`;
+      }
+      return 'Character + scenery restyle…';
+    }
+    if (stage.includes('character')) {
+      if (progress.chunk && progress.chunks) {
+        return `Character replace chunk ${progress.chunk}/${progress.chunks}…`;
+      }
+      return 'Character replace…';
+    }
+    if (stage.includes('stitch')) return 'Stitching chunks into one MP4…';
+    if (stage.includes('audio')) return 'Remuxing original audio…';
+    if (stage.includes('upload')) return 'Uploading final MP4…';
+    if (stage.includes('download')) return 'Worker downloading media…';
+    if (stage === 'done') return 'Final MP4 ready';
+    return fallback || stage || 'Working…';
+  }
+
+  async function pollRemix(jobId, onProgress) {
     let errors = 0;
     for (;;) {
       if (stopRequested) throw new Error('Stopped');
@@ -362,17 +387,33 @@
       }
       errors = 0;
       const status = String(st.data?.status || '').toUpperCase();
+      if (typeof onProgress === 'function') {
+        onProgress(st.data?.progress || null, status);
+      }
       if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
-        throw new Error(st.data?.error || st.data?.message || `Remix ${status}`);
+        throw new Error(st.data?.message || st.data?.error || `Remix ${status}`);
       }
       if (status === 'COMPLETED' && st.data?.error === 'no_output_video') {
         throw new Error('Remix finished but no output video was found');
       }
+      if (status === 'COMPLETED' && st.data?.error && !st.data?.videoUrl && !st.data?.remixReady) {
+        throw new Error(st.data?.message || st.data?.error || 'Remix failed');
+      }
       if (status === 'COMPLETED' && st.data?.videoUrl) {
-        return { videoUrl: st.data.videoUrl, archivedKey: st.data.archivedKey || null };
+        return {
+          videoUrl: st.data.videoUrl,
+          archivedKey: st.data.archivedKey || null,
+          downloadPath: st.data.downloadPath || null,
+          progress: st.data.progress || null,
+        };
       }
       if (st.data?.remixReady && st.data?.videoUrl) {
-        return { videoUrl: st.data.videoUrl, archivedKey: st.data.archivedKey || null };
+        return {
+          videoUrl: st.data.videoUrl,
+          archivedKey: st.data.archivedKey || null,
+          downloadPath: st.data.downloadPath || null,
+          progress: st.data.progress || null,
+        };
       }
       if (st.data?.remixReady && st.data?.videoBase64) {
         return {
@@ -380,12 +421,15 @@
           videoBase64: st.data.videoBase64,
           videoMime: st.data.videoMime || 'video/mp4',
           archivedKey: null,
+          progress: st.data.progress || null,
         };
       }
       if (st.data?.remixReady && st.data?.downloadPath && st.data?.archivedKey) {
         return {
           videoUrl: st.data.videoUrl || st.data.downloadPath,
           archivedKey: st.data.archivedKey,
+          downloadPath: st.data.downloadPath,
+          progress: st.data.progress || null,
         };
       }
     }
@@ -406,7 +450,10 @@
       payload.videoMime = videoRef.videoMime || 'video/mp4';
     } else if (videoRef?.archivedKey) {
       // Already archived during status poll (base64 materialize).
-      return { ok: true, key: videoRef.archivedKey, downloadPath: videoRef.videoUrl };
+      const path =
+        videoRef.downloadPath ||
+        `/api/contentstation/media?action=get&key=${encodeURIComponent(videoRef.archivedKey)}`;
+      return { ok: true, key: videoRef.archivedKey, downloadPath: path, publicUrl: videoRef.videoUrl || null };
     } else if (videoRef?.videoUrl) {
       payload.videoUrl = videoRef.videoUrl;
     } else {
@@ -502,15 +549,17 @@
     }
 
     if (stopRequested) throw new Error('Stopped');
-    const backendLabel = activeBackend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Serverless remix';
-    setCardStage(card, backendLabel, 'Character replace (WAN Animate)…');
+    const backendLabel = activeBackend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
+    setCardStage(card, backendLabel, 'Submitting segment → character → scenery → stitch…');
     const { jobId, backend } = await runRemix(sourceKey, originalKey, characterKey);
-    const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Serverless remix';
-    setCardStage(card, label, `Job ${jobId} — waiting (GPU may cold-start)…`);
-    const remixOut = await pollRemix(jobId);
+    const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
+    setCardStage(card, label, `Job ${jobId} — waiting for GPU…`);
+    const remixOut = await pollRemix(jobId, (progress) => {
+      setCardStage(card, label, formatRemixProgress(progress, 'Processing…'));
+    });
 
     if (stopRequested) throw new Error('Stopped');
-    setCardStage(card, 'Saving', 'Uploading remix to library…');
+    setCardStage(card, 'Saving', 'Archiving final MP4…');
     let saved = await saveRemix(remixOut, originalKey, jobId);
 
     if (alterAudio?.checked) {

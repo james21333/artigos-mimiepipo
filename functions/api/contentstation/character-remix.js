@@ -10,8 +10,9 @@
  * Pipeline (client-driven):
  *   1) TikTok download → R2 tiktok/
  *   2) GhostCut removeWatermark only (caption strip)
- *   3) This API → RunPod Serverless (primary) or ComfyUI proxy (debug)
- *   4) save → character-remix/
+ *   3) This API → RunPod Serverless worker:
+ *        segment → character replace → optional VACE scenery → stitch → audio → MP4
+ *   4) save → character-remix/ (idempotent if worker already archived)
  *   5) optional CloudConvert alter-audio uniquify (client via /clean)
  */
 
@@ -23,6 +24,7 @@ import {
   configPayload,
   extractOutputVideoBase64,
   extractOutputVideoUrl,
+  extractRemixProgress,
   fetchableMediaUrl,
   isComfyJobId,
   publicMediaUrl,
@@ -82,6 +84,11 @@ async function statusRunpod(env, jobId, endpointId) {
   const status = String(data.status || '').toUpperCase();
   let videoUrl = extractOutputVideoUrl(data);
   const b64 = !videoUrl && status === 'COMPLETED' ? extractOutputVideoBase64(data) : null;
+  const progress = extractRemixProgress(data);
+  const workerError =
+    status === 'COMPLETED' && data.output && typeof data.output === 'object'
+      ? data.output.error || null
+      : null;
 
   // Strip bulky worker payloads from the client-facing status response.
   const slim = { ...data };
@@ -110,12 +117,12 @@ async function statusRunpod(env, jobId, endpointId) {
           archivedKey: archived.key,
           downloadPath: archived.downloadPath,
           remixReady: true,
+          progress,
           status: 'COMPLETED',
         },
         200,
       );
     }
-    // Still mark ready with base64 so client can POST action=save with videoBase64.
     return json(
       {
         ...slim,
@@ -127,9 +134,28 @@ async function statusRunpod(env, jobId, endpointId) {
         videoMime: b64.mime,
         archiveError: archived.error,
         remixReady: true,
+        progress,
         status: 'COMPLETED',
       },
       result.ok ? 200 : result.status || 502,
+    );
+  }
+
+  if (status === 'COMPLETED' && workerError && !videoUrl && !b64) {
+    return json(
+      {
+        ...slim,
+        output: undefined,
+        backend: 'runpod',
+        jobId,
+        videoUrl: null,
+        remixReady: false,
+        progress,
+        status: 'FAILED',
+        error: workerError,
+        message: data.output?.message || String(workerError),
+      },
+      200,
     );
   }
 
@@ -140,6 +166,7 @@ async function statusRunpod(env, jobId, endpointId) {
       jobId,
       videoUrl,
       remixReady: Boolean(videoUrl) && status === 'COMPLETED',
+      progress,
     },
     result.ok ? 200 : result.status || 502,
   );

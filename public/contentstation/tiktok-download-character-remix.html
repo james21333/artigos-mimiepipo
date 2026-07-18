@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content Station | TikTok Download Character Remix</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Download TikToks, strip speech captions, replace the character with ComfyUI WAN Animate, optional audio uniquify.">
+  <meta name="description" content="Download TikToks, strip speech captions, character replace + scene restyle, stitch up to ~18s, return a finished MP4.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -43,8 +43,8 @@
       <section class="hero-flow">
         <h1>TikTok Download Character Remix</h1>
         <p class="lede">
-          Paste up to 10 TikTok links and one character image. We download each clip, strip speech captions with GhostCut,
-          replace the person via ComfyUI WAN Animate (or RunPod serverless), then optionally light-uniquify audio.
+          Paste up to 10 TikTok links and one character image. Each clip is downloaded, speech captions stripped,
+          remixed (character replace + scenery when available), stitched up to ~18s, archived as an MP4, then optionally audio-uniquified.
         </p>
 
         <label for="tiktok-urls">TikTok URLs</label>
@@ -80,7 +80,7 @@
           </label>
           <label class="check">
             <input type="checkbox" id="opt-restore-hooks" checked>
-            <span>Restore non-speech hooks &amp; text after remix</span>
+            <span>Restore non-speech hooks &amp; text after remix <em class="muted-line">(coming soon)</em></span>
           </label>
           <label class="slider-row" for="opt-character-strength">
             <span>Character strength <em id="character-strength-val">0.90</em></span>

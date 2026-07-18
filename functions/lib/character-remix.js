@@ -103,6 +103,7 @@ export function buildRemixInput({
     character_image_url: characterImageUrl,
     character_strength: numOr(opts.characterStrength, 0.9),
     automatic_scene_restyle_strength: numOr(opts.sceneRestyleStrength, 0.62),
+    enable_scene_restyle: opts.enableSceneRestyle !== false,
     source_scene_similarity: numOr(opts.sourceSceneSimilarity, 0.72),
     environment_variation: numOr(opts.environmentVariation, 0.58),
     preserve_audio: opts.preserveAudio !== false,
@@ -113,6 +114,36 @@ export function buildRemixInput({
     output_fps: opts.outputFps ?? 24,
     seed: opts.seed ?? Math.floor(Math.random() * 1e9),
     frame_load_cap: opts.frameLoadCap ?? 81,
+    max_source_seconds: numOr(opts.maxSourceSeconds, 18),
+    chunk_seconds: numOr(opts.chunkSeconds, 81 / 16),
+    max_chunks: Math.max(1, Math.floor(numOr(opts.maxChunks, 4))),
+  };
+}
+
+/** Pull worker progress / stage from RunPod status payloads. */
+export function extractRemixProgress(data) {
+  if (!data || typeof data !== 'object') return null;
+  const progress = data.progress ?? data.output?.progress ?? null;
+  const meta = data.output?.processing_metadata || data.processing_metadata || null;
+  const stage =
+    (progress && typeof progress === 'object' && (progress.stage || progress.message)) ||
+    (typeof progress === 'string' ? progress : null) ||
+    meta?.stage ||
+    null;
+  if (!stage && !meta && progress == null) return null;
+  return {
+    stage: stage ? String(stage) : null,
+    message:
+      (progress && typeof progress === 'object' && progress.message) ||
+      (typeof progress === 'string' ? progress : null) ||
+      null,
+    chunk: progress && typeof progress === 'object' ? progress.chunk ?? null : null,
+    chunks: progress && typeof progress === 'object' ? progress.chunks ?? null : null,
+    mode: meta?.mode || null,
+    vaceEnabled: meta?.vace_enabled ?? null,
+    vaceAvailable: meta?.vace_available ?? null,
+    chunkCount: data.output?.chunk_count ?? meta?.chunk_count ?? null,
+    durationSeconds: data.output?.duration_seconds ?? null,
   };
 }
 
@@ -281,10 +312,11 @@ export function configPayload(env) {
   const runpod = runpodConfigured(env);
   let message;
   if (backend === 'runpod') {
-    message = 'Character remix via RunPod Serverless (auto GPU scale-to-zero).';
+    message =
+      'Full remix via RunPod Serverless: character replace, optional VACE scenery, segment+stitch ≤18s → one MP4.';
   } else if (backend === 'comfyui') {
     message =
-      'Debug: ComfyUI proxy (COMFYUI_BASE_URL). Production uses RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
+      'Debug: ComfyUI proxy (character only, no stitch). Production uses RUNPOD_CHARACTER_REMIX_ENDPOINT_ID.';
   } else {
     message =
       'Set RUNPOD_API_KEY + RUNPOD_CHARACTER_REMIX_ENDPOINT_ID (RunPod Serverless). See runpod/character-remix/README.md.';
@@ -292,6 +324,15 @@ export function configPayload(env) {
   return {
     configured: Boolean(backend),
     backend,
+    pipeline: {
+      captionStrip: 'ghostcut_removeWatermark',
+      characterReplace: 'wan_animate_replace_person',
+      sceneRestyle: 'wan21_vace_if_workflow_present',
+      segmentStitch: { maxSeconds: 18, chunkFrames: 81, chunkFps: 16 },
+      hooksRestore: 'stub',
+      alterAudio: 'cloudconvert_optional',
+      output: 'character-remix/ mp4',
+    },
     backends: {
       runpod: {
         configured: runpod,
