@@ -347,29 +347,192 @@
     return { jobId: data.jobId, backend: data.backend || activeBackend };
   }
 
-  function formatRemixProgress(progress, fallback) {
-    if (!progress) return fallback || 'Working…';
+  /** Cap rough ETA display so it never looks absurdly precise or endless. */
+  const ETA_DISPLAY_MAX_MIN = 55;
+  const ETA_CHUNK_COLD_LO = 8;
+  const ETA_CHUNK_COLD_HI = 15;
+  const ETA_CHUNK_WARM_LO = 6;
+  const ETA_CHUNK_WARM_HI = 12;
+  const ETA_STITCH_MIN = 1.5;
+
+  function createEtaTracker() {
+    return {
+      startedAt: Date.now(),
+      firstChunkAt: null,
+      lastChunk: null,
+      lastChunks: null,
+      chunkStartAt: null,
+      /** @type {number[]} ms for fully completed chunks */
+      completedDurations: [],
+    };
+  }
+
+  function clampEtaMin(n) {
+    return Math.max(1, Math.min(ETA_DISPLAY_MAX_MIN, Math.round(n)));
+  }
+
+  /** Rough minutes only — never invent seconds. */
+  function formatEtaPhrase(lo, hi) {
+    let a = clampEtaMin(lo);
+    let b = clampEtaMin(hi);
+    if (b < a) b = a;
+    if (a === b) return `~${a} min left`;
+    if (b - a <= 3 && b <= 5) return `~${a}–${b} min left`;
+    return `Est. ~${a}–${b} min remaining`;
+  }
+
+  function remixStageLabel(progress) {
+    if (!progress) return null;
     const stage = String(progress.stage || '').toLowerCase();
-    if (progress.message) return progress.message;
-    if (stage.includes('segment')) return 'Splitting into ~5s chunks…';
-    if (stage.includes('character_and_scene') || stage.includes('scene')) {
-      if (progress.chunk && progress.chunks) {
-        return `Character + scenery chunk ${progress.chunk}/${progress.chunks}…`;
-      }
-      return 'Character + scenery restyle…';
+    const chunk = Number(progress.chunk);
+    const chunks = Number(progress.chunks || progress.chunkCount);
+    const hasChunks =
+      Number.isFinite(chunk) && chunk >= 1 && Number.isFinite(chunks) && chunks >= 1;
+
+    if (stage.includes('segment')) return 'Splitting into chunks';
+    if (stage.includes('character_and_scene') || (stage.includes('scene') && stage.includes('restyl'))) {
+      return hasChunks ? `Character + scenery ${chunk}/${chunks}` : 'Character + scenery';
+    }
+    if (stage.includes('scene') && !stage.includes('character')) {
+      return hasChunks ? `Character + scenery ${chunk}/${chunks}` : 'Character + scenery';
     }
     if (stage.includes('character')) {
-      if (progress.chunk && progress.chunks) {
-        return `Character replace chunk ${progress.chunk}/${progress.chunks}…`;
-      }
-      return 'Character replace…';
+      return hasChunks ? `Character replace ${chunk}/${chunks}` : 'Character replace';
     }
-    if (stage.includes('stitch')) return 'Stitching chunks into one MP4…';
-    if (stage.includes('audio')) return 'Remuxing original audio…';
-    if (stage.includes('upload')) return 'Uploading final MP4…';
-    if (stage.includes('download')) return 'Worker downloading media…';
-    if (stage === 'done') return 'Final MP4 ready';
-    return fallback || stage || 'Working…';
+    if (stage.includes('stitch')) return 'Stitching';
+    if (stage.includes('audio')) return 'Remuxing audio';
+    if (stage.includes('upload')) return 'Uploading';
+    if (stage.includes('download')) return 'Downloading media';
+    if (stage === 'done') return 'Finalizing';
+    if (progress.message) {
+      return String(progress.message)
+        .replace(/\s*…\s*$/, '')
+        .replace(/\s*\.\s*$/, '');
+    }
+    return stage || null;
+  }
+
+  function noteChunkProgress(progress, tracker) {
+    const chunk = Number(progress?.chunk);
+    const chunks = Number(progress?.chunks || progress?.chunkCount);
+    if (!Number.isFinite(chunk) || chunk < 1 || !Number.isFinite(chunks) || chunks < 1) return;
+    const now = Date.now();
+    if (!tracker.firstChunkAt) tracker.firstChunkAt = now;
+    if (tracker.lastChunk != null && chunk > tracker.lastChunk && tracker.chunkStartAt) {
+      tracker.completedDurations.push(now - tracker.chunkStartAt);
+    }
+    if (tracker.lastChunk !== chunk) {
+      tracker.lastChunk = chunk;
+      tracker.lastChunks = chunks;
+      tracker.chunkStartAt = now;
+    } else if (tracker.lastChunks !== chunks) {
+      tracker.lastChunks = chunks;
+    }
+  }
+
+  /**
+   * Pragmatic ETA from RunPod status + stage/chunk progress.
+   * Returns a short phrase (no leading separator).
+   */
+  function estimateRemixEta(progress, status, tracker) {
+    const now = Date.now();
+    const elapsedMin = (now - tracker.startedAt) / 60000;
+    const st = String(status || '').toUpperCase();
+    const stage = String(progress?.stage || '').toLowerCase();
+    const queued =
+      !progress ||
+      !stage ||
+      st === 'IN_QUEUE' ||
+      st === 'QUEUED' ||
+      st === 'PENDING';
+
+    noteChunkProgress(progress, tracker);
+
+    if (stage.includes('stitch') || stage.includes('audio') || stage.includes('upload') || stage === 'done') {
+      // Shrink as finishing steps run.
+      if (elapsedMin > 0 && stage.includes('upload')) return '~1 min left';
+      return formatEtaPhrase(1, 2);
+    }
+
+    if (queued) {
+      if (elapsedMin < 1.5) return 'often 2–10 min cold start';
+      if (elapsedMin < 10) {
+        return formatEtaPhrase(Math.max(1, 2 - elapsedMin * 0.2), Math.max(3, 10 - elapsedMin));
+      }
+      return 'still starting… GPU cold starts vary';
+    }
+
+    const chunk = Number(progress?.chunk);
+    const chunks = Number(progress?.chunks || progress?.chunkCount);
+    const hasChunks =
+      Number.isFinite(chunk) && chunk >= 1 && Number.isFinite(chunks) && chunks >= 1;
+
+    if (stage.includes('segment') || stage.includes('download')) {
+      const assumed = hasChunks ? chunks : 3;
+      return formatEtaPhrase(assumed * ETA_CHUNK_WARM_LO + ETA_STITCH_MIN, assumed * ETA_CHUNK_COLD_HI + 2);
+    }
+
+    if (hasChunks) {
+      const remainingChunks = Math.max(1, chunks - chunk + 1);
+      const warm = st === 'IN_PROGRESS' || st === 'RUNNING';
+      const onChunkMin = tracker.chunkStartAt ? (now - tracker.chunkStartAt) / 60000 : 0;
+
+      if (tracker.completedDurations.length > 0) {
+        const avgMin =
+          tracker.completedDurations.reduce((a, b) => a + b, 0) /
+          tracker.completedDurations.length /
+          60000;
+        const per = Math.max(2, Math.min(20, avgMin));
+        const currentLeft = Math.max(0.75, per - onChunkMin);
+        const others = Math.max(0, remainingChunks - 1) * per;
+        const total = currentLeft + others + ETA_STITCH_MIN;
+        return formatEtaPhrase(total * 0.85, Math.min(ETA_DISPLAY_MAX_MIN, total * 1.2));
+      }
+
+      // First chunk(s): cold heuristic, tighten once we've been on a chunk a while.
+      let loPer = warm ? ETA_CHUNK_WARM_LO : ETA_CHUNK_COLD_LO;
+      let hiPer = warm ? ETA_CHUNK_WARM_HI : ETA_CHUNK_COLD_HI;
+      if (onChunkMin >= 5) {
+        loPer = Math.max(4, loPer - 2);
+        hiPer = Math.max(loPer + 2, hiPer - 2);
+      }
+      let lo = remainingChunks * loPer + ETA_STITCH_MIN;
+      let hi = remainingChunks * hiPer + 2;
+      // Credit time already spent on the current chunk.
+      if (onChunkMin > 1) {
+        lo = Math.max(1, lo - onChunkMin * 0.6);
+        hi = Math.max(lo + 1, hi - onChunkMin * 0.5);
+      }
+      return formatEtaPhrase(lo, hi);
+    }
+
+    // In progress but no chunk numbers yet.
+    if (st === 'IN_PROGRESS' || st === 'RUNNING') {
+      const rem = Math.max(5, 22 - elapsedMin);
+      return formatEtaPhrase(Math.min(rem, 12), Math.min(ETA_DISPLAY_MAX_MIN, rem + 10));
+    }
+
+    return 'often 2–10 min cold start';
+  }
+
+  /** Stage line for result cards: “Character + scenery 1/2 · ~12 min left”. */
+  function formatRemixCardProgress(progress, status, tracker) {
+    const st = String(status || '').toUpperCase();
+    const label = remixStageLabel(progress);
+    const eta = estimateRemixEta(progress, status, tracker);
+    const queued =
+      !label ||
+      st === 'IN_QUEUE' ||
+      st === 'QUEUED' ||
+      st === 'PENDING';
+
+    if (queued && (!progress || !progress.stage)) {
+      return { stageLine: `Starting GPU… ${eta}`, detail: '' };
+    }
+    if (!label) {
+      return { stageLine: `Working · ${eta}`, detail: '' };
+    }
+    return { stageLine: `${label} · ${eta}`, detail: '' };
   }
 
   async function pollRemix(jobId, onProgress) {
@@ -592,9 +755,11 @@
     setCardStage(card, backendLabel, 'Submitting segment → character → scenery → stitch…');
     const { jobId, backend } = await runRemix(sourceKey, originalKey, characterKey);
     const label = backend === 'comfyui' ? 'ComfyUI remix (debug)' : 'Full remix';
-    setCardStage(card, label, `Job ${jobId} — waiting for GPU…`);
-    const remixOut = await pollRemix(jobId, (progress) => {
-      setCardStage(card, label, formatRemixProgress(progress, 'Processing…'));
+    const etaTracker = createEtaTracker();
+    setCardStage(card, 'Starting GPU… often 2–10 min cold start', `${label} · job ${jobId}`);
+    const remixOut = await pollRemix(jobId, (progress, status) => {
+      const { stageLine, detail } = formatRemixCardProgress(progress, status, etaTracker);
+      setCardStage(card, stageLine, detail || `${label} · job ${jobId}`);
     });
 
     if (stopRequested) throw new Error('Stopped');
