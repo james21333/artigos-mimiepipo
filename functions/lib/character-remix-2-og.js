@@ -35,12 +35,17 @@ export function configPayload(env) {
     hasWorkerSecret: Boolean(String(env?.REMIX2_WORKER_SECRET || '').trim()),
     stages: {
       analyze: 'ffmpeg-edl-ms',
+      deriveCharacter: 'codex-oauth-auto-similar',
       firstFrames: 'codex-oauth',
       videos: 'grok-oauth',
       stitch: 'ffmpeg-edl-trim',
     },
+    characterModes: ['upload', 'auto-similar'],
+    versions: ['v1', 'v2'],
+    identityLockNote:
+      'V2 (identityLock): uploaded character only — Codex refs = character (+ product/set); never structure_*/TikTok keyframes; Grok start = Codex stills.',
     message: configured
-      ? 'Remix 2 ready: TikTok → ms EDL → Codex frames → Grok clips → stitch (structure-close; motion not exact).'
+      ? 'Remix 2 ready: TikTok → ms EDL → (optional auto-similar character) → Codex frames → Grok clips → stitch. V2 = identity-lock upload.'
       : 'Set REMIX2_WORKER_URL and REMIX2_WORKER_SECRET (Fast Panda worker).',
     n8nFallbackNote:
       'If video gen fails, fall back to visual n8n on Fast Panda for audit/tweak — not required for v1.',

@@ -3,9 +3,18 @@
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
- * POST { action: "create", characterKey, scenes? | sourceKey?, autoRun? }
- * POST { action: "from-tiktok", tiktokUrl, characterKey, autoRun? }
- * POST { action: "run" | "first-frames" | "videos" | "stitch", jobId }
+ * POST { action: "create", characterKey?, characterMode?, version?, identityLock?, scenes? | sourceKey?, autoRun? }
+ * POST { action: "from-tiktok", tiktokUrl, characterKey?, characterMode?, version?, identityLock?, autoRun? }
+ * POST { action: "run" | "first-frames" | "videos" | "stitch" | "derive-character", jobId }
+ *
+ * characterMode: "upload" (default) | "auto-similar"
+ *   auto-similar / deriveCharacterFromSource:true → Codex invents a similar character from
+ *   TikTok keyframes first; that image is identity for all scene frames. Uploaded character
+ *   is ignored when auto-similar is selected.
+ *
+ * version: "v1" (default) | "v2"
+ * identityLock: true (or version=v2) → uploaded character only; never structure_* / TikTok
+ *   keyframes as Codex image refs; Grok start images must be Codex stills. Auto-similar forbidden.
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
@@ -75,15 +84,39 @@ export async function onRequest(context) {
       return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
     }
     const tiktokUrl = String(body.tiktokUrl || body.url || '').trim();
-    const characterKey = body.characterKey;
+    const characterKey = body.characterKey || null;
+    const versionRaw = String(body.version || 'v1').trim().toLowerCase();
+    const identityLock = body.identityLock === true || versionRaw === 'v2' || versionRaw === '2';
+    const version = identityLock ? 'v2' : 'v1';
+    const characterMode = identityLock
+      ? 'upload'
+      : body.deriveCharacterFromSource
+        ? 'auto-similar'
+        : String(body.characterMode || 'upload').trim() || 'upload';
+    const autoSimilar =
+      !identityLock && (characterMode === 'auto-similar' || body.deriveCharacterFromSource === true);
     if (!tiktokUrl || !looksLikeTikTokUrl(tiktokUrl)) {
       return json({ error: 'invalid_tiktok_url', message: 'Provide a valid TikTok URL.' }, 400);
     }
-    if (!characterKey) {
-      return json({ error: 'missing_characterKey', message: 'characterKey is required.' }, 400);
+    if (identityLock || !autoSimilar) {
+      if (!characterKey) {
+        return json(
+          {
+            error: 'missing_characterKey',
+            message: identityLock
+              ? 'V2 identity-lock requires an uploaded character image.'
+              : 'characterKey is required (or enable auto-similar).',
+          },
+          400,
+        );
+      }
+      const character = await resolveKey(env, characterKey);
+      if (!character.ok) return json(character, 400);
+    } else if (characterKey) {
+      // Optional upload ignored when auto-similar wins — still validate if provided.
+      const character = await resolveKey(env, characterKey);
+      if (!character.ok) return json(character, 400);
     }
-    const character = await resolveKey(env, characterKey);
-    if (!character.ok) return json(character, 400);
 
     const bucket = env.MEDIA_BUCKET;
     if (!bucket) return json({ error: 'MEDIA_BUCKET not bound' }, 500);
@@ -111,10 +144,14 @@ export async function onRequest(context) {
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
       body: {
-        characterKey,
+        characterKey: autoSimilar ? null : characterKey,
+        characterMode: autoSimilar ? 'auto-similar' : 'upload',
+        deriveCharacterFromSource: autoSimilar,
+        version,
+        identityLock,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
-        title: body.title || 'TikTok remake',
+        title: body.title || (identityLock ? 'TikTok remake (identity lock)' : 'TikTok remake'),
         sourceKey,
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         scenes: [],
@@ -149,12 +186,32 @@ export async function onRequest(context) {
     if (!remix2WorkerConfigured(env)) {
       return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
     }
-    const characterKey = body.characterKey;
-    if (!characterKey) {
-      return json({ error: 'missing_characterKey', message: 'characterKey is required.' }, 400);
+    const characterKey = body.characterKey || null;
+    const versionRaw = String(body.version || 'v1').trim().toLowerCase();
+    const identityLock = body.identityLock === true || versionRaw === 'v2' || versionRaw === '2';
+    const version = identityLock ? 'v2' : 'v1';
+    const characterMode = identityLock
+      ? 'upload'
+      : body.deriveCharacterFromSource
+        ? 'auto-similar'
+        : String(body.characterMode || 'upload').trim() || 'upload';
+    const autoSimilar =
+      !identityLock && (characterMode === 'auto-similar' || body.deriveCharacterFromSource === true);
+    if (identityLock || !autoSimilar) {
+      if (!characterKey) {
+        return json(
+          {
+            error: 'missing_characterKey',
+            message: identityLock
+              ? 'V2 identity-lock requires an uploaded character image.'
+              : 'characterKey is required (or enable auto-similar).',
+          },
+          400,
+        );
+      }
+      const character = await resolveKey(env, characterKey);
+      if (!character.ok) return json(character, 400);
     }
-    const character = await resolveKey(env, characterKey);
-    if (!character.ok) return json(character, 400);
 
     for (const k of ['productKey', 'setKey', 'sourceKey']) {
       if (body[k]) {
@@ -170,14 +227,24 @@ export async function onRequest(context) {
         400,
       );
     }
+    if (autoSimilar && !body.sourceKey) {
+      return json(
+        { error: 'missing_sourceKey', message: 'sourceKey is required for characterMode=auto-similar.' },
+        400,
+      );
+    }
 
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
       body: {
-        characterKey,
+        characterKey: autoSimilar ? null : characterKey,
+        characterMode: autoSimilar ? 'auto-similar' : 'upload',
+        deriveCharacterFromSource: autoSimilar,
+        version,
+        identityLock,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
-        title: body.title || 'Remix 2 OG',
+        title: body.title || (identityLock ? 'Remix 2 OG V2' : 'Remix 2 OG'),
         scenes,
         sourceKey: body.sourceKey || null,
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
@@ -188,7 +255,13 @@ export async function onRequest(context) {
     return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
   }
 
-  if (action === 'run' || action === 'first-frames' || action === 'videos' || action === 'stitch') {
+  if (
+    action === 'run' ||
+    action === 'first-frames' ||
+    action === 'videos' ||
+    action === 'stitch' ||
+    action === 'derive-character'
+  ) {
     const jobId = body.jobId;
     if (!jobId) return json({ error: 'missing_jobId' }, 400);
     const path =
@@ -198,7 +271,9 @@ export async function onRequest(context) {
           ? `/jobs/${encodeURIComponent(jobId)}/first-frames`
           : action === 'videos'
             ? `/jobs/${encodeURIComponent(jobId)}/videos`
-            : `/jobs/${encodeURIComponent(jobId)}/stitch`;
+            : action === 'derive-character'
+              ? `/jobs/${encodeURIComponent(jobId)}/derive-character`
+              : `/jobs/${encodeURIComponent(jobId)}/stitch`;
     const result = await workerFetch(env, path, { method: 'POST', body: {} });
     return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
   }

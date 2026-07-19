@@ -21,6 +21,8 @@
   const setFile = document.getElementById('set-file');
   const characterPreview = document.getElementById('character-preview');
   const characterPreviewWrap = document.getElementById('character-preview-wrap');
+  const characterUploadBlock = document.getElementById('character-upload-block');
+  const autoSimilarCheckbox = document.getElementById('auto-similar-character');
   const runBtn = document.getElementById('run-btn');
   const createBtn = document.getElementById('create-btn');
   const framesBtn = document.getElementById('frames-btn');
@@ -29,6 +31,18 @@
 
   let currentJobId = null;
   let pollTimer = null;
+
+  function isAutoSimilar() {
+    return Boolean(autoSimilarCheckbox?.checked);
+  }
+
+  function syncCharacterUploadVisibility() {
+    if (!characterUploadBlock) return;
+    characterUploadBlock.hidden = isAutoSimilar();
+  }
+
+  autoSimilarCheckbox?.addEventListener('change', syncCharacterUploadVisibility);
+  syncCharacterUploadVisibility();
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -117,14 +131,22 @@
   function renderFrames(job) {
     if (!frameGallery) return;
     const frames = job?.first_frames || job?.firstFrames || {};
+    const derived = job?.derivedCharacter || job?.derived_character || null;
+    const derivedUrl = derived?.url || null;
     const entries = Object.entries(frames);
-    if (!entries.length) {
+    if (!entries.length && !derivedUrl) {
       frameGallery.hidden = true;
       frameGallery.innerHTML = '';
       return;
     }
     frameGallery.hidden = false;
     frameGallery.innerHTML = '';
+    if (derivedUrl) {
+      const card = document.createElement('article');
+      card.className = 'result-card';
+      card.innerHTML = `<h3>Auto-similar character</h3><img src="${derivedUrl}" alt="derived character" class="character-preview">`;
+      frameGallery.appendChild(card);
+    }
     for (const [sceneId, info] of entries) {
       const card = document.createElement('article');
       card.className = 'result-card';
@@ -184,6 +206,7 @@
       framesBtn.disabled =
         !currentJobId ||
         stage === 'analyzing' ||
+        stage === 'deriving_character' ||
         stage === 'running_first_frames' ||
         stage === 'running_videos' ||
         stage === 'stitching' ||
@@ -196,6 +219,7 @@
     if (runBtn) {
       runBtn.disabled =
         stage === 'analyzing' ||
+        stage === 'deriving_character' ||
         stage === 'running_first_frames' ||
         stage === 'running_videos' ||
         stage === 'stitching';
@@ -238,19 +262,29 @@
     setError('');
     try {
       const url = String(tiktokUrl?.value || '').trim();
+      const autoSimilar = isAutoSimilar();
       const char = characterFile?.files?.[0];
       if (!url) throw new Error('Paste a TikTok URL');
-      if (!char) throw new Error('Choose a character image');
+      if (!autoSimilar && !char) throw new Error('Choose a character image (or enable Auto similar character)');
       if (runBtn) runBtn.disabled = true;
-      setStatus('Uploading character…');
-      const characterKey = await uploadImage(char, 'characters/');
-      setStatus('Downloading TikTok + building EDL + starting remake…');
+      let characterKey = null;
+      if (!autoSimilar) {
+        setStatus('Uploading character…');
+        characterKey = await uploadImage(char, 'characters/');
+      }
+      setStatus(
+        autoSimilar
+          ? 'Downloading TikTok + EDL + deriving similar character…'
+          : 'Downloading TikTok + building EDL + starting remake…',
+      );
       const { ok, data } = await api('/api/contentstation/character-remix-2-og', {
         method: 'POST',
         body: JSON.stringify({
           action: 'from-tiktok',
           tiktokUrl: url,
           characterKey,
+          characterMode: autoSimilar ? 'auto-similar' : 'upload',
+          deriveCharacterFromSource: autoSimilar,
           title: titleInput?.value || 'TikTok remake',
           autoRun: true,
         }),
@@ -268,7 +302,9 @@
       setStatus(
         'Running',
         data?.edl?.shotCount
-          ? `EDL: ${data.edl.shotCount} shot(s). Frames → videos → stitch…`
+          ? `EDL: ${data.edl.shotCount} shot(s). ${
+              autoSimilar ? 'Similar character → frames → videos → stitch…' : 'Frames → videos → stitch…'
+            }`
           : data?.message || 'Pipeline running…',
       );
     } catch (err) {
@@ -282,6 +318,10 @@
     setError('');
     try {
       const scenes = parseScenes();
+      const autoSimilar = isAutoSimilar();
+      if (autoSimilar) {
+        throw new Error('Manual create uses upload mode — uncheck Auto similar character, or use Run remake with a TikTok URL');
+      }
       const char = characterFile?.files?.[0];
       if (!char) throw new Error('Choose a character image');
       setStatus('Uploading character…');
@@ -301,6 +341,7 @@
           action: 'create',
           title: titleInput?.value || 'Remix 2 OG',
           characterKey,
+          characterMode: 'upload',
           productKey,
           setKey,
           scenes,
