@@ -12,6 +12,7 @@
   const errorEl = document.getElementById('remix2-error');
   const jobIdLine = document.getElementById('job-id-line');
   const frameGallery = document.getElementById('frame-gallery');
+  const outputGallery = document.getElementById('output-gallery');
   const titleInput = document.getElementById('job-title');
   const scenesJson = document.getElementById('scenes-json');
   const characterFile = document.getElementById('character-file');
@@ -130,6 +131,36 @@
     }
   }
 
+  function renderOutputs(job) {
+    if (!outputGallery) return;
+    const videos = job?.videos || {};
+    const finalUrl = job?.output_url || job?.outputUrl || '';
+    const videoEntries = Object.entries(videos).filter(([, info]) => {
+      const url = typeof info === 'string' ? info : info?.url || info?.publicUrl || '';
+      return Boolean(url);
+    });
+    if (!finalUrl && !videoEntries.length) {
+      outputGallery.hidden = true;
+      outputGallery.innerHTML = '';
+      return;
+    }
+    outputGallery.hidden = false;
+    outputGallery.innerHTML = '';
+    if (finalUrl) {
+      const card = document.createElement('article');
+      card.className = 'result-card';
+      card.innerHTML = `<h3>Final</h3><video src="${finalUrl}" controls playsinline class="character-preview"></video><p class="muted-line"><a href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a></p>`;
+      outputGallery.appendChild(card);
+    }
+    for (const [sceneId, info] of videoEntries) {
+      const url = typeof info === 'string' ? info : info?.url || info?.publicUrl || '';
+      const card = document.createElement('article');
+      card.className = 'result-card';
+      card.innerHTML = `<h3>${sceneId}</h3><video src="${url}" controls playsinline class="character-preview"></video>`;
+      outputGallery.appendChild(card);
+    }
+  }
+
   async function pollJob() {
     if (!currentJobId) return;
     const { ok, data } = await api(
@@ -142,11 +173,18 @@
     const stage = data?.stage || data?.status || 'unknown';
     setStatus(`Job ${currentJobId}: ${stage}`, data?.message || data?.detail || '');
     renderFrames(data);
+    renderOutputs(data);
     if (framesBtn) {
       framesBtn.disabled =
-        !currentJobId || stage === 'running_first_frames' || stage === 'running_videos' || stage === 'stitching';
+        !currentJobId ||
+        stage === 'running_first_frames' ||
+        stage === 'running_videos' ||
+        stage === 'stitching' ||
+        stage === 'stitched';
     }
-    if (videosBtn) videosBtn.disabled = stage !== 'first_frames_done' && stage !== 'videos_done';
+    if (videosBtn) {
+      videosBtn.disabled = !(stage === 'first_frames_done' || stage === 'videos_done');
+    }
     if (stitchBtn) stitchBtn.disabled = stage !== 'videos_done';
     if (stage === 'error') {
       setError(data?.message || 'Job error');
