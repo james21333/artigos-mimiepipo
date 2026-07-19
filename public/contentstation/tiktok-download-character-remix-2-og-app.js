@@ -14,12 +14,14 @@
   const frameGallery = document.getElementById('frame-gallery');
   const outputGallery = document.getElementById('output-gallery');
   const titleInput = document.getElementById('job-title');
+  const tiktokUrl = document.getElementById('tiktok-url');
   const scenesJson = document.getElementById('scenes-json');
   const characterFile = document.getElementById('character-file');
   const productFile = document.getElementById('product-file');
   const setFile = document.getElementById('set-file');
   const characterPreview = document.getElementById('character-preview');
   const characterPreviewWrap = document.getElementById('character-preview-wrap');
+  const runBtn = document.getElementById('run-btn');
   const createBtn = document.getElementById('create-btn');
   const framesBtn = document.getElementById('frames-btn');
   const videosBtn = document.getElementById('videos-btn');
@@ -80,6 +82,9 @@
         id,
         title: s.title || id,
         duration: Number(s.duration) || 8,
+        durationMs: s.durationMs || null,
+        startMs: s.startMs || null,
+        endMs: s.endMs || null,
         dialogue: s.dialogue || '',
         motion_type: s.motion_type || s.motionType || 'lip-sync',
         silent: Boolean(s.silent),
@@ -171,12 +176,14 @@
       return;
     }
     const stage = data?.stage || data?.status || 'unknown';
-    setStatus(`Job ${currentJobId}: ${stage}`, data?.message || data?.detail || '');
+    const edlNote = data?.edl?.shotCount ? ` · ${data.edl.shotCount} shots` : '';
+    setStatus(`Job ${currentJobId}: ${stage}${edlNote}`, data?.message || data?.detail || '');
     renderFrames(data);
     renderOutputs(data);
     if (framesBtn) {
       framesBtn.disabled =
         !currentJobId ||
+        stage === 'analyzing' ||
         stage === 'running_first_frames' ||
         stage === 'running_videos' ||
         stage === 'stitching' ||
@@ -186,13 +193,22 @@
       videosBtn.disabled = !(stage === 'first_frames_done' || stage === 'videos_done');
     }
     if (stitchBtn) stitchBtn.disabled = stage !== 'videos_done';
+    if (runBtn) {
+      runBtn.disabled =
+        stage === 'analyzing' ||
+        stage === 'running_first_frames' ||
+        stage === 'running_videos' ||
+        stage === 'stitching';
+    }
     if (stage === 'error') {
       setError(data?.message || 'Job error');
+      if (runBtn) runBtn.disabled = false;
     }
     if (stage === 'stitched') {
       setStatus('Stitched', data?.output_url || data?.output_path || data?.message || '');
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = null;
+      if (runBtn) runBtn.disabled = false;
     }
   }
 
@@ -202,11 +218,58 @@
     pollJob();
   }
 
+  function bindJob(jobId) {
+    currentJobId = jobId;
+    if (jobIdLine) {
+      jobIdLine.hidden = false;
+      jobIdLine.textContent = `Job ID: ${currentJobId}`;
+    }
+    startPoll();
+  }
+
   characterFile?.addEventListener('change', () => {
     const f = characterFile.files?.[0];
     if (!f || !characterPreview || !characterPreviewWrap) return;
     characterPreview.src = URL.createObjectURL(f);
     characterPreviewWrap.hidden = false;
+  });
+
+  runBtn?.addEventListener('click', async () => {
+    setError('');
+    try {
+      const url = String(tiktokUrl?.value || '').trim();
+      const char = characterFile?.files?.[0];
+      if (!url) throw new Error('Paste a TikTok URL');
+      if (!char) throw new Error('Choose a character image');
+      if (runBtn) runBtn.disabled = true;
+      setStatus('Uploading character…');
+      const characterKey = await uploadImage(char, 'characters/');
+      setStatus('Downloading TikTok + building EDL + starting remake…');
+      const { ok, data } = await api('/api/contentstation/character-remix-2-og', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'from-tiktok',
+          tiktokUrl: url,
+          characterKey,
+          title: titleInput?.value || 'TikTok remake',
+          autoRun: true,
+        }),
+      });
+      if (!ok || !data?.jobId) {
+        throw new Error(data?.message || data?.error || 'Remake failed to start');
+      }
+      bindJob(data.jobId);
+      setStatus(
+        'Running',
+        data?.edl?.shotCount
+          ? `EDL: ${data.edl.shotCount} shot(s). Frames → videos → stitch…`
+          : data?.message || 'Pipeline running…',
+      );
+    } catch (err) {
+      setError(err?.message || String(err));
+      setStatus('Failed');
+      if (runBtn) runBtn.disabled = false;
+    }
   });
 
   createBtn?.addEventListener('click', async () => {
@@ -220,14 +283,12 @@
       let productKey = null;
       let setKey = null;
       if (productFile?.files?.[0]) {
-        setStatus('Uploading product…');
         productKey = await uploadImage(productFile.files[0], 'characters/products/');
       }
       if (setFile?.files?.[0]) {
-        setStatus('Uploading set…');
         setKey = await uploadImage(setFile.files[0], 'characters/sets/');
       }
-      setStatus('Creating job on Fast Panda…');
+      setStatus('Creating job…');
       const { ok, data } = await api('/api/contentstation/character-remix-2-og', {
         method: 'POST',
         body: JSON.stringify({
@@ -242,14 +303,9 @@
       if (!ok || !data?.jobId) {
         throw new Error(data?.message || data?.error || 'Create job failed');
       }
-      currentJobId = data.jobId;
-      if (jobIdLine) {
-        jobIdLine.hidden = false;
-        jobIdLine.textContent = `Job ID: ${currentJobId}`;
-      }
+      bindJob(data.jobId);
       if (framesBtn) framesBtn.disabled = false;
-      setStatus('Job created', 'Next: Generate first frames (Codex on Fast Panda)');
-      startPoll();
+      setStatus('Job created', 'Use First frames → Videos → Stitch, or wait if auto-run');
     } catch (err) {
       setError(err?.message || String(err));
       setStatus('Failed');

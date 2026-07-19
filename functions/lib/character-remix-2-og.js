@@ -15,6 +15,17 @@ export function remix2WorkerBase(env) {
     .replace(/\/$/, '');
 }
 
+export function remix2R2Payload(env) {
+  return {
+    publicBaseUrl: env.R2_PUBLIC_BASE_URL || null,
+    bucket: env.R2_BUCKET_NAME || env.R2_BUCKET || null,
+    endpoint: env.R2_ENDPOINT || null,
+    accessKeyId: env.R2_ACCESS_KEY_ID || null,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY || null,
+    accountId: env.R2_ACCOUNT_ID || null,
+  };
+}
+
 export function configPayload(env) {
   const configured = remix2WorkerConfigured(env);
   return {
@@ -23,12 +34,13 @@ export function configPayload(env) {
     hasWorkerUrl: Boolean(String(env?.REMIX2_WORKER_URL || '').trim()),
     hasWorkerSecret: Boolean(String(env?.REMIX2_WORKER_SECRET || '').trim()),
     stages: {
+      analyze: 'ffmpeg-edl-ms',
       firstFrames: 'codex-oauth',
-      videos: 'grok-oauth-after-supergrok',
-      stitch: 'ffmpeg-on-fast-panda',
+      videos: 'grok-oauth',
+      stitch: 'ffmpeg-edl-trim',
     },
     message: configured
-      ? 'Remix 2 - OG worker ready (Codex first-frames; Grok videos after SuperGrok login on Fast Panda).'
+      ? 'Remix 2 ready: TikTok → ms EDL → Codex frames → Grok clips → stitch (structure-close; motion not exact).'
       : 'Set REMIX2_WORKER_URL and REMIX2_WORKER_SECRET (Fast Panda worker).',
     n8nFallbackNote:
       'If video gen fails, fall back to visual n8n on Fast Panda for audit/tweak — not required for v1.',

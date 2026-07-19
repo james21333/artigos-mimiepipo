@@ -3,14 +3,14 @@
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
- * POST { action: "create", characterKey, productKey?, setKey?, scenes: [...] }
- * POST { action: "first-frames", jobId }
- * POST { action: "videos", jobId }   // requires SuperGrok OAuth on Fast Panda
- * POST { action: "stitch", jobId }
+ * POST { action: "create", characterKey, scenes? | sourceKey?, autoRun? }
+ * POST { action: "from-tiktok", tiktokUrl, characterKey, autoRun? }
+ * POST { action: "run" | "first-frames" | "videos" | "stitch", jobId }
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
-import { configPayload, remix2WorkerConfigured, workerFetch } from '../../lib/character-remix-2-og.js';
+import { configPayload, remix2WorkerConfigured, workerFetch, remix2R2Payload } from '../../lib/character-remix-2-og.js';
+import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -68,6 +68,63 @@ export async function onRequest(context) {
   }
 
   const action = body.action || 'create';
+  const r2 = remix2R2Payload(env);
+
+  if (action === 'from-tiktok') {
+    if (!remix2WorkerConfigured(env)) {
+      return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+    }
+    const tiktokUrl = String(body.tiktokUrl || body.url || '').trim();
+    const characterKey = body.characterKey;
+    if (!tiktokUrl || !looksLikeTikTokUrl(tiktokUrl)) {
+      return json({ error: 'invalid_tiktok_url', message: 'Provide a valid TikTok URL.' }, 400);
+    }
+    if (!characterKey) {
+      return json({ error: 'missing_characterKey', message: 'characterKey is required.' }, 400);
+    }
+    const character = await resolveKey(env, characterKey);
+    if (!character.ok) return json(character, 400);
+
+    const bucket = env.MEDIA_BUCKET;
+    if (!bucket) return json({ error: 'MEDIA_BUCKET not bound' }, 500);
+
+    let dl;
+    try {
+      dl = await downloadTikTokToR2(env, bucket, tiktokUrl, { preferHd: true });
+    } catch (err) {
+      return json(
+        { error: 'tiktok_download_failed', message: String(err?.message || err).slice(0, 400) },
+        502,
+      );
+    }
+    const sourceKey = dl?.key;
+    if (!sourceKey) {
+      return json({ error: 'tiktok_download_failed', message: 'No R2 key returned.' }, 502);
+    }
+
+    const result = await workerFetch(env, '/jobs', {
+      method: 'POST',
+      body: {
+        characterKey,
+        productKey: body.productKey || null,
+        setKey: body.setKey || null,
+        title: body.title || 'TikTok remake',
+        sourceKey,
+        dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
+        scenes: [],
+        autoRun: body.autoRun !== false,
+        r2,
+      },
+    });
+    return json(
+      {
+        ...(result.data || { error: 'worker_error' }),
+        sourceKey,
+        tiktokMeta: dl?.meta || null,
+      },
+      result.ok ? 200 : result.status || 502,
+    );
+  }
 
   if (action === 'create') {
     if (!remix2WorkerConfigured(env)) {
@@ -80,7 +137,7 @@ export async function onRequest(context) {
     const character = await resolveKey(env, characterKey);
     if (!character.ok) return json(character, 400);
 
-    for (const k of ['productKey', 'setKey']) {
+    for (const k of ['productKey', 'setKey', 'sourceKey']) {
       if (body[k]) {
         const r = await resolveKey(env, body[k]);
         if (!r.ok) return json(r, 400);
@@ -88,8 +145,11 @@ export async function onRequest(context) {
     }
 
     const scenes = Array.isArray(body.scenes) ? body.scenes : [];
-    if (!scenes.length) {
-      return json({ error: 'missing_scenes', message: 'Provide at least one scene.' }, 400);
+    if (!scenes.length && !body.sourceKey) {
+      return json(
+        { error: 'missing_scenes', message: 'Provide scenes[] or sourceKey for EDL analyze.' },
+        400,
+      );
     }
 
     const result = await workerFetch(env, '/jobs', {
@@ -100,28 +160,26 @@ export async function onRequest(context) {
         setKey: body.setKey || null,
         title: body.title || 'Remix 2 OG',
         scenes,
-        r2: {
-          publicBaseUrl: env.R2_PUBLIC_BASE_URL || null,
-          bucket: env.R2_BUCKET_NAME || env.R2_BUCKET || null,
-          endpoint: env.R2_ENDPOINT || null,
-          accessKeyId: env.R2_ACCESS_KEY_ID || null,
-          secretAccessKey: env.R2_SECRET_ACCESS_KEY || null,
-          accountId: env.R2_ACCOUNT_ID || null,
-        },
+        sourceKey: body.sourceKey || null,
+        dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
+        autoRun: Boolean(body.autoRun),
+        r2,
       },
     });
     return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
   }
 
-  if (action === 'first-frames' || action === 'videos' || action === 'stitch') {
+  if (action === 'run' || action === 'first-frames' || action === 'videos' || action === 'stitch') {
     const jobId = body.jobId;
     if (!jobId) return json({ error: 'missing_jobId' }, 400);
     const path =
-      action === 'first-frames'
-        ? `/jobs/${encodeURIComponent(jobId)}/first-frames`
-        : action === 'videos'
-          ? `/jobs/${encodeURIComponent(jobId)}/videos`
-          : `/jobs/${encodeURIComponent(jobId)}/stitch`;
+      action === 'run'
+        ? `/jobs/${encodeURIComponent(jobId)}/run`
+        : action === 'first-frames'
+          ? `/jobs/${encodeURIComponent(jobId)}/first-frames`
+          : action === 'videos'
+            ? `/jobs/${encodeURIComponent(jobId)}/videos`
+            : `/jobs/${encodeURIComponent(jobId)}/stitch`;
     const result = await workerFetch(env, path, { method: 'POST', body: {} });
     return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
   }

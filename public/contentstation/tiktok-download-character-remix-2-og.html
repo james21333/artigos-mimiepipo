@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content Station | Character Remix 2 - OG</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="UGC character → Codex first frames → Grok videos (after SuperGrok) → stitch. Fast Panda worker.">
+  <meta name="description" content="TikTok → ms EDL → Codex first frames → Grok videos → stitch. Structure-close remake on Fast Panda.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -45,51 +45,52 @@
       <section class="hero-flow">
         <h1>Character Remix 2 - OG</h1>
         <p class="lede">
-          Start with a strong UGC character, generate first frames for every clip (Codex/OpenAI OAuth on Fast Panda),
-          then (after SuperGrok) image-to-video with Grok, then stitch to one vertical MP4.
-          No captions burned in generation.
+          Paste a TikTok + character photo. We build a millisecond EDL (cuts), generate Codex first frames,
+          Grok clips at each shot length, then stitch. Matches structure/timing — not exact body motion.
         </p>
 
-        <label for="job-title">Project title</label>
-        <input id="job-title" type="text" value="Remix 2 OG" autocomplete="off">
+        <label for="tiktok-url">TikTok URL</label>
+        <input id="tiktok-url" type="url" placeholder="https://www.tiktok.com/@…/video/…" autocomplete="off">
 
-        <label for="character-file">Character image (required)</label>
+        <label for="character-file">Character image</label>
         <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
-        <p class="muted-line">Full body preferred. Same identity for all scene first frames.</p>
         <div id="character-preview-wrap" class="character-preview-wrap" hidden>
           <img id="character-preview" alt="Character preview" class="character-preview">
         </div>
 
-        <label for="product-file">Product image (optional)</label>
-        <input id="product-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
-
-        <label for="set-file">Set / environment image (optional)</label>
-        <input id="set-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
-
-        <label for="scenes-json">Scenes (JSON)</label>
-        <textarea id="scenes-json" rows="14" spellcheck="false" autocomplete="off">[
-  {
-    "id": "scene_01",
-    "title": "Hook",
-    "duration": 8,
-    "dialogue": "Exact spoken line here.",
-    "motion_type": "lip-sync",
-    "image_prompt": "Vertical 9:16 raw UGC selfie first frame. Same character as reference, kitchen, natural light, no text, no captions."
-  }
-]</textarea>
-        <p class="muted-line">
-          Each scene needs <code>id</code>, <code>image_prompt</code>. Talking heads: <code>dialogue</code> + <code>motion_type: lip-sync</code>.
-          B-roll: <code>motion_type: b-roll-motion</code> and <code>silent: true</code>.
-        </p>
+        <label for="job-title">Title (optional)</label>
+        <input id="job-title" type="text" value="TikTok remake" autocomplete="off">
 
         <p id="remix2-config" class="muted-line" hidden></p>
 
         <div class="row">
-          <button type="button" id="create-btn">Create job</button>
-          <button type="button" id="frames-btn" disabled>Generate first frames</button>
-          <button type="button" id="videos-btn" disabled>Generate videos (Grok)</button>
-          <button type="button" id="stitch-btn" disabled>Stitch MP4</button>
+          <button type="button" id="run-btn">Run remake</button>
         </div>
+
+        <details class="advanced">
+          <summary>Advanced (manual scenes / step-by-step)</summary>
+          <label for="product-file">Product image (optional)</label>
+          <input id="product-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+          <label for="set-file">Set image (optional)</label>
+          <input id="set-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+          <label for="scenes-json">Scenes JSON (manual mode)</label>
+          <textarea id="scenes-json" rows="10" spellcheck="false" autocomplete="off">[
+  {
+    "id": "scene_01",
+    "title": "Hook",
+    "duration": 8,
+    "dialogue": "Your real spoken line here.",
+    "motion_type": "lip-sync",
+    "image_prompt": "Vertical 9:16 raw UGC selfie. Same character as reference, natural light, no text."
+  }
+]</textarea>
+          <div class="row">
+            <button type="button" id="create-btn">Create job (manual)</button>
+            <button type="button" id="frames-btn" disabled>First frames</button>
+            <button type="button" id="videos-btn" disabled>Videos</button>
+            <button type="button" id="stitch-btn" disabled>Stitch</button>
+          </div>
+        </details>
 
         <p id="status-line" class="status" aria-live="polite">Ready.</p>
         <p id="status-detail" class="muted-line" hidden></p>
