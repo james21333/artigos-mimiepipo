@@ -35,6 +35,25 @@ export function configPayload(env) {
   };
 }
 
+/** Strip R2 credentials if a worker ever echoes them in job state. */
+export function sanitizeWorkerPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+  const out = { ...data };
+  if (out.r2 && typeof out.r2 === 'object') {
+    const r2 = out.r2;
+    out.r2 = {
+      publicBaseUrl: r2.publicBaseUrl || null,
+      bucket: r2.bucket || null,
+      configured: Boolean(
+        r2.configured ||
+          r2.publicBaseUrl ||
+          (r2.accessKeyId && r2.secretAccessKey && (r2.endpoint || r2.accountId)),
+      ),
+    };
+  }
+  return out;
+}
+
 export async function workerFetch(env, path, { method = 'GET', body } = {}) {
   const base = remix2WorkerBase(env);
   const secret = String(env?.REMIX2_WORKER_SECRET || '').trim();
@@ -63,5 +82,5 @@ export async function workerFetch(env, path, { method = 'GET', body } = {}) {
   } catch {
     data = { raw: text };
   }
-  return { ok: res.ok, status: res.status, data };
+  return { ok: res.ok, status: res.status, data: sanitizeWorkerPayload(data) };
 }
