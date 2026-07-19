@@ -142,12 +142,17 @@
     const stage = data?.stage || data?.status || 'unknown';
     setStatus(`Job ${currentJobId}: ${stage}`, data?.message || data?.detail || '');
     renderFrames(data);
-    const readyFrames = stage === 'first_frames_done' || stage === 'videos_done' || stage === 'stitched';
-    if (framesBtn) framesBtn.disabled = !currentJobId || stage === 'running_first_frames';
-    if (videosBtn) videosBtn.disabled = !readyFrames && stage !== 'first_frames_done';
-    if (stitchBtn) stitchBtn.disabled = !(stage === 'videos_done' || stage === 'first_frames_done');
-    if (stage === 'stitched' && data?.output_url) {
-      setStatus('Stitched', data.output_url);
+    if (framesBtn) {
+      framesBtn.disabled =
+        !currentJobId || stage === 'running_first_frames' || stage === 'running_videos' || stage === 'stitching';
+    }
+    if (videosBtn) videosBtn.disabled = stage !== 'first_frames_done' && stage !== 'videos_done';
+    if (stitchBtn) stitchBtn.disabled = stage !== 'videos_done';
+    if (stage === 'error') {
+      setError(data?.message || 'Job error');
+    }
+    if (stage === 'stitched') {
+      setStatus('Stitched', data?.output_url || data?.output_path || data?.message || '');
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = null;
     }

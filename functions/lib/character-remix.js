@@ -150,7 +150,7 @@ const WORKER_OUTPUT_FINGERPRINT_KEYS = new Set([
 ]);
 
 /**
- * Client-facing processing_metadata only — no mode/vace_*/comfy/prompt fingerprints.
+ * Client-facing processing_metadata only — no mode/VACE/Comfy/prompt fingerprints.
  * Worker/RunPod logs may still carry the full metadata. Never affects the media file.
  */
 export function clientSafeProcessingMetadata(meta) {
