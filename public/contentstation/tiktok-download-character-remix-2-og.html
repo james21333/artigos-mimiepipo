@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Character Remix 2 - OG</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="UGC character → Codex first frames → Grok videos (after SuperGrok) → stitch. Fast Panda worker.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html" aria-current="page">Remix 2 - OG</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">TikTok Download Character Remix 2 - OG</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Character Remix 2 - OG</h1>
+        <p class="lede">
+          Start with a strong UGC character, generate first frames for every clip (Codex/OpenAI OAuth on Fast Panda),
+          then (after SuperGrok) image-to-video with Grok, then stitch to one vertical MP4.
+          No captions burned in generation.
+        </p>
+
+        <label for="job-title">Project title</label>
+        <input id="job-title" type="text" value="Remix 2 OG" autocomplete="off">
+
+        <label for="character-file">Character image (required)</label>
+        <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+        <p class="muted-line">Full body preferred. Same identity for all scene first frames.</p>
+        <div id="character-preview-wrap" class="character-preview-wrap" hidden>
+          <img id="character-preview" alt="Character preview" class="character-preview">
+        </div>
+
+        <label for="product-file">Product image (optional)</label>
+        <input id="product-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+
+        <label for="set-file">Set / environment image (optional)</label>
+        <input id="set-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+
+        <label for="scenes-json">Scenes (JSON)</label>
+        <textarea id="scenes-json" rows="14" spellcheck="false" autocomplete="off">{
+  {
+    "id": "scene_01",
+    "title": "Hook",
+    "duration": 8,
+    "dialogue": "Exact spoken line here.",
+    "motion_type": "lip-sync",
+    "image_prompt": "Vertical 9:16 raw UGC selfie first frame. Same character as reference, kitchen, natural light, no text, no captions."
+  }
+]</textarea>
+        <p class="muted-line">
+          Each scene needs <code>id</code>, <code>image_prompt</code>. Talking heads: <code>dialogue</code> + <code>motion_type: lip-sync</code>.
+          B-roll: <code>motion_type: b-roll-motion</code> and <code>silent: true</code>.
+        </p>
+
+        <p id="remix2-config" class="muted-line" hidden></p>
+
+        <div class="row">
+          <button type="button" id="create-btn">Create job</button>
+          <button type="button" id="frames-btn" disabled>Generate first frames</button>
+          <button type="button" id="videos-btn" disabled>Generate videos (Grok)</button>
+          <button type="button" id="stitch-btn" disabled>Stitch MP4</button>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="remix2-error" class="error" hidden></p>
+        <p id="job-id-line" class="muted-line" hidden></p>
+
+        <div id="frame-gallery" class="download-results" hidden></div>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download-character-remix.html">← Character remix (Wan)</a>
+      ·
+      <a href="./">Clean video</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./tiktok-download-character-remix-2-og-app.js"></script>
+</body>
+</html>
