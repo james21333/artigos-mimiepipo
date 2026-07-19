@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Remix 2 OG — Version 2</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Remix 2 OG Version 2 — next experiments (scaffold under construction).">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html" aria-current="page">Remix 2 OG V2</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">Remix 2 OG — Version 2</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Remix 2 OG — Version 2</h1>
+        <p class="lede">
+          Next Remix 2 OG experiments live here. This page is a scaffold — pipeline UI not wired yet.
+          Production Same Character flow remains on
+          <a href="./tiktok-download-character-remix-2-og.html">Version 1: Same Character Version</a>
+          (also <a href="./tiktok-download-character-remix-2-og-v1.html">stable V1 alias</a>).
+        </p>
+
+        <p id="status-line" class="status" aria-live="polite">Scaffold ready. Build next version here.</p>
+        <p id="remix2-v2-error" class="error" hidden></p>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download-character-remix-2-og.html">← Remix 2 OG V1 (Same Character)</a>
+      ·
+      <a href="./">Clean video</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./tiktok-download-character-remix-2-og-v2-app.js"></script>
+</body>
+</html>
