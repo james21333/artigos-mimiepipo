@@ -256,7 +256,13 @@
         }),
       });
       if (!ok || !data?.jobId) {
-        throw new Error(data?.message || data?.error || 'Remake failed to start');
+        const detail =
+          data?.message ||
+          (typeof data?.detail === 'string' ? data.detail : null) ||
+          data?.error ||
+          (data ? JSON.stringify(data).slice(0, 240) : null) ||
+          'Remake failed to start';
+        throw new Error(detail);
       }
       bindJob(data.jobId);
       setStatus(

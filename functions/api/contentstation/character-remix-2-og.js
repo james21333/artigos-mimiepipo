@@ -97,10 +97,16 @@ export async function onRequest(context) {
         502,
       );
     }
-    const sourceKey = dl?.key;
-    if (!sourceKey) {
-      return json({ error: 'tiktok_download_failed', message: 'No R2 key returned.' }, 502);
+    if (!dl?.ok || !dl?.key) {
+      return json(
+        {
+          error: dl?.error || 'tiktok_download_failed',
+          message: dl?.detail || dl?.message || 'TikTok download failed (no R2 key).',
+        },
+        502,
+      );
     }
+    const sourceKey = dl.key;
 
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
@@ -116,13 +122,26 @@ export async function onRequest(context) {
         r2,
       },
     });
+    if (!result.ok) {
+      const d = result.data || {};
+      const detail =
+        d.message ||
+        d.detail ||
+        (Array.isArray(d.detail) ? JSON.stringify(d.detail).slice(0, 400) : null) ||
+        d.error ||
+        'Worker rejected job create';
+      return json(
+        { error: 'worker_error', message: String(detail).slice(0, 500), sourceKey, raw: d },
+        result.status || 502,
+      );
+    }
     return json(
       {
-        ...(result.data || { error: 'worker_error' }),
+        ...(result.data || {}),
         sourceKey,
         tiktokMeta: dl?.meta || null,
       },
-      result.ok ? 200 : result.status || 502,
+      200,
     );
   }
 
