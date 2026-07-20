@@ -17,7 +17,7 @@ import {
  *
  * Roles:
  *   admin    → all actions
- *   download → list, tag, create (account picker on TikTok download)
+ *   download → list, tag, create, rename (account picker on TikTok download)
  *   ready    → list, tags, videos, tag, posted, create, rename
  *
  * GET  ?action=list              → accounts + counts
@@ -144,8 +144,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'rename') {
-    // Admin + ready can rename; download role only needs create for tagging.
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    // Admin, ready, and download can rename (download manages accounts on TikTok download).
     const result = await renameAccount(env, body.from, body.to);
     if (!result.ok) {
       return json({ ok: false, error: 'rename_failed', message: result.error }, 400);

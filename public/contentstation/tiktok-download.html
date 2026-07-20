@@ -52,6 +52,31 @@ https://www.tiktok.com/@user/video/…
 (up to 10 links)"></textarea>
         <p id="url-count" class="muted-line">0 / 10 links</p>
 
+        <section class="account-picker" id="account-picker">
+          <label for="account-select">Ready For Upload account</label>
+          <p class="muted-line">After processing, cleaned videos are tagged for this account.</p>
+          <div class="row account-select-row">
+            <select id="account-select" class="account-select">
+              <option value="">— No account (Cleaned videos) —</option>
+            </select>
+            <button type="button" id="edit-account-btn" class="ghost" hidden>Edit name</button>
+          </div>
+          <form id="edit-account-form" class="account-rename-row" hidden>
+            <label for="edit-account-name">Account name</label>
+            <input id="edit-account-name" type="text" maxlength="80" autocomplete="off">
+            <button type="submit">Save</button>
+            <button type="button" id="edit-account-cancel" class="ghost">Cancel</button>
+          </form>
+          <form id="create-account-form" class="account-create-row">
+            <label for="new-account-name">Create account</label>
+            <div class="row">
+              <input id="new-account-name" type="text" maxlength="80" placeholder="e.g. 1 - GLP" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+        </section>
+
         <fieldset class="options">
           <legend>Options</legend>
           <label class="check">

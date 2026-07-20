@@ -33,21 +33,84 @@
   const downloadError = document.getElementById('download-error');
   const results = document.getElementById('results');
   const libraryNote = document.getElementById('library-note');
+  const accountSelect = document.getElementById('account-select');
+  const editAccountBtn = document.getElementById('edit-account-btn');
+  const editAccountForm = document.getElementById('edit-account-form');
+  const editAccountName = document.getElementById('edit-account-name');
+  const editAccountCancel = document.getElementById('edit-account-cancel');
+  const createAccountForm = document.getElementById('create-account-form');
+  const newAccountName = document.getElementById('new-account-name');
+  const accountError = document.getElementById('account-error');
 
   let sessionRole = 'admin';
   let stopRequested = false;
   /** @type {Map<HTMLElement, { workId: string, errors: number, done: boolean, failed?: boolean }>} */
   const pendingCleans = new Map();
-  /** @type {{ card: HTMLElement, key: string }[]} */
+  /** @type {{ card: HTMLElement, key: string, account?: string|null }[]} */
   const cleanSubmitQueue = [];
   let cleanSubmitActive = 0;
   let cleanPollTimer = null;
   let cleanPollInFlight = false;
   let batchActive = false;
 
+  function selectedAccount() {
+    return (accountSelect && accountSelect.value ? accountSelect.value : '').trim();
+  }
+
   /** Admin always cleans after download; download-only role never does. */
   function shouldAutoClean() {
     return sessionRole !== 'download';
+  }
+
+  function setAccountError(msg) {
+    if (!accountError) return;
+    if (msg) {
+      accountError.hidden = false;
+      accountError.textContent = msg;
+    } else {
+      accountError.hidden = true;
+      accountError.textContent = '';
+    }
+  }
+
+  function syncEditAccountButton() {
+    if (!editAccountBtn) return;
+    editAccountBtn.hidden = !selectedAccount();
+  }
+
+  function fillAccountSelect(accounts, prefer) {
+    if (!accountSelect) return;
+    const current = prefer != null ? prefer : accountSelect.value;
+    const names = (accounts || []).map((a) => (typeof a === 'string' ? a : a.name)).filter(Boolean);
+    accountSelect.innerHTML = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '— No account (Cleaned videos) —';
+    accountSelect.appendChild(none);
+    for (const name of names) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      accountSelect.appendChild(opt);
+    }
+    if (current && names.includes(current)) {
+      accountSelect.value = current;
+    } else {
+      accountSelect.value = '';
+    }
+    syncEditAccountButton();
+  }
+
+  async function loadAccounts(prefer) {
+    const { ok, data } = await api('/api/contentstation/accounts?action=list');
+    if (!ok) {
+      setAccountError((data && (data.message || data.error)) || 'Could not load accounts.');
+      return [];
+    }
+    const accounts = data.accounts || [];
+    fillAccountSelect(accounts, prefer);
+    setAccountError('');
+    return accounts;
   }
 
   async function api(path, options = {}) {
@@ -107,6 +170,7 @@
     if (window.CSAuth && !window.CSAuth.gatePage(data, 'tiktok-download')) return false;
     if (window.CSAuth) window.CSAuth.applyNav(data.role);
     showApp(data);
+    await loadAccounts().catch(() => {});
     return true;
   }
 
@@ -587,6 +651,105 @@
   if (urlsInput) urlsInput.addEventListener('input', updateUrlCount);
   updateUrlCount();
 
+  accountSelect?.addEventListener('change', () => {
+    setAccountError('');
+    syncEditAccountButton();
+    if (editAccountForm) editAccountForm.hidden = true;
+  });
+
+  function showEditAccountForm(show) {
+    if (!editAccountForm || !editAccountBtn) return;
+    const name = selectedAccount();
+    if (show && !name) {
+      setAccountError('Select an account to edit.');
+      return;
+    }
+    editAccountForm.hidden = !show;
+    editAccountBtn.hidden = show || !name;
+    if (show && editAccountName) {
+      editAccountName.value = name;
+      editAccountName.focus();
+      editAccountName.select();
+    }
+  }
+
+  editAccountBtn?.addEventListener('click', () => {
+    setAccountError('');
+    showEditAccountForm(true);
+  });
+
+  editAccountCancel?.addEventListener('click', () => {
+    setAccountError('');
+    showEditAccountForm(false);
+  });
+
+  editAccountForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setAccountError('');
+    const from = selectedAccount();
+    const to = (editAccountName?.value || '').trim();
+    if (!from) {
+      setAccountError('Select an account to edit.');
+      return;
+    }
+    if (!to) {
+      setAccountError('Enter an account name.');
+      return;
+    }
+    if (to === from) {
+      showEditAccountForm(false);
+      return;
+    }
+    const saveBtn = editAccountForm.querySelector('button[type="submit"]');
+    if (saveBtn) saveBtn.disabled = true;
+    if (editAccountCancel) editAccountCancel.disabled = true;
+    if (editAccountName) editAccountName.disabled = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'rename', from, to }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not rename account.');
+      }
+      fillAccountSelect(data.accounts || [], data.to || to);
+      showEditAccountForm(false);
+    } catch (err) {
+      setAccountError(err && err.message ? err.message : String(err));
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+      if (editAccountCancel) editAccountCancel.disabled = false;
+      if (editAccountName) editAccountName.disabled = false;
+    }
+  });
+
+  createAccountForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setAccountError('');
+    const name = (newAccountName?.value || '').trim();
+    if (!name) {
+      setAccountError('Enter an account name.');
+      return;
+    }
+    const submitBtn = createAccountForm.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', name }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not create account.');
+      }
+      if (newAccountName) newAccountName.value = '';
+      fillAccountSelect(data.accounts || [], data.name || name);
+    } catch (err) {
+      setAccountError(err && err.message ? err.message : String(err));
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
   if (stopBtn) {
     stopBtn.addEventListener('click', () => {
       if (batchActive) {
@@ -632,6 +795,7 @@
       }
 
       const smallerFile = Boolean(smallerNoHd && smallerNoHd.checked);
+      const account = selectedAccount() || null;
       // Always-on for admin; download role never cleans (no UI checkbox).
       const autoClean = shouldAutoClean();
 
@@ -658,7 +822,7 @@
           `Downloading ${i + 1} / ${urls.length}…`,
           [
             smallerFile ? 'Smaller (no HD)' : 'HD when available',
-            autoClean ? 'then clean' : null,
+            autoClean ? (account ? `then clean → ${account}` : 'then clean') : null,
           ]
             .filter(Boolean)
             .join(' · '),
@@ -680,13 +844,13 @@
           fillCardSuccess(card, data);
 
           if (autoClean && data.key && !stopRequested) {
-            await startAutoClean(card, data.key, null);
+            await startAutoClean(card, data.key, account);
             if (pendingCleans.has(card) || cleanSubmitQueue.some((q) => q.card === card)) {
               cleanStarted += 1;
             }
             refreshBatchStatus(
               `Downloading ${Math.min(i + 2, urls.length)} / ${urls.length}…`,
-              `${okCount} saved · ${cleanStarted} queued for clean`,
+              `${okCount} saved · ${cleanStarted} queued for clean${account ? ` · ${account}` : ''}`,
             );
           }
         } catch (err) {
