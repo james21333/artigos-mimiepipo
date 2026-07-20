@@ -1,6 +1,6 @@
 (function () {
   const params = new URLSearchParams(window.location.search);
-  const accountName = (params.get('account') || '').trim();
+  let accountName = (params.get('account') || '').trim();
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -13,13 +13,21 @@
   const refreshBtn = document.getElementById('refresh-btn');
   const accountTitle = document.getElementById('account-title');
   const accountSub = document.getElementById('account-sub');
+  const editAccountBtn = document.getElementById('edit-account-btn');
+  const editAccountForm = document.getElementById('edit-account-form');
+  const editAccountName = document.getElementById('edit-account-name');
+  const editAccountCancel = document.getElementById('edit-account-cancel');
 
   let accountsCache = [];
 
+  function setAccountHeading(name) {
+    accountTitle.textContent = name || 'Account';
+    accountSub.textContent = name || 'Account';
+    document.title = name ? `Content Station | ${name}` : 'Content Station | Account';
+  }
+
   if (accountName) {
-    accountTitle.textContent = accountName;
-    accountSub.textContent = accountName;
-    document.title = `Content Station | ${accountName}`;
+    setAccountHeading(accountName);
   }
 
   async function api(path, options = {}) {
@@ -319,6 +327,72 @@
 
   refreshBtn.addEventListener('click', () => {
     loadGallery().catch(() => {});
+  });
+
+  function showEditForm(show) {
+    if (!editAccountForm || !editAccountBtn) return;
+    editAccountForm.hidden = !show;
+    editAccountBtn.hidden = show;
+    if (show && editAccountName) {
+      editAccountName.value = accountName;
+      editAccountName.focus();
+      editAccountName.select();
+    }
+  }
+
+  editAccountBtn?.addEventListener('click', () => {
+    setError('');
+    showEditForm(true);
+  });
+
+  editAccountCancel?.addEventListener('click', () => {
+    setError('');
+    showEditForm(false);
+  });
+
+  editAccountForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setError('');
+    const from = accountName;
+    const to = (editAccountName?.value || '').trim();
+    if (!from) {
+      setError('Missing account name in the URL.');
+      return;
+    }
+    if (!to) {
+      setError('Enter an account name.');
+      return;
+    }
+    if (to === from) {
+      showEditForm(false);
+      return;
+    }
+    const saveBtn = editAccountForm.querySelector('button[type="submit"]');
+    if (saveBtn) saveBtn.disabled = true;
+    if (editAccountCancel) editAccountCancel.disabled = true;
+    if (editAccountName) editAccountName.disabled = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'rename', from, to }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not rename account.');
+      }
+      accountName = data.to || to;
+      setAccountHeading(accountName);
+      const url = new URL(window.location.href);
+      url.searchParams.set('account', accountName);
+      window.history.replaceState({}, '', url.pathname + url.search);
+      showEditForm(false);
+      await loadGallery();
+    } catch (err) {
+      setError(err && err.message ? err.message : String(err));
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+      if (editAccountCancel) editAccountCancel.disabled = false;
+      if (editAccountName) editAccountName.disabled = false;
+    }
   });
 
   refreshSession()

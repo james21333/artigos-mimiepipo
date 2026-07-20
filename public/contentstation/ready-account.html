@@ -45,8 +45,17 @@
         <h1 id="account-title">Account</h1>
         <p class="lede">Videos tagged for this account. Mark Posted after you upload to TikTok. Change the tag anytime — untagged clips go to the untagged videos section.</p>
 
-        <div class="row">
-          <button type="button" id="refresh-btn">Refresh</button>
+        <div class="account-edit-bar">
+          <div class="row">
+            <button type="button" id="refresh-btn">Refresh</button>
+            <button type="button" id="edit-account-btn" class="ghost">Edit account name</button>
+          </div>
+          <form id="edit-account-form" class="account-rename-row" hidden>
+            <label for="edit-account-name">Account name</label>
+            <input id="edit-account-name" type="text" maxlength="80" autocomplete="off">
+            <button type="submit">Save</button>
+            <button type="button" id="edit-account-cancel" class="ghost">Cancel</button>
+          </form>
         </div>
 
         <p id="gallery-status" class="status" aria-live="polite">Loading…</p>

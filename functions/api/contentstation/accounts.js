@@ -18,7 +18,7 @@ import {
  * Roles:
  *   admin    → all actions
  *   download → list, tag, create (account picker on TikTok download)
- *   ready    → list, tags, videos, tag, posted (no create/rename)
+ *   ready    → list, tags, videos, tag, posted, create, rename
  *
  * GET  ?action=list              → accounts + counts
  * GET  ?action=tags              → full key→account map
@@ -131,8 +131,7 @@ export async function onRequestPost(context) {
   const action = body.action || 'create';
 
   if (action === 'create') {
-    // Ready-only managers cannot create accounts; admin + download can.
-    if (role === ROLES.READY) return forbidden(role);
+    // Admin, download, and ready managers can create accounts.
     const result = await createAccount(env, body.name);
     if (!result.ok) {
       return json({ ok: false, error: 'create_failed', message: result.error }, 400);
@@ -145,7 +144,8 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'rename') {
-    if (role !== ROLES.ADMIN) return forbidden(role);
+    // Admin + ready can rename; download role only needs create for tagging.
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
     const result = await renameAccount(env, body.from, body.to);
     if (!result.ok) {
       return json({ ok: false, error: 'rename_failed', message: result.error }, 400);

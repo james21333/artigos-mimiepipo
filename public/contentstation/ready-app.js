@@ -45,11 +45,15 @@
     app.hidden = false;
     sessionMeta.textContent =
       session && session.role === 'ready' ? 'Ready For Upload access' : 'Signed in';
-    // Ready-only: view/manage queues; account create/rename is admin.
-    if (session && session.role === 'ready' && createForm) {
-      createForm.hidden = true;
-    }
     window.__csRole = (session && session.role) || 'admin';
+    // Download-only sessions shouldn't manage Ready accounts here.
+    if (createForm) {
+      createForm.hidden = window.__csRole === 'download';
+    }
+  }
+
+  function canEditAccounts() {
+    return window.__csRole !== 'download';
   }
 
   function setError(msg) {
@@ -97,14 +101,14 @@
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'ghost account-edit-btn';
-      editBtn.textContent = 'Rename';
+      editBtn.textContent = 'Edit name';
       editBtn.addEventListener('click', (e) => {
         e.preventDefault();
         startRename(li, a.name);
       });
 
       row.appendChild(link);
-      if (window.__csRole !== 'ready') {
+      if (canEditAccounts()) {
         row.appendChild(editBtn);
       }
       li.appendChild(row);
