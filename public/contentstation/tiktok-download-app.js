@@ -84,7 +84,10 @@
   function fillAccountSelect(accounts, prefer) {
     if (!accountSelect) return;
     const current = prefer != null ? prefer : accountSelect.value;
-    const names = (accounts || []).map((a) => (typeof a === 'string' ? a : a.name)).filter(Boolean);
+    const names = (accounts || [])
+      .map((a) => (typeof a === 'string' ? a : a.name))
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
     accountSelect.innerHTML = '';
     const none = document.createElement('option');
     none.value = '';

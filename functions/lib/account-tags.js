@@ -21,6 +21,14 @@ export function sanitizeAccountName(raw) {
   return name;
 }
 
+/** Natural order so "2-…" comes before "10-…". */
+export function compareAccountNames(a, b) {
+  return String(a || '').localeCompare(String(b || ''), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
 function getBucket(env) {
   return env.MEDIA_BUCKET || null;
 }
@@ -52,7 +60,7 @@ export async function listAccounts(env) {
     .map((n) => sanitizeAccountName(n))
     .filter(Boolean)
     .filter((n, i, arr) => arr.indexOf(n) === i)
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    .sort(compareAccountNames);
 }
 
 export async function createAccount(env, nameRaw) {
@@ -63,7 +71,7 @@ export async function createAccount(env, nameRaw) {
   const list = await listAccounts(env);
   if (!list.some((n) => n.toLowerCase() === name.toLowerCase())) {
     list.push(name);
-    list.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    list.sort(compareAccountNames);
     await writeJson(bucket, ACCOUNTS_KEY, list);
   }
   return { ok: true, name, accounts: await listAccounts(env) };
@@ -108,7 +116,7 @@ export async function renameAccount(env, fromRaw, toRaw) {
   if (!nextList.some((n) => n.toLowerCase() === to.toLowerCase())) {
     nextList.push(to);
   }
-  nextList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  nextList.sort(compareAccountNames);
   await writeJson(bucket, ACCOUNTS_KEY, nextList);
 
   const map = await readTagsMap(env);
@@ -192,7 +200,7 @@ export async function accountSummaries(env) {
     counts[name] = (counts[name] || 0) + 1;
     if (!accounts.includes(name)) accounts.push(name);
   }
-  accounts.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  accounts.sort(compareAccountNames);
   return accounts.map((name) => ({ name, count: counts[name] || 0 }));
 }
 

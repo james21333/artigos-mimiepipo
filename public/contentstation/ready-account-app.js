@@ -167,7 +167,9 @@
       select.appendChild(unt);
       const names = new Set(accountsCache);
       if (accountName) names.add(accountName);
-      [...names].sort((a, b) => a.localeCompare(b)).forEach((name) => {
+      [...names].sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }),
+      ).forEach((name) => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;
