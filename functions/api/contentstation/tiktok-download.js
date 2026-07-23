@@ -51,6 +51,7 @@ export async function onRequestPost(context) {
         resolve_failed: 'Could not reach the download service. Try again.',
         resolve_invalid_json: 'Download service returned a bad response.',
         resolve_rejected: 'Could not resolve that TikTok link (private, removed, or blocked).',
+        resolve_rate_limited: 'Download service rate-limited the request. Wait a second and try again.',
         no_play_url: 'No video file was available for that link.',
         provider_balance:
           'Primary download provider is out of credits; backup resolver also failed. Try again shortly.',

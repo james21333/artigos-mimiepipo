@@ -197,32 +197,49 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
 async function resolveViaLegacy(env, tiktokUrl, { preferHd = true } = {}) {
   const base = (env.TIKTOK_DOWNLOAD_API_BASE || LEGACY_RESOLVE_BASE).replace(/\/?$/, '/');
   const endpoint = `${base}?url=${encodeURIComponent(tiktokUrl.trim())}&hd=1`;
-  let res;
-  try {
-    res = await fetch(endpoint, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'ContentStation/1.0',
-      },
-    });
-  } catch (err) {
-    return { ok: false, error: 'resolve_failed', detail: String(err?.message || err) };
+  const legacyHeaders = {
+    Accept: 'application/json',
+    // tikwm rate-limits / blocks non-browser UAs more aggressively.
+    'User-Agent':
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  };
+
+  async function once() {
+    let res;
+    try {
+      res = await fetch(endpoint, { headers: legacyHeaders });
+    } catch (err) {
+      return { ok: false, error: 'resolve_failed', detail: String(err?.message || err) };
+    }
+
+    let body;
+    try {
+      body = await res.json();
+    } catch {
+      return { ok: false, error: 'resolve_invalid_json', detail: `HTTP ${res.status}` };
+    }
+
+    if (!res.ok || body?.code !== 0 || !body?.data) {
+      const detail = body?.msg || body?.message || `HTTP ${res.status}`;
+      const rateLimited = /limit|rate|too many|1 request/i.test(String(detail || ''));
+      return {
+        ok: false,
+        error: rateLimited ? 'resolve_rate_limited' : 'resolve_rejected',
+        detail,
+      };
+    }
+
+    return { ok: true, res, body };
   }
 
-  let body;
-  try {
-    body = await res.json();
-  } catch {
-    return { ok: false, error: 'resolve_invalid_json', detail: `HTTP ${res.status}` };
+  let first = await once();
+  if (!first.ok && first.error === 'resolve_rate_limited') {
+    await new Promise((r) => setTimeout(r, 1200));
+    first = await once();
   }
+  if (!first.ok) return first;
 
-  if (!res.ok || body?.code !== 0 || !body?.data) {
-    return {
-      ok: false,
-      error: 'resolve_rejected',
-      detail: body?.msg || body?.message || `HTTP ${res.status}`,
-    };
-  }
+  const body = first.body;
 
   const d = body.data;
   const playUrl = pickPlayUrl(d, { preferHd }) || d.hdplay || d.play || null;

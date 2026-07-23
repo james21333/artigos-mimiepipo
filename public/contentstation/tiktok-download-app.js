@@ -838,25 +838,30 @@
             const detail = data?.detail ? ` (${data.detail})` : '';
             setCardError(card, (data?.message || data?.error || 'Download failed') + detail);
             setCardStatus(card, 'Failed');
-            continue;
-          }
-          okCount += 1;
-          fillCardSuccess(card, data);
+          } else {
+            okCount += 1;
+            fillCardSuccess(card, data);
 
-          if (autoClean && data.key && !stopRequested) {
-            await startAutoClean(card, data.key, account);
-            if (pendingCleans.has(card) || cleanSubmitQueue.some((q) => q.card === card)) {
-              cleanStarted += 1;
+            if (autoClean && data.key && !stopRequested) {
+              await startAutoClean(card, data.key, account);
+              if (pendingCleans.has(card) || cleanSubmitQueue.some((q) => q.card === card)) {
+                cleanStarted += 1;
+              }
+              refreshBatchStatus(
+                `Downloading ${Math.min(i + 2, urls.length)} / ${urls.length}…`,
+                `${okCount} saved · ${cleanStarted} queued for clean${account ? ` · ${account}` : ''}`,
+              );
             }
-            refreshBatchStatus(
-              `Downloading ${Math.min(i + 2, urls.length)} / ${urls.length}…`,
-              `${okCount} saved · ${cleanStarted} queued for clean${account ? ` · ${account}` : ''}`,
-            );
           }
         } catch (err) {
           failCount += 1;
           setCardError(card, String(err?.message || err));
           setCardStatus(card, 'Failed');
+        }
+
+        // Backup resolver (tikwm) is ~1 req/sec — space batch items so fallbacks don’t 429.
+        if (i < urls.length - 1 && !stopRequested) {
+          await new Promise((r) => setTimeout(r, 1100));
         }
       }
 
