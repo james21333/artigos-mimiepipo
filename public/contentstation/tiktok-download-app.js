@@ -845,7 +845,7 @@
         setStatus(
           `Downloading ${i + 1} / ${urls.length}…`,
           [
-            smallerFile ? 'Smaller (no HD)' : 'HD when available',
+            smallerFile ? 'Smaller (no HD)' : 'HD under 20MB · no HD when larger',
             autoClean ? (account ? `then clean → ${account}` : 'then clean') : null,
           ]
             .filter(Boolean)

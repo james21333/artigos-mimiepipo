@@ -16,6 +16,8 @@ const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
 const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
 const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
 const MAX_BYTES = 90 * 1024 * 1024;
+/** Prefer standard (no HD) once the file is this large or bigger. */
+const HD_MAX_BYTES = 20 * 1024 * 1024;
 
 export function looksLikeTikTokUrl(raw) {
   if (!raw || typeof raw !== 'string') return false;
@@ -369,16 +371,17 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   let resolved = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd });
   if (!resolved.ok) return resolved;
 
-  const metaTooBig =
-    resolved.meta?.size != null && Number(resolved.meta.size) > MAX_BYTES;
+  const metaSize =
+    resolved.meta?.size != null && Number.isFinite(Number(resolved.meta.size))
+      ? Number(resolved.meta.size)
+      : null;
 
-  // HD often exceeds the Pages/Worker body limit — fall back to standard when possible.
-  if (metaTooBig && preferHd) {
+  // ≥20MB → no HD. Also covers the hard ~90MB Worker body limit.
+  if (preferHd && metaSize != null && metaSize >= HD_MAX_BYTES) {
     const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
     if (sd.ok) {
       const sdSize = sd.meta?.size != null ? Number(sd.meta.size) : null;
-      const hdSize = Number(resolved.meta.size);
-      if (sdSize == null || sdSize <= MAX_BYTES || sdSize < hdSize) {
+      if (sdSize == null || sdSize < metaSize || sdSize <= MAX_BYTES) {
         resolved = sd;
         preferHd = false;
       }
@@ -400,11 +403,12 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   let transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
   if (!transferred.ok) return transferred;
 
-  if (transferred.bytes.byteLength > MAX_BYTES && preferHd) {
+  // If HD came back large (or meta size was missing), retry standard.
+  if (preferHd && transferred.bytes.byteLength >= HD_MAX_BYTES) {
     const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
     if (sd.ok && sd.playUrl && sd.playUrl !== resolved.playUrl) {
       const retry = await fetchBytesViaCloudConvert(env, sd.playUrl, filename);
-      if (retry.ok && retry.bytes.byteLength <= MAX_BYTES) {
+      if (retry.ok && retry.bytes.byteLength < transferred.bytes.byteLength) {
         transferred = retry;
         resolved = { ...resolved, playUrl: sd.playUrl, meta: { ...resolved.meta, ...sd.meta } };
         preferHd = false;
