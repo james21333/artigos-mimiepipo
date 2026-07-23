@@ -52,6 +52,8 @@ export async function onRequestPost(context) {
         resolve_invalid_json: 'Download service returned a bad response.',
         resolve_rejected: 'Could not resolve that TikTok link (private, removed, or blocked).',
         no_play_url: 'No video file was available for that link.',
+        provider_balance:
+          'Primary download provider is out of credits; backup resolver also failed. Try again shortly.',
         transfer_unconfigured: 'File transfer isn’t configured.',
         transfer_failed: 'Could not transfer the video file. Try again.',
         transfer_timeout: 'Download timed out — try again or use a shorter clip.',

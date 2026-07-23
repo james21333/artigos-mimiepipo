@@ -86,18 +86,29 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
     return { ok: false, error: 'resolve_invalid_json', detail: `HTTP ${res.status}` };
   }
 
+  const apiMessage = body?.message || body?.msg || body?.error || null;
   if (!res.ok) {
     return {
       ok: false,
       error: 'resolve_rejected',
-      detail: body?.message || body?.msg || body?.error || `HTTP ${res.status}`,
+      detail: apiMessage || `HTTP ${res.status}`,
     };
   }
 
+  // TikLive often returns HTTP 200 with only { message: "…balance…" } when out of credits.
   const d = body?.data && typeof body.data === 'object' ? body.data : body;
   const playUrl = pickPlayUrl(d, { preferHd });
   if (!playUrl) {
-    return { ok: false, error: 'no_play_url', detail: 'No downloadable video URL returned' };
+    const detail =
+      typeof apiMessage === 'string' && apiMessage.trim()
+        ? apiMessage.trim()
+        : 'No downloadable video URL returned';
+    const exhausted = /balance|exhausted|purchase|credit|quota|limit/i.test(detail);
+    return {
+      ok: false,
+      error: exhausted ? 'provider_balance' : 'no_play_url',
+      detail,
+    };
   }
 
   const usedHd =
@@ -240,7 +251,26 @@ async function resolveViaLegacy(env, tiktokUrl, { preferHd = true } = {}) {
 export async function resolveTikTokPlayUrl(env, tiktokUrl, opts = {}) {
   const preferHd = opts.preferHd !== false;
   const hasKey = Boolean((env.TIKLIVE_API_KEY || env.TIKTOK_DOWNLOAD_API_KEY || '').trim());
-  if (hasKey) return resolveViaTikLive(env, tiktokUrl, { preferHd });
+  if (hasKey) {
+    const primary = await resolveViaTikLive(env, tiktokUrl, { preferHd });
+    if (primary.ok) return primary;
+    // TikLive out of balance / empty payload → fall back to tikwm-compatible resolver.
+    const fallback = await resolveViaLegacy(env, tiktokUrl, { preferHd });
+    if (fallback.ok) {
+      return {
+        ...fallback,
+        provider: 'legacy_fallback',
+        primaryError: primary.error,
+        primaryDetail: primary.detail || null,
+      };
+    }
+    return {
+      ...primary,
+      detail: primary.detail || fallback.detail || null,
+      fallbackError: fallback.error,
+      fallbackDetail: fallback.detail || null,
+    };
+  }
   return resolveViaLegacy(env, tiktokUrl, { preferHd });
 }
 
