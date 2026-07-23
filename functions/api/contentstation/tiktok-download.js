@@ -60,7 +60,7 @@ export async function onRequestPost(context) {
         transfer_timeout: 'Download timed out — try again or use a shorter clip.',
         fetch_media_failed: 'Could not fetch the video file.',
         fetch_media_http: 'Video file fetch failed.',
-        file_too_large: result.detail || 'Video is too large for automatic download.',
+        file_too_large: 'Video too long/big. Please go find another video.',
         r2_put_failed: 'Could not save the video. Try again.',
       };
       return json(

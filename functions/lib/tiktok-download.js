@@ -15,9 +15,17 @@ import {
 const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
 const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
 const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
-const MAX_BYTES = 90 * 1024 * 1024;
-/** Prefer standard (no HD) once the file is this large or bigger. */
-const HD_MAX_BYTES = 20 * 1024 * 1024;
+/** Max accepted download size. HD over this → try no HD; no HD over this → reject. */
+const MAX_ACCEPT_BYTES = 20 * 1024 * 1024;
+
+function sizeTooBigResult(bytes) {
+  const mb = Math.round(Number(bytes) / (1024 * 1024));
+  return {
+    ok: false,
+    error: 'file_too_large',
+    detail: Number.isFinite(mb) ? `~${mb}MB` : null,
+  };
+}
 
 export function looksLikeTikTokUrl(raw) {
   if (!raw || typeof raw !== 'string') return false;
@@ -376,24 +384,22 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
       ? Number(resolved.meta.size)
       : null;
 
-  // ≥20MB → no HD. Also covers the hard ~90MB Worker body limit.
-  if (preferHd && metaSize != null && metaSize >= HD_MAX_BYTES) {
+  // HD ≥20MB → switch to no HD before transferring.
+  if (preferHd && metaSize != null && metaSize >= MAX_ACCEPT_BYTES) {
     const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
-    if (sd.ok) {
-      const sdSize = sd.meta?.size != null ? Number(sd.meta.size) : null;
-      if (sdSize == null || sdSize < metaSize || sdSize <= MAX_BYTES) {
-        resolved = sd;
-        preferHd = false;
-      }
-    }
+    if (!sd.ok) return sizeTooBigResult(metaSize);
+    resolved = sd;
+    preferHd = false;
   }
 
-  if (resolved.meta?.size != null && Number(resolved.meta.size) > MAX_BYTES) {
-    return {
-      ok: false,
-      error: 'file_too_large',
-      detail: `Video is ${Math.round(Number(resolved.meta.size) / (1024 * 1024))}MB; max ~${Math.round(MAX_BYTES / (1024 * 1024))}MB`,
-    };
+  const sdMetaSize =
+    resolved.meta?.size != null && Number.isFinite(Number(resolved.meta.size))
+      ? Number(resolved.meta.size)
+      : null;
+
+  // No HD (or forced standard) still ≥20MB → reject; don't download.
+  if (!preferHd && sdMetaSize != null && sdMetaSize >= MAX_ACCEPT_BYTES) {
+    return sizeTooBigResult(sdMetaSize);
   }
 
   const idPart = sanitizeFilenamePart(resolved.meta.id || 'video');
@@ -403,25 +409,21 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   let transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
   if (!transferred.ok) return transferred;
 
-  // If HD came back large (or meta size was missing), retry standard.
-  if (preferHd && transferred.bytes.byteLength >= HD_MAX_BYTES) {
+  // Meta size missing: HD came back ≥20MB → retry no HD once.
+  if (preferHd && transferred.bytes.byteLength >= MAX_ACCEPT_BYTES) {
     const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
     if (sd.ok && sd.playUrl && sd.playUrl !== resolved.playUrl) {
       const retry = await fetchBytesViaCloudConvert(env, sd.playUrl, filename);
-      if (retry.ok && retry.bytes.byteLength < transferred.bytes.byteLength) {
-        transferred = retry;
-        resolved = { ...resolved, playUrl: sd.playUrl, meta: { ...resolved.meta, ...sd.meta } };
-        preferHd = false;
-      }
+      if (!retry.ok) return retry;
+      transferred = retry;
+      resolved = { ...resolved, playUrl: sd.playUrl, meta: { ...resolved.meta, ...sd.meta } };
+      preferHd = false;
     }
   }
 
-  if (transferred.bytes.byteLength > MAX_BYTES) {
-    return {
-      ok: false,
-      error: 'file_too_large',
-      detail: `Video is ${Math.round(transferred.bytes.byteLength / (1024 * 1024))}MB; max ~${Math.round(MAX_BYTES / (1024 * 1024))}MB`,
-    };
+  // No HD over 20MB → reject (do not save).
+  if (transferred.bytes.byteLength >= MAX_ACCEPT_BYTES) {
+    return sizeTooBigResult(transferred.bytes.byteLength);
   }
 
   const key = `tiktok/${authorPart}_${idPart}_${Date.now()}.mp4`;
