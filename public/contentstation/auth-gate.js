@@ -17,6 +17,8 @@
   const NAV_BY_HREF = [
     { match: /(?:^|\/)(?:index\.html)?$/, roles: ['admin'], label: 'Clean' },
     { match: /cleaned\.html/, roles: ['admin'] },
+    { match: /tiktok-download-facefusion-remix\.html/, roles: ['admin'] },
+    { match: /facefusion-remixes\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-v2\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og(?:-v1)?\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix\.html/, roles: ['admin'] },
@@ -31,6 +33,8 @@
     cleaned: ['admin'],
     downloaded: ['admin'],
     'tiktok-download': ['admin', 'download'],
+    'tiktok-download-facefusion-remix': ['admin'],
+    'facefusion-remixes': ['admin'],
     'tiktok-download-character-remix': ['admin'],
     'tiktok-download-character-remix-2-og': ['admin'],
     'tiktok-download-character-remix-2-og-v1': ['admin'],

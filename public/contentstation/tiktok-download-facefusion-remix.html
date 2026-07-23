@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Remix 3 — FaceFusion</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Upload a face, download a TikTok, optionally Deep AI remake, FaceFusion swap on RunPod.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">Remix 2 OG V2</a>
+        <a href="./tiktok-download-facefusion-remix.html" aria-current="page">Remix 3 FaceFusion</a>
+        <a href="./facefusion-remixes.html">FaceFusion remixes</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">Remix 3 — FaceFusion</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Remix 3 — FaceFusion</h1>
+        <p class="lede">
+          Upload a face photo and a TikTok URL. We download via TikLive, optionally run GhostCut
+          <strong>Deep AI remake</strong>, then FaceFusion swaps your face onto the video on RunPod.
+        </p>
+
+        <label for="face-file">Face image</label>
+        <input id="face-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+        <p id="face-meta" class="muted-line">Clear front-facing face works best.</p>
+        <div id="face-preview-wrap" class="character-preview-wrap" hidden>
+          <img id="face-preview" alt="Face preview" class="character-preview">
+        </div>
+
+        <label for="tiktok-url">TikTok URL</label>
+        <input id="tiktok-url" type="url" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…">
+
+        <fieldset class="options">
+          <legend>Options</legend>
+          <label class="check">
+            <input type="checkbox" id="opt-smaller-no-hd">
+            <span>smaller file – NO HD (download)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="opt-deep-ai-remake">
+            <span>Deep AI remake (GhostCut) before FaceFusion</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="opt-enhance" checked>
+            <span>Enhance swapped face (FaceFusion face_enhancer)</span>
+          </label>
+        </fieldset>
+
+        <p id="ff-config" class="muted-line" hidden></p>
+
+        <div class="row">
+          <button type="button" id="run-btn">Download &amp; FaceFusion</button>
+          <button type="button" id="stop-btn" class="ghost" hidden>Stop</button>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="ff-error" class="error" hidden></p>
+
+        <p class="muted-line">
+          <a class="btn-link" href="./facefusion-remixes.html">FaceFusion remixes →</a>
+          Keep this tab open until the job finishes. Finished MP4s land in the library.
+        </p>
+
+        <div id="results" class="download-results" hidden></div>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download.html">← TikTok download</a>
+      ·
+      <a href="./facefusion-remixes.html">FaceFusion remixes</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./tiktok-download-facefusion-remix-app.js"></script>
+</body>
+</html>

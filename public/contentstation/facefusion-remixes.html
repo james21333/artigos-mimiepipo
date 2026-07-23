@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | FaceFusion remixes</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Library of FaceFusion-remixed TikTok videos archived on the station.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="gallery-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">Remix 2 OG V2</a>
+        <a href="./tiktok-download-facefusion-remix.html">Remix 3 FaceFusion</a>
+        <a href="./facefusion-remixes.html" aria-current="page">FaceFusion remixes</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">FaceFusion remixes</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>FaceFusion remixes</h1>
+        <p class="lede">
+          Archived FaceFusion swaps from
+          <a class="btn-link" href="./tiktok-download-facefusion-remix.html">Remix 3 FaceFusion</a>.
+          Run new jobs there — this page only lists finished MP4s.
+        </p>
+
+        <div class="row">
+          <button type="button" id="refresh-btn">Refresh</button>
+        </div>
+
+        <p id="gallery-status" class="status" aria-live="polite">Loading…</p>
+        <p id="gallery-error" class="error" hidden></p>
+
+        <div id="gallery-grid" class="gallery-grid" hidden></div>
+        <p id="gallery-empty" class="muted-line" hidden>No FaceFusion remixes yet. Finish a job on Remix 3 and it will show up here.</p>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download-facefusion-remix.html">← Remix 3 FaceFusion</a>
+      ·
+      <a href="./">Clean video</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./facefusion-remixes-app.js"></script>
+</body>
+</html>
