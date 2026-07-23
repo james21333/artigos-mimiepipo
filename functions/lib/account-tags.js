@@ -23,7 +23,20 @@ export function sanitizeAccountName(raw) {
 
 /** Natural order so "2-…" comes before "10-…". */
 export function compareAccountNames(a, b) {
-  return String(a || '').localeCompare(String(b || ''), undefined, {
+  const sa = String(a || '');
+  const sb = String(b || '');
+  const ma = sa.match(/^(\d+)/);
+  const mb = sb.match(/^(\d+)/);
+  if (ma && mb) {
+    const na = Number(ma[1]);
+    const nb = Number(mb[1]);
+    if (na !== nb) return na - nb;
+  } else if (ma && !mb) {
+    return -1;
+  } else if (!ma && mb) {
+    return 1;
+  }
+  return sa.localeCompare(sb, undefined, {
     numeric: true,
     sensitivity: 'base',
   });

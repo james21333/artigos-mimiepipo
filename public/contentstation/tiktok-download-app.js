@@ -81,13 +81,30 @@
     editAccountBtn.hidden = !selectedAccount();
   }
 
+  function compareAccountNames(a, b) {
+    const sa = String(a || '');
+    const sb = String(b || '');
+    const ma = sa.match(/^(\d+)/);
+    const mb = sb.match(/^(\d+)/);
+    if (ma && mb) {
+      const na = Number(ma[1]);
+      const nb = Number(mb[1]);
+      if (na !== nb) return na - nb;
+    } else if (ma && !mb) {
+      return -1;
+    } else if (!ma && mb) {
+      return 1;
+    }
+    return sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
+  }
+
   function fillAccountSelect(accounts, prefer) {
     if (!accountSelect) return;
     const current = prefer != null ? prefer : accountSelect.value;
     const names = (accounts || [])
       .map((a) => (typeof a === 'string' ? a : a.name))
       .filter(Boolean)
-      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
+      .sort(compareAccountNames);
     accountSelect.innerHTML = '';
     const none = document.createElement('option');
     none.value = '';

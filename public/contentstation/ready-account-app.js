@@ -167,9 +167,24 @@
       select.appendChild(unt);
       const names = new Set(accountsCache);
       if (accountName) names.add(accountName);
-      [...names].sort((a, b) =>
-        String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }),
-      ).forEach((name) => {
+      [...names]
+        .sort((a, b) => {
+          const sa = String(a || '');
+          const sb = String(b || '');
+          const ma = sa.match(/^(\d+)/);
+          const mb = sb.match(/^(\d+)/);
+          if (ma && mb) {
+            const na = Number(ma[1]);
+            const nb = Number(mb[1]);
+            if (na !== nb) return na - nb;
+          } else if (ma && !mb) {
+            return -1;
+          } else if (!ma && mb) {
+            return 1;
+          }
+          return sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
+        })
+        .forEach((name) => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;

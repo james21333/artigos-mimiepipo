@@ -66,9 +66,28 @@
     }
   }
 
+  function compareAccountNames(a, b) {
+    const sa = String(a || '');
+    const sb = String(b || '');
+    const ma = sa.match(/^(\d+)/);
+    const mb = sb.match(/^(\d+)/);
+    if (ma && mb) {
+      const na = Number(ma[1]);
+      const nb = Number(mb[1]);
+      if (na !== nb) return na - nb;
+    } else if (ma && !mb) {
+      return -1;
+    } else if (!ma && mb) {
+      return 1;
+    }
+    return sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
+  }
+
   function renderAccounts(accounts) {
     accountList.innerHTML = '';
-    const list = accounts || [];
+    const list = [...(accounts || [])].sort((a, b) =>
+      compareAccountNames(a?.name || a, b?.name || b),
+    );
     if (!list.length) {
       accountList.hidden = true;
       galleryEmpty.hidden = false;
