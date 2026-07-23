@@ -275,7 +275,7 @@
     throw new Error('Stopped');
   }
 
-  async function pollFacefusion(jobId, card, meta) {
+  async function pollFacefusion(jobId, meta) {
     const started = Date.now();
     while (!stopRequested) {
       if (Date.now() - started > MAX_POLL_MS) {
@@ -287,13 +287,15 @@
       );
       if (!ok) continue;
       const status = String(data.status || '').toUpperCase();
-      setCardStatus(card, data.message || data.progress?.label || status);
-      setStatus(data.message || status, jobId);
+      setStatus(data.message || data.progress?.label || status, jobId);
 
       if (status === 'COMPLETED' && (data.videoUrl || data.key || data.downloadPath)) {
         let downloadPath = data.downloadPath;
         let key = data.key;
-        if (data.videoUrl && !key) {
+        if (key && !downloadPath) {
+          downloadPath = `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+        }
+        if (!key && data.videoUrl) {
           const saved = await api('/api/contentstation/facefusion-remix', {
             method: 'POST',
             body: JSON.stringify({
@@ -305,22 +307,21 @@
               runpodJobId: jobId,
             }),
           });
-          if (saved.ok) {
-            downloadPath = saved.data.downloadPath;
-            key = saved.data.key;
+          if (!saved.ok) {
+            throw new Error(saved.data?.message || saved.data?.error || 'Could not archive FaceFusion output');
           }
+          downloadPath = saved.data.downloadPath;
+          key = saved.data.key;
         }
-        if (data.key && data.downloadPath) {
-          downloadPath = data.downloadPath;
-          key = data.key;
+        if (!key || !downloadPath) {
+          throw new Error('FaceFusion completed but no output key/URL');
         }
-        fillCardSuccess(card, { downloadPath, key });
         try {
           localStorage.removeItem(ACTIVE_STORAGE_KEY);
         } catch {
           /* ignore */
         }
-        return;
+        return { key, downloadPath, jobId };
       }
       if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
         throw new Error(data.message || data.error || status);
@@ -358,19 +359,13 @@
       setStatus('Downloading TikTok…');
       setCardStatus(card, 'Downloading TikTok…');
       const dl = await downloadTikTok(url, Boolean(smallerNoHd && smallerNoHd.checked));
-      let videoKey = dl.key;
+      const videoKey = dl.key;
       if (!videoKey) throw new Error('Download returned no key');
-
-      if (deepAiRemake && deepAiRemake.checked) {
-        setStatus('Deep AI remake…');
-        setCardStatus(card, 'Deep AI remake…');
-        videoKey = await runDeepAiRemake(videoKey);
-      }
 
       if (stopRequested) throw new Error('Stopped');
 
       setStatus('Submitting FaceFusion…');
-      setCardStatus(card, 'Submitting FaceFusion…');
+      setCardStatus(card, 'FaceFusion…');
       const { ok, data } = await api('/api/contentstation/facefusion-remix', {
         method: 'POST',
         body: JSON.stringify({
@@ -399,11 +394,25 @@
         /* ignore */
       }
 
-      await pollFacefusion(data.jobId, card, {
+      setCardStatus(card, 'FaceFusion running…');
+      let final = await pollFacefusion(data.jobId, {
         faceKey: uploadedFaceKey,
         videoKey,
         tiktokUrl: url,
       });
+
+      if (deepAiRemake && deepAiRemake.checked && final.key && !stopRequested) {
+        setStatus('Deep AI remake (after FaceFusion)…');
+        setCardStatus(card, 'Deep AI remake…');
+        const cleanedKey = await runDeepAiRemake(final.key);
+        final = {
+          key: cleanedKey,
+          downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(cleanedKey)}`,
+          jobId: data.jobId,
+        };
+      }
+
+      fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
       setStatus('Done', data.jobId);
     } catch (err) {
       const msg = String(err?.message || err);

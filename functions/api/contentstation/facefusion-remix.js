@@ -11,9 +11,8 @@
  * Client pipeline:
  *   1) Upload face → faces/
  *   2) TikTok download → tiktok/
- *   3) Optional GhostCut deepAiRemake → cleaned/
- *   4) This API → RunPod FaceFusion worker
- *   5) save → facefusion-remix/
+ *   3) This API → RunPod FaceFusion worker → save facefusion-remix/
+ *   4) Optional GhostCut deepAiRemake on the swapped MP4 (client-driven)
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
