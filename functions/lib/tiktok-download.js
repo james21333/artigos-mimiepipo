@@ -441,6 +441,11 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   }
 
   const meta = { ...resolved.meta, quality: preferHd ? 'hd' : 'standard' };
+  const usedFallback = resolved.provider === 'legacy_fallback';
+  const tikliveBalanceExhausted =
+    usedFallback &&
+    (resolved.primaryError === 'provider_balance' ||
+      /balance|exhausted|purchase|credit|quota/i.test(String(resolved.primaryDetail || '')));
   return {
     ok: true,
     key,
@@ -450,5 +455,9 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
     quality: preferHd ? 'hd' : 'standard',
     meta,
     provider: resolved.provider,
+    tikliveBalanceExhausted,
+    warning: tikliveBalanceExhausted
+      ? 'TikLive balance needs to be topped up. Using backup download for now.'
+      : null,
   };
 }

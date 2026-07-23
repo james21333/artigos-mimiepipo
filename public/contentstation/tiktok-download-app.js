@@ -31,8 +31,11 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const downloadError = document.getElementById('download-error');
+  const providerWarning = document.getElementById('provider-warning');
   const results = document.getElementById('results');
   const libraryNote = document.getElementById('library-note');
+  const TIKLIVE_TOPUP_MSG =
+    'TikLive balance needs to be topped up (tikliveapi.com). Downloads may use a backup resolver until credits are added.';
   const accountSelect = document.getElementById('account-select');
   const editAccountBtn = document.getElementById('edit-account-btn');
   const editAccountForm = document.getElementById('edit-account-form');
@@ -195,6 +198,25 @@
       statusDetail.hidden = true;
       statusDetail.textContent = '';
     }
+  }
+
+  function setProviderWarning(msg) {
+    if (!providerWarning) return;
+    if (msg) {
+      providerWarning.hidden = false;
+      providerWarning.textContent = msg;
+    } else {
+      providerWarning.hidden = true;
+      providerWarning.textContent = '';
+    }
+  }
+
+  function looksLikeTikLiveBalanceIssue(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.tikliveBalanceExhausted) return true;
+    if (data.error === 'provider_balance') return true;
+    const blob = `${data.message || ''} ${data.detail || ''} ${data.warning || ''}`;
+    return /tiklive|balance has been exhausted|purchase balance|out of credits/i.test(blob);
   }
 
   function formatBytes(n) {
@@ -805,6 +827,8 @@
       let okCount = 0;
       let failCount = 0;
       let cleanStarted = 0;
+      let sawTikLiveBalanceIssue = false;
+      setProviderWarning('');
 
       for (let i = 0; i < urls.length; i++) {
         if (stopRequested) {
@@ -835,11 +859,22 @@
           });
           if (!ok) {
             failCount += 1;
+            if (looksLikeTikLiveBalanceIssue(data)) {
+              sawTikLiveBalanceIssue = true;
+              setProviderWarning(TIKLIVE_TOPUP_MSG);
+            }
             const detail = data?.detail ? ` (${data.detail})` : '';
-            setCardError(card, (data?.message || data?.error || 'Download failed') + detail);
+            const baseMsg = looksLikeTikLiveBalanceIssue(data)
+              ? data?.message || TIKLIVE_TOPUP_MSG
+              : data?.message || data?.error || 'Download failed';
+            setCardError(card, baseMsg + (looksLikeTikLiveBalanceIssue(data) ? '' : detail));
             setCardStatus(card, 'Failed');
           } else {
             okCount += 1;
+            if (looksLikeTikLiveBalanceIssue(data) || data?.warning) {
+              sawTikLiveBalanceIssue = true;
+              setProviderWarning(data.warning || TIKLIVE_TOPUP_MSG);
+            }
             fillCardSuccess(card, data);
 
             if (autoClean && data.key && !stopRequested) {
@@ -869,6 +904,9 @@
 
       if (!stopRequested) {
         const base = `${okCount} saved · ${failCount} failed · ${urls.length} total`;
+        if (sawTikLiveBalanceIssue) {
+          setProviderWarning(TIKLIVE_TOPUP_MSG);
+        }
         if (autoClean && cleanStarted) {
           refreshBatchStatus('Downloads done · cleaning…', `${base} · keep this tab open`);
           if (stopBtn) {
@@ -876,14 +914,21 @@
             stopBtn.textContent = 'Stop polling';
           }
         } else {
-          setStatus('Done', base);
+          setStatus(
+            failCount && !okCount ? 'All downloads failed' : 'Done',
+            sawTikLiveBalanceIssue ? `${base} · TikLive needs a top-up` : base,
+          );
           if (stopBtn) {
             stopBtn.hidden = true;
             stopBtn.textContent = 'Stop';
           }
         }
         if (failCount && !okCount) {
-          setError('All downloads failed. Check the errors on each card.');
+          setError(
+            sawTikLiveBalanceIssue
+              ? 'All downloads failed. TikLive balance needs to be topped up — check the errors on each card.'
+              : 'All downloads failed. Check the errors on each card.',
+          );
         }
       } else if (stopBtn) {
         stopBtn.hidden = ![...pendingCleans.values()].some((j) => !j.done);

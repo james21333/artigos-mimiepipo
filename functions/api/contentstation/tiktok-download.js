@@ -54,7 +54,7 @@ export async function onRequestPost(context) {
         resolve_rate_limited: 'Download service rate-limited the request. Wait a second and try again.',
         no_play_url: 'No video file was available for that link.',
         provider_balance:
-          'Primary download provider is out of credits; backup resolver also failed. Try again shortly.',
+          'TikLive balance needs to be topped up. Backup download also failed — add credits at tikliveapi.com, then try again.',
         transfer_unconfigured: 'File transfer isn’t configured.',
         transfer_failed: 'Could not transfer the video file. Try again.',
         transfer_timeout: 'Download timed out — try again or use a shorter clip.',
@@ -81,6 +81,9 @@ export async function onRequestPost(context) {
       downloadPath: result.downloadPath,
       meta: result.meta,
       quality: result.meta?.quality || (preferHd ? 'hd' : 'standard'),
+      provider: result.provider || null,
+      tikliveBalanceExhausted: Boolean(result.tikliveBalanceExhausted),
+      warning: result.warning || null,
     });
   } catch (err) {
     return json(
