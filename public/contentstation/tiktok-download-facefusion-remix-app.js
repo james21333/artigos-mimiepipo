@@ -2,7 +2,10 @@
   const POLL_MS = 4000;
   const MAX_POLL_MS = 45 * 60 * 1000;
   const MAX_CLEAN_POLL_MS = 25 * 60 * 1000;
-  const ACTIVE_STORAGE_KEY = 'cs_facefusion_remix_active_v1';
+  /** Soft-retry network blips before failing a poll loop. */
+  const MAX_POLL_ERRORS = 20;
+  const ACTIVE_STORAGE_KEY = 'cs_facefusion_remix_active_v2';
+  const ACTIVE_JOB_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -29,6 +32,71 @@
   /** @type {string|null} */
   let uploadedFaceKey = null;
 
+  function loadActiveJobs() {
+    try {
+      // Migrate single-job v1 blob if present.
+      const legacy = localStorage.getItem('cs_facefusion_remix_active_v1');
+      if (legacy) {
+        try {
+          const j = JSON.parse(legacy);
+          if (j?.jobId) {
+            const cur = (() => {
+              try {
+                const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+              } catch {
+                return [];
+              }
+            })();
+            if (!cur.some((x) => x.jobId === j.jobId)) {
+              cur.push(j);
+              localStorage.setItem(ACTIVE_STORAGE_KEY, JSON.stringify(cur));
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+        try {
+          localStorage.removeItem('cs_facefusion_remix_active_v1');
+        } catch {
+          /* ignore */
+        }
+      }
+      const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr)) return [];
+      const now = Date.now();
+      return arr.filter((j) => {
+        if (!j || !j.jobId) return false;
+        const started = Number(j.startedAt) || 0;
+        return !started || now - started < ACTIVE_JOB_MAX_AGE_MS;
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  function saveActiveJobs(jobs) {
+    try {
+      localStorage.setItem(ACTIVE_STORAGE_KEY, JSON.stringify(jobs || []));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function upsertActiveJob(job) {
+    if (!job?.jobId) return;
+    const jobs = loadActiveJobs().filter((j) => j.jobId !== job.jobId);
+    jobs.push(job);
+    saveActiveJobs(jobs);
+  }
+
+  function removeActiveJob(jobId) {
+    if (!jobId) return;
+    saveActiveJobs(loadActiveJobs().filter((j) => j.jobId !== jobId));
+  }
+
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
     const headers = { ...(options.headers || {}) };
@@ -36,15 +104,27 @@
       headers['Content-Type'] = 'application/json';
     }
     opts.headers = headers;
-    const res = await fetch(path, opts);
-    let data = null;
-    const text = await res.text();
     try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = { raw: text };
+      const res = await fetch(path, opts);
+      let data = null;
+      const text = await res.text();
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = { raw: text };
+      }
+      return { ok: res.ok, status: res.status, data, networkError: false };
+    } catch (err) {
+      return {
+        ok: false,
+        status: 0,
+        networkError: true,
+        data: {
+          error: 'network_error',
+          message: String(err?.message || err || 'Failed to fetch'),
+        },
+      };
     }
-    return { ok: res.ok, status: res.status, data };
   }
 
   function showGate(msg) {
@@ -278,15 +358,41 @@
 
   async function pollFacefusion(jobId, meta) {
     const started = Date.now();
+    let errors = 0;
     while (!stopRequested) {
       if (Date.now() - started > MAX_POLL_MS) {
-        throw new Error('FaceFusion timed out');
+        throw new Error(
+          'FaceFusion timed out after 45 minutes. Refresh — the GPU job may still finish in the library.',
+        );
       }
       await sleep(POLL_MS);
-      const { ok, data } = await api(
+      const { ok, data, networkError, status: httpStatus } = await api(
         `/api/contentstation/facefusion-remix?action=status&jobId=${encodeURIComponent(jobId)}`,
       );
-      if (!ok) continue;
+      if (!ok) {
+        if (httpStatus === 404 || data?.error === 'job_not_found') {
+          throw new Error(
+            data?.message ||
+              'RunPod job not found (finished, expired, or never submitted). Check FaceFusion remixes.',
+          );
+        }
+        errors += 1;
+        setStatus(
+          networkError
+            ? `Connection blip — still waiting on GPU (${errors}/${MAX_POLL_ERRORS})…`
+            : data?.message || data?.error || `Status check failed (${errors}/${MAX_POLL_ERRORS})`,
+          jobId,
+        );
+        if (errors >= MAX_POLL_ERRORS) {
+          throw new Error(
+            data?.message ||
+              data?.error ||
+              'Lost connection while polling FaceFusion. Refresh this page to resume — the GPU job may still be running.',
+          );
+        }
+        continue;
+      }
+      errors = 0;
       const status = String(data.status || '').toUpperCase();
       setStatus(data.message || data.progress?.label || status, jobId);
 
@@ -317,14 +423,11 @@
         if (!key || !downloadPath) {
           throw new Error('FaceFusion completed but no output key/URL');
         }
-        try {
-          localStorage.removeItem(ACTIVE_STORAGE_KEY);
-        } catch {
-          /* ignore */
-        }
+        removeActiveJob(jobId);
         return { key, downloadPath, jobId };
       }
       if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
+        removeActiveJob(jobId);
         throw new Error(data.message || data.error || status);
       }
     }
@@ -380,38 +483,22 @@
         throw new Error(data?.message || data?.error || 'FaceFusion submit failed');
       }
 
-      try {
-        localStorage.setItem(
-          ACTIVE_STORAGE_KEY,
-          JSON.stringify({
-            jobId: data.jobId,
-            faceKey: uploadedFaceKey,
-            videoKey,
-            tiktokUrl: url,
-            startedAt: Date.now(),
-          }),
-        );
-      } catch {
-        /* ignore */
-      }
-
-      setCardStatus(card, 'FaceFusion running…');
-      let final = await pollFacefusion(data.jobId, {
+      upsertActiveJob({
+        jobId: data.jobId,
         faceKey: uploadedFaceKey,
         videoKey,
         tiktokUrl: url,
+        deepAiRemake: Boolean(deepAiRemake && deepAiRemake.checked),
+        startedAt: Date.now(),
       });
 
-      if (deepAiRemake && deepAiRemake.checked && final.key && !stopRequested) {
-        setStatus('Deep AI remake (after FaceFusion)…');
-        setCardStatus(card, 'Deep AI remake…');
-        const cleanedKey = await runDeepAiRemake(final.key);
-        final = {
-          key: cleanedKey,
-          downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(cleanedKey)}`,
-          jobId: data.jobId,
-        };
-      }
+      setCardStatus(card, 'FaceFusion running…');
+      let final = await finishFacefusionJob(data.jobId, {
+        faceKey: uploadedFaceKey,
+        videoKey,
+        tiktokUrl: url,
+        deepAiRemake: Boolean(deepAiRemake && deepAiRemake.checked),
+      }, card);
 
       fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
       setStatus('Done', data.jobId);
@@ -428,6 +515,61 @@
         stopBtn.hidden = true;
         stopBtn.textContent = 'Stop';
       }
+    }
+  }
+
+  async function finishFacefusionJob(jobId, meta, card) {
+    setCardStatus(card, 'FaceFusion running…');
+    let final = await pollFacefusion(jobId, meta);
+    if (meta.deepAiRemake && final.key && !stopRequested) {
+      setStatus('Deep AI remake (after FaceFusion)…');
+      setCardStatus(card, 'Deep AI remake…');
+      const cleanedKey = await runDeepAiRemake(final.key);
+      final = {
+        key: cleanedKey,
+        downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(cleanedKey)}`,
+        jobId,
+      };
+    }
+    removeActiveJob(jobId);
+    return final;
+  }
+
+  async function resumeActiveJobs() {
+    const jobs = loadActiveJobs();
+    if (!jobs.length) return;
+    setStatus(`Resuming ${jobs.length} FaceFusion job${jobs.length === 1 ? '' : 's'}…`);
+    for (const job of jobs) {
+      const card = addCard(job.tiktokUrl || job.jobId);
+      setCardStatus(card, 'Resuming GPU poll…');
+      try {
+        running = true;
+        if (runBtn) runBtn.disabled = true;
+        if (stopBtn) stopBtn.hidden = false;
+        const final = await finishFacefusionJob(
+          job.jobId,
+          {
+            faceKey: job.faceKey,
+            videoKey: job.videoKey,
+            tiktokUrl: job.tiktokUrl,
+            deepAiRemake: Boolean(job.deepAiRemake),
+          },
+          card,
+        );
+        fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
+        setStatus('Done', job.jobId);
+      } catch (err) {
+        const msg = String(err?.message || err);
+        setCardError(card, msg);
+        setCardStatus(card, 'Failed');
+        setError(msg);
+      }
+    }
+    running = false;
+    if (runBtn) runBtn.disabled = false;
+    if (stopBtn) {
+      stopBtn.hidden = true;
+      stopBtn.textContent = 'Stop';
     }
   }
 
@@ -454,14 +596,15 @@
     stopRequested = true;
     stopBtn.textContent = 'Stopping…';
     try {
-      const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
-      const active = raw ? JSON.parse(raw) : null;
-      if (active?.jobId) {
-        await api('/api/contentstation/facefusion-remix', {
-          method: 'POST',
-          body: JSON.stringify({ action: 'cancel', jobId: active.jobId }),
-        });
-      }
+      const jobs = loadActiveJobs();
+      await Promise.all(
+        jobs.map((j) =>
+          api('/api/contentstation/facefusion-remix', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'cancel', jobId: j.jobId }),
+          }),
+        ),
+      );
     } catch {
       /* ignore */
     }
@@ -478,7 +621,8 @@
       showGate(data?.message || data?.error || 'Login failed');
       return;
     }
-    await refreshSession();
+    const authed = await refreshSession();
+    if (authed) void resumeActiveJobs();
   });
 
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
@@ -486,5 +630,9 @@
     showGate();
   });
 
-  refreshSession().catch(() => showGate());
+  refreshSession()
+    .then((authed) => {
+      if (authed) return resumeActiveJobs();
+    })
+    .catch(() => showGate());
 })();
