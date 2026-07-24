@@ -133,10 +133,11 @@
     fd.append('file', file);
     fd.append('prefix', 'faces/');
     const { ok, data } = await api('/api/contentstation/media', { method: 'POST', body: fd });
-    if (!ok || !data?.key) {
+    const key = data?.object?.key || data?.key;
+    if (!ok || !key) {
       throw new Error(data?.message || data?.error || 'Face upload failed');
     }
-    return data.key;
+    return key;
   }
 
   function ensureResults() {
