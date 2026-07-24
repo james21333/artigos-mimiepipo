@@ -85,3 +85,18 @@ export async function getCleanedForSource(env, sourceRaw) {
   const map = await readCleanSourceMap(env);
   return map[sourceKey] || null;
 }
+
+/**
+ * Reverse lookup: cleaned/ key → source tiktok/ key (first match).
+ */
+export async function getSourceForCleaned(env, cleanedKeyRaw) {
+  const cleaned = String(cleanedKeyRaw || '')
+    .trim()
+    .replace(/^\/+/, '');
+  if (!cleaned.startsWith('cleaned/') || cleaned.includes('..')) return null;
+  const map = await readCleanSourceMap(env);
+  for (const [sourceKey, entry] of Object.entries(map || {})) {
+    if (entry && entry.cleanedKey === cleaned) return sourceKey;
+  }
+  return null;
+}

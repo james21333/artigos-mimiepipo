@@ -500,12 +500,60 @@ a { color: var(--accent); }
 
 .gallery-actions {
   margin: 0.45rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .gallery-actions .btn-link {
   margin-top: 0;
   font-size: 0.92rem;
   padding: 0.4rem 0.8rem;
+}
+
+.gallery-actions .btn-info {
+  margin: 0;
+  font-size: 0.92rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.post-info-panel {
+  margin-top: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(20, 40, 28, 0.18);
+  background: rgba(12, 22, 16, 0.04);
+}
+
+.post-info-row {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.post-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.post-info-label {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(12, 22, 16, 0.55);
+  margin-bottom: 0.15rem;
+}
+
+.post-info-body {
+  white-space: pre-wrap;
+}
+
+.post-info-panel a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .download-main {

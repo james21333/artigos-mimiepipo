@@ -11,6 +11,7 @@ import {
   extractJobError,
   waitForJob,
 } from './cloudconvert.js';
+import { extractMusicFromProvider, flattenPostMetaForStorage } from './tiktok-post-info.js';
 
 const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
 const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
@@ -126,6 +127,7 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
     typeof playUrl === 'string' &&
     (playUrl === d.video_hd || playUrl === d.hdplay || /hdplay|original|_original/i.test(playUrl));
 
+  const music0 = extractMusicFromProvider(d);
   let meta = {
     id: d.id ? String(d.id) : null,
     title: d.title || d.desc || '',
@@ -139,9 +141,14 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
     size: (usedHd ? d.hd_size : null) ?? d.size ?? null,
     createTime: d.create_time ?? null,
     quality: usedHd ? 'hd' : 'standard',
+    tiktokUrl: tiktokUrl.trim(),
+    musicId: music0.musicId,
+    musicTitle: music0.musicTitle,
+    musicAuthor: music0.musicAuthor,
+    musicOriginal: music0.musicOriginal,
   };
 
-  // download-video often returns only URLs — enrich title/author from post-detail (best effort).
+  // download-video often returns only URLs — enrich title/author/music from post-detail (best effort).
   try {
     const detailRes = await fetch(
       `${TIKLIVE_POST_DETAIL}?url=${encodeURIComponent(tiktokUrl.trim())}`,
@@ -158,6 +165,7 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
       const pd =
         detailBody?.data && typeof detailBody.data === 'object' ? detailBody.data : detailBody;
       if (pd && typeof pd === 'object') {
+        const music = extractMusicFromProvider(pd);
         meta = {
           id: pd.id ? String(pd.id) : meta.id,
           title: pd.title || pd.desc || meta.title,
@@ -171,6 +179,12 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
           size: (preferHd ? pd.hd_size : null) ?? pd.size ?? meta.size,
           createTime: pd.create_time ?? meta.createTime,
           quality: meta.quality,
+          tiktokUrl: meta.tiktokUrl,
+          musicId: music.musicId || meta.musicId,
+          musicTitle: music.musicTitle || meta.musicTitle,
+          musicAuthor: music.musicAuthor || meta.musicAuthor,
+          musicOriginal:
+            music.musicOriginal != null ? music.musicOriginal : meta.musicOriginal,
         };
         if (preferHd && (pd.hdplay || pd.play)) {
           const better = pickPlayUrl(
@@ -258,6 +272,7 @@ async function resolveViaLegacy(env, tiktokUrl, { preferHd = true } = {}) {
   }
 
   const usedHd = preferHd && (playUrl === d.hdplay || playUrl === d.video_hd);
+  const music = extractMusicFromProvider(d);
   return {
     ok: true,
     playUrl,
@@ -270,6 +285,11 @@ async function resolveViaLegacy(env, tiktokUrl, { preferHd = true } = {}) {
       size: (usedHd ? d.hd_size : null) ?? d.size ?? null,
       createTime: d.create_time ?? null,
       quality: usedHd ? 'hd' : 'standard',
+      tiktokUrl: tiktokUrl.trim(),
+      musicId: music.musicId,
+      musicTitle: music.musicTitle,
+      musicAuthor: music.musicAuthor,
+      musicOriginal: music.musicOriginal,
     },
     provider: 'legacy',
   };
@@ -427,6 +447,7 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   }
 
   const key = `tiktok/${authorPart}_${idPart}_${Date.now()}.mp4`;
+  const postFlat = flattenPostMetaForStorage(resolved.meta, tiktokUrl);
 
   try {
     await bucket.put(key, transferred.bytes, {
@@ -436,17 +457,26 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
       customMetadata: {
         source: 'tiktok-download',
         provider: resolved.provider || '',
-        tiktokId: resolved.meta.id || '',
-        title: String(resolved.meta.title || '').slice(0, 200),
-        author: resolved.meta.author || '',
+        tiktokId: postFlat.tiktokId || idPart,
+        title: postFlat.title || '',
+        author: postFlat.author || authorPart,
         quality: preferHd ? 'hd' : 'standard',
+        tiktokUrl: postFlat.tiktokUrl || String(tiktokUrl || '').trim().slice(0, 400),
+        musicId: postFlat.musicId || '',
+        musicTitle: postFlat.musicTitle || '',
+        musicAuthor: postFlat.musicAuthor || '',
+        musicOriginal: postFlat.musicOriginal || '',
       },
     });
   } catch (err) {
     return { ok: false, error: 'r2_put_failed', detail: String(err?.message || err) };
   }
 
-  const meta = { ...resolved.meta, quality: preferHd ? 'hd' : 'standard' };
+  const meta = {
+    ...resolved.meta,
+    ...postFlat,
+    quality: preferHd ? 'hd' : 'standard',
+  };
   const usedFallback = resolved.provider === 'legacy_fallback';
   const tikliveBalanceExhausted =
     usedFallback &&

@@ -11,6 +11,7 @@ import {
   setVideoAccount,
   setVideoPosted,
 } from '../../lib/account-tags.js';
+import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
 
 /**
  * Account tags for Ready For Upload.
@@ -18,12 +19,13 @@ import {
  * Roles:
  *   admin    → all actions
  *   download → list, tag, create, rename (account picker on TikTok download)
- *   ready    → list, tags, videos, tag, posted, create, rename
+ *   ready    → list, tags, videos, tag, posted, create, rename, info
  *
  * GET  ?action=list              → accounts + counts
  * GET  ?action=tags              → full key→account map
  * GET  ?action=videos&account=   → cleaned keys for account
  * GET  ?action=tag&key=          → tag for one key
+ * GET  ?action=info&key=         → original TikTok post info for a cleaned video
  * POST { action: "create", name }
  * POST { action: "rename", from, to }
  * POST { action: "tag", key, account }   // account "" clears
@@ -110,6 +112,27 @@ export async function onRequestGet(context) {
     const key = url.searchParams.get('key');
     const account = await getTagForKey(env, key);
     return json({ ok: true, key, account });
+  }
+
+  if (action === 'info') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const key = url.searchParams.get('key');
+    if (!key || typeof key !== 'string') {
+      return json({ ok: false, error: 'missing_key', message: 'Video key required.' }, 400);
+    }
+    const result = await resolvePostInfoForKey(env, key);
+    if (!result.ok) {
+      return json(
+        { ok: false, error: result.error || 'info_failed', message: 'Could not load post info.' },
+        400,
+      );
+    }
+    return json({
+      ok: true,
+      key: result.key,
+      sourceKey: result.sourceKey,
+      info: result.info,
+    });
   }
 
   return json({ ok: false, error: 'unknown_action' }, 400);

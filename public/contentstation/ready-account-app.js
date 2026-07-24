@@ -96,6 +96,86 @@
     return base.replace(/\.mp4$/i, '');
   }
 
+  function renderPostInfo(panel, info) {
+    panel.innerHTML = '';
+    const has =
+      info &&
+      (info.tiktokUrl || info.title || info.musicTitle || info.musicUrl || info.musicId);
+    if (!has) {
+      const empty = document.createElement('p');
+      empty.className = 'muted-line';
+      empty.textContent =
+        'No original post info found for this video (older downloads may lack it).';
+      panel.appendChild(empty);
+      return;
+    }
+
+    if (info.tiktokUrl) {
+      const row = document.createElement('p');
+      row.className = 'post-info-row';
+      const lab = document.createElement('span');
+      lab.className = 'post-info-label';
+      lab.textContent = 'Original post';
+      row.appendChild(lab);
+      row.appendChild(document.createElement('br'));
+      const a = document.createElement('a');
+      a.href = info.tiktokUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = info.tiktokUrl;
+      row.appendChild(a);
+      panel.appendChild(row);
+    }
+
+    if (info.title) {
+      const row = document.createElement('p');
+      row.className = 'post-info-row';
+      const lab = document.createElement('span');
+      lab.className = 'post-info-label';
+      lab.textContent = 'Description';
+      row.appendChild(lab);
+      row.appendChild(document.createElement('br'));
+      const body = document.createElement('span');
+      body.className = 'post-info-body';
+      body.textContent = info.title;
+      row.appendChild(body);
+      panel.appendChild(row);
+    }
+
+    if (info.musicTitle || info.musicUrl || info.musicId) {
+      const row = document.createElement('p');
+      row.className = 'post-info-row';
+      const lab = document.createElement('span');
+      lab.className = 'post-info-label';
+      lab.textContent = 'Sound';
+      row.appendChild(lab);
+      row.appendChild(document.createElement('br'));
+      const name = [info.musicTitle, info.musicAuthor ? `— ${info.musicAuthor}` : '']
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      if (info.musicUrl) {
+        const a = document.createElement('a');
+        a.href = info.musicUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = name || 'Open sound on TikTok';
+        row.appendChild(a);
+      } else if (name) {
+        const body = document.createElement('span');
+        body.className = 'post-info-body';
+        body.textContent = name;
+        row.appendChild(body);
+      } else if (info.musicId) {
+        const body = document.createElement('span');
+        body.className = 'post-info-body';
+        body.textContent = `Music id ${info.musicId}`;
+        row.appendChild(body);
+      }
+      panel.appendChild(row);
+    }
+  }
+
   async function loadAccountOptions() {
     const { ok, data } = await api('/api/contentstation/accounts?action=list');
     if (ok && data && Array.isArray(data.accounts)) {
@@ -252,11 +332,48 @@
       dl.setAttribute('download', '');
       actions.appendChild(dl);
 
+      const infoBtn = document.createElement('button');
+      infoBtn.type = 'button';
+      infoBtn.className = 'ghost btn-info';
+      infoBtn.textContent = 'Info';
+      actions.appendChild(infoBtn);
+
+      const postInfo = document.createElement('div');
+      postInfo.className = 'post-info-panel';
+      postInfo.hidden = true;
+
+      infoBtn.addEventListener('click', async () => {
+        if (!postInfo.hidden) {
+          postInfo.hidden = true;
+          infoBtn.setAttribute('aria-expanded', 'false');
+          return;
+        }
+        infoBtn.disabled = true;
+        infoBtn.textContent = 'Info…';
+        try {
+          const { ok, data } = await api(
+            `/api/contentstation/accounts?action=info&key=${encodeURIComponent(obj.key)}`,
+          );
+          if (!ok) {
+            throw new Error((data && (data.message || data.error)) || 'Could not load info.');
+          }
+          renderPostInfo(postInfo, data.info || {});
+          postInfo.hidden = false;
+          infoBtn.setAttribute('aria-expanded', 'true');
+        } catch (err) {
+          setError(err && err.message ? err.message : String(err));
+        } finally {
+          infoBtn.disabled = false;
+          infoBtn.textContent = 'Info';
+        }
+      });
+
       meta.appendChild(title);
       if (info.textContent) meta.appendChild(info);
       meta.appendChild(postedRow);
       meta.appendChild(tagRow);
       meta.appendChild(actions);
+      meta.appendChild(postInfo);
 
       card.appendChild(media);
       card.appendChild(meta);

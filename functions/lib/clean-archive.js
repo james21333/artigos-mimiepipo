@@ -5,7 +5,8 @@
  */
 
 import { setVideoAccount } from './account-tags.js';
-import { recordCleanedSource } from './clean-source-map.js';
+import { recordCleanedSource, sanitizeSourceKey } from './clean-source-map.js';
+import { cleanedCustomMetaFromSource } from './tiktok-post-info.js';
 
 const CLEANED_PREFIX = 'cleaned/';
 
@@ -54,6 +55,22 @@ async function trackSource(env, { sourceKey, cleanedKey, workId, account }) {
   }
 }
 
+async function postMetaFromSource(env, sourceRaw) {
+  const bucket = env.MEDIA_BUCKET;
+  const key = sanitizeSourceKey(sourceRaw);
+  if (!bucket || !key) return { sourceKey: null, extra: {} };
+  try {
+    const head = await bucket.head(key);
+    const cm = head?.customMetadata || {};
+    return {
+      sourceKey: key,
+      extra: cleanedCustomMetaFromSource(cm, key),
+    };
+  } catch {
+    return { sourceKey: key, extra: { sourceKey: key } };
+  }
+}
+
 export async function archiveCleanedVideo(
   env,
   { workId, sourceUrl, filename, account, sourceKey } = {},
@@ -70,6 +87,8 @@ export async function archiveCleanedVideo(
     return { ok: false, error: 'Missing download URL.' };
   }
 
+  const postBits = await postMetaFromSource(env, sourceKey);
+
   const existing = await resolveArchivedDownload(env, workId);
   if (existing) {
     if (account) {
@@ -80,11 +99,32 @@ export async function archiveCleanedVideo(
       }
     }
     await trackSource(env, {
-      sourceKey,
+      sourceKey: postBits.sourceKey || sourceKey,
       cleanedKey: existing.key,
       workId,
       account,
     });
+    // Best-effort: stamp TikTok post meta onto existing cleaned object if missing.
+    if (Object.keys(postBits.extra || {}).length) {
+      try {
+        const head = await bucket.head(existing.key);
+        if (head) {
+          const prev = head.customMetadata || {};
+          const needs = !prev.tiktokUrl && !prev.title && !prev.musicTitle && !prev.musicId;
+          if (needs) {
+            const obj = await bucket.get(existing.key);
+            if (obj?.body) {
+              await bucket.put(existing.key, obj.body, {
+                httpMetadata: head.httpMetadata || { contentType: 'video/mp4' },
+                customMetadata: { ...prev, ...postBits.extra },
+              });
+            }
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     return {
       ok: true,
       key: existing.key,
@@ -132,6 +172,7 @@ export async function archiveCleanedVideo(
         })(),
         archivedAt: new Date().toISOString(),
         originalName: String(filename || '').slice(0, 120),
+        ...postBits.extra,
       },
     });
   } catch (err) {
@@ -148,7 +189,12 @@ export async function archiveCleanedVideo(
       /* best-effort tag */
     }
   }
-  await trackSource(env, { sourceKey, cleanedKey: key, workId, account });
+  await trackSource(env, {
+    sourceKey: postBits.sourceKey || sourceKey,
+    cleanedKey: key,
+    workId,
+    account,
+  });
 
   return { ok: true, key, downloadPath: downloadPath(key), existed: false, account: account || null };
 }
