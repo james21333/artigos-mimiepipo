@@ -179,11 +179,13 @@ async function statusJob(env, jobId, endpointId) {
   const delayMs = data.delayTime != null ? Number(data.delayTime) : null;
   let message = null;
   if (status === 'IN_QUEUE') {
+    // IN_QUEUE covers both "waiting for a cold worker" and "queued behind another job".
+    // With workersMax=1 the common case after a second submit is the latter — not a 2nd GPU.
     const mins = delayMs != null && Number.isFinite(delayMs) ? Math.round(delayMs / 60000) : null;
     message =
       mins != null && mins >= 2
-        ? `Starting GPU… still queued (~${mins} min). Cold starts vary.`
-        : 'Starting GPU… cold starts vary.';
+        ? `Queued for the GPU… (~${mins} min waiting). Starts when the current job finishes or a worker comes up.`
+        : 'Queued for the GPU… starts when the current job finishes (or after cold start if none is up).';
   } else if (status === 'IN_PROGRESS') {
     message = 'FaceFusion swapping faces…';
   }
