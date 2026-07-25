@@ -28,9 +28,20 @@
   const results = document.getElementById('results');
 
   let stopRequested = false;
-  let running = false;
+  /** In-flight browser pipelines (download + poll). Allow >1 so the next job can queue on RunPod. */
+  let activeRuns = 0;
   /** @type {string|null} */
   let uploadedFaceKey = null;
+
+  function setRunUiBusy() {
+    const busy = activeRuns > 0;
+    // Keep submit enabled so another URL can be queued while a job is polling.
+    if (runBtn) runBtn.disabled = false;
+    if (stopBtn) {
+      stopBtn.hidden = !busy;
+      if (!busy) stopBtn.textContent = 'Stop';
+    }
+  }
 
   function loadActiveJobs() {
     try {
@@ -447,9 +458,8 @@
     }
 
     stopRequested = false;
-    running = true;
-    if (runBtn) runBtn.disabled = true;
-    if (stopBtn) stopBtn.hidden = false;
+    activeRuns += 1;
+    setRunUiBusy();
 
     const card = addCard(url);
     try {
@@ -509,12 +519,8 @@
       setError(msg);
       setStatus('Failed', msg);
     } finally {
-      running = false;
-      if (runBtn) runBtn.disabled = false;
-      if (stopBtn) {
-        stopBtn.hidden = true;
-        stopBtn.textContent = 'Stop';
-      }
+      activeRuns = Math.max(0, activeRuns - 1);
+      setRunUiBusy();
     }
   }
 
@@ -539,38 +545,36 @@
     const jobs = loadActiveJobs();
     if (!jobs.length) return;
     setStatus(`Resuming ${jobs.length} FaceFusion job${jobs.length === 1 ? '' : 's'}…`);
-    for (const job of jobs) {
-      const card = addCard(job.tiktokUrl || job.jobId);
-      setCardStatus(card, 'Resuming GPU poll…');
-      try {
-        running = true;
-        if (runBtn) runBtn.disabled = true;
-        if (stopBtn) stopBtn.hidden = false;
-        const final = await finishFacefusionJob(
-          job.jobId,
-          {
-            faceKey: job.faceKey,
-            videoKey: job.videoKey,
-            tiktokUrl: job.tiktokUrl,
-            deepAiRemake: Boolean(job.deepAiRemake),
-          },
-          card,
-        );
-        fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
-        setStatus('Done', job.jobId);
-      } catch (err) {
-        const msg = String(err?.message || err);
-        setCardError(card, msg);
-        setCardStatus(card, 'Failed');
-        setError(msg);
-      }
-    }
-    running = false;
-    if (runBtn) runBtn.disabled = false;
-    if (stopBtn) {
-      stopBtn.hidden = true;
-      stopBtn.textContent = 'Stop';
-    }
+    await Promise.all(
+      jobs.map(async (job) => {
+        const card = addCard(job.tiktokUrl || job.jobId);
+        setCardStatus(card, 'Resuming GPU poll…');
+        activeRuns += 1;
+        setRunUiBusy();
+        try {
+          const final = await finishFacefusionJob(
+            job.jobId,
+            {
+              faceKey: job.faceKey,
+              videoKey: job.videoKey,
+              tiktokUrl: job.tiktokUrl,
+              deepAiRemake: Boolean(job.deepAiRemake),
+            },
+            card,
+          );
+          fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
+          setStatus('Done', job.jobId);
+        } catch (err) {
+          const msg = String(err?.message || err);
+          setCardError(card, msg);
+          setCardStatus(card, 'Failed');
+          setError(msg);
+        } finally {
+          activeRuns = Math.max(0, activeRuns - 1);
+          setRunUiBusy();
+        }
+      }),
+    );
   }
 
   faceFile?.addEventListener('change', () => {
@@ -588,7 +592,6 @@
   });
 
   runBtn?.addEventListener('click', () => {
-    if (running) return;
     void runPipeline();
   });
 
