@@ -16,7 +16,6 @@ import {
   ensureTikTokSeenIndex,
   extractTikTokVideoId,
   getSeenRecord,
-  markTikTokSeen,
 } from './tiktok-download-seen.js';
 import { extractMusicFromProvider, flattenPostMetaForStorage } from './tiktok-post-info.js';
 
@@ -513,19 +512,7 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
     return { ok: false, error: 'r2_put_failed', detail: String(err?.message || err) };
   }
 
-  // Always record in the seen index (library + remix downloads) so duplicates can be blocked later.
-  try {
-    await markTikTokSeen(bucket, {
-      tiktokId: postFlat.tiktokId || idPart,
-      tiktokUrl: postFlat.tiktokUrl || String(tiktokUrl || '').trim(),
-      key,
-      author: postFlat.author || authorPart,
-      title: postFlat.title || '',
-      source: opts.seenSource || 'tiktok-download',
-    });
-  } catch {
-    /* non-fatal */
-  }
+  // Do not mark as "used" here — only a successful clean/archive blocks re-download.
 
   const meta = {
     ...resolved.meta,

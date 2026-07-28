@@ -79,7 +79,7 @@ export async function onRequestPost(context) {
         file_too_large: 'Video too long/big. Please go find another video.',
         r2_put_failed: 'Could not save the video. Try again.',
         already_downloaded:
-          'This TikTok was already downloaded. Master login can enable Duplicate Video Override to save it again.',
+          'This TikTok was already cleaned and used. Master login can enable Duplicate Video Override to download it again.',
       };
       const status =
         result.error === 'file_too_large' ? 413 : result.error === 'already_downloaded' ? 409 : 502;
@@ -167,6 +167,6 @@ export async function onRequestGet(context) {
     role: auth.role,
     canOverrideDuplicate: auth.role === ROLES.ADMIN,
     seenCount,
-    hint: 'POST { url } to download a public TikTok video (no watermark when available). Duplicates blocked unless admin allowDuplicate.',
+    hint: 'POST { url } to download. Re-download blocked only after a video was cleaned/used, unless admin allowDuplicate.',
   });
 }

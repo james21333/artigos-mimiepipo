@@ -6,6 +6,7 @@
 
 import { setVideoAccount } from './account-tags.js';
 import { recordCleanedSource, sanitizeSourceKey } from './clean-source-map.js';
+import { extractTikTokVideoId, markTikTokSeen } from './tiktok-download-seen.js';
 import { cleanedCustomMetaFromSource } from './tiktok-post-info.js';
 
 const CLEANED_PREFIX = 'cleaned/';
@@ -50,6 +51,46 @@ async function trackSource(env, { sourceKey, cleanedKey, workId, account }) {
   if (!sourceKey || !cleanedKey) return;
   try {
     await recordCleanedSource(env, { sourceKey, cleanedKey, workId, account });
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Block future TikTok downloads of this video id once it has been cleaned/used. */
+async function markUsedFromClean(env, { sourceKey, cleanedKey, account, extra } = {}) {
+  const bucket = env.MEDIA_BUCKET;
+  if (!bucket) return;
+  try {
+    const cm = extra && typeof extra === 'object' ? extra : {};
+    let tiktokUrl = cm.tiktokUrl || cm.tiktokurl || '';
+    let tiktokId = String(cm.tiktokId || cm.tiktokid || '').replace(/[^\d]/g, '');
+    let author = cm.author || '';
+    let title = cm.title || '';
+    if ((!tiktokId || !tiktokUrl) && sourceKey) {
+      try {
+        const head = await bucket.head(sourceKey);
+        const scm = head?.customMetadata || {};
+        tiktokUrl = tiktokUrl || scm.tiktokUrl || scm.tiktokurl || '';
+        tiktokId =
+          tiktokId || String(scm.tiktokId || scm.tiktokid || '').replace(/[^\d]/g, '');
+        author = author || scm.author || '';
+        title = title || scm.title || '';
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!tiktokId) tiktokId = extractTikTokVideoId(tiktokUrl);
+    if (!tiktokId) return;
+    await markTikTokSeen(bucket, {
+      tiktokId,
+      tiktokUrl,
+      key: cleanedKey,
+      cleanedKey,
+      author,
+      title,
+      account,
+      source: 'cleaned',
+    });
   } catch {
     /* best-effort */
   }
@@ -103,6 +144,12 @@ export async function archiveCleanedVideo(
       cleanedKey: existing.key,
       workId,
       account,
+    });
+    await markUsedFromClean(env, {
+      sourceKey: postBits.sourceKey || sourceKey,
+      cleanedKey: existing.key,
+      account,
+      extra: postBits.extra,
     });
     // Best-effort: stamp TikTok post meta onto existing cleaned object if missing.
     if (Object.keys(postBits.extra || {}).length) {
@@ -194,6 +241,12 @@ export async function archiveCleanedVideo(
     cleanedKey: key,
     workId,
     account,
+  });
+  await markUsedFromClean(env, {
+    sourceKey: postBits.sourceKey || sourceKey,
+    cleanedKey: key,
+    account,
+    extra: postBits.extra,
   });
 
   return { ok: true, key, downloadPath: downloadPath(key), existed: false, account: account || null };

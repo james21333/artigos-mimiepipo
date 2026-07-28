@@ -177,8 +177,8 @@
     if (!isAdmin && duplicateOverride) duplicateOverride.checked = false;
     if (duplicateHint) {
       duplicateHint.textContent = isAdmin
-        ? 'Already-downloaded TikToks are blocked by video id. Check Duplicate Video Override (master only) to save one again.'
-        : 'Already-downloaded TikToks are blocked automatically (same video id).';
+        ? 'Only TikToks that were cleaned/used are blocked. Check Duplicate Video Override (master only) to download one again.'
+        : 'Only TikToks that were cleaned/used are blocked automatically (same video id).';
     }
   }
 
@@ -199,9 +199,9 @@
       const n = data.seenCount;
       const base =
         sessionRole === 'admin'
-          ? 'Already-downloaded TikToks are blocked by video id. Check Duplicate Video Override (master only) to save one again.'
-          : 'Already-downloaded TikToks are blocked automatically (same video id).';
-      duplicateHint.textContent = `${base} History: ${n} video${n === 1 ? '' : 's'}.`;
+          ? 'Only TikToks that were cleaned/used are blocked. Check Duplicate Video Override (master only) to download one again.'
+          : 'Only TikToks that were cleaned/used are blocked automatically (same video id).';
+      duplicateHint.textContent = `${base} Used history: ${n} video${n === 1 ? '' : 's'}.`;
     }
   }
 
@@ -286,13 +286,13 @@
     title.className = 'duplicate-skip-title';
     title.textContent =
       skipped.length === 1
-        ? 'Duplicate video skipped — replace it with a new TikTok URL.'
-        : `${skipped.length} duplicate videos skipped — replace them with new TikTok URLs.`;
+        ? 'Already-used video skipped — replace it with a new TikTok URL.'
+        : `${skipped.length} already-used videos skipped — replace them with new TikTok URLs.`;
 
     const sub = document.createElement('p');
     sub.style.margin = '0 0 0.35rem';
     sub.style.fontWeight = '700';
-    sub.textContent = `Intended for: ${accountBits.join(' · ')}. Other downloads kept running.`;
+    sub.textContent = `These were cleaned/used before. Intended for: ${accountBits.join(' · ')}. Other downloads kept running.`;
 
     const list = document.createElement('ul');
     list.className = 'duplicate-skip-list';
@@ -974,9 +974,9 @@
               // Skip and continue — do not treat as a hard failure that stops the batch.
               skippedDuplicates.push({ url, account });
               setDuplicateSkipBanner(skippedDuplicates);
-              setCardStatus(card, 'Skipped · duplicate');
+              setCardStatus(card, 'Skipped · already used');
               const bits = [
-                'Duplicate — skipped. Replace this URL with a new video for',
+                'Already cleaned/used — skipped. Replace this URL with a new video for',
                 accountLabelForDup(account) + '.',
               ];
               if (data?.downloadPath) {
