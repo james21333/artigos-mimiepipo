@@ -11,13 +11,22 @@ import {
   extractJobError,
   waitForJob,
 } from './cloudconvert.js';
+import {
+  alreadyDownloadedResult,
+  ensureTikTokSeenIndex,
+  extractTikTokVideoId,
+  getSeenRecord,
+  markTikTokSeen,
+} from './tiktok-download-seen.js';
 import { extractMusicFromProvider, flattenPostMetaForStorage } from './tiktok-post-info.js';
 
 const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
 const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
 const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
-/** Max accepted download size. HD over this → try no HD; no HD over this → reject. */
-const MAX_ACCEPT_BYTES = 20 * 1024 * 1024;
+/** HD over this → fall back to no HD. */
+const MAX_HD_BYTES = 20 * 1024 * 1024;
+/** No HD (standard) hard cap — reject if still too big. */
+const MAX_SD_BYTES = 40 * 1024 * 1024;
 
 function sizeTooBigResult(bytes) {
   const mb = Math.round(Number(bytes) / (1024 * 1024));
@@ -396,20 +405,49 @@ async function fetchBytesViaCloudConvert(env, playUrl, filename) {
 
 export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   let preferHd = opts.preferHd !== false;
+  const skipIfSeen = Boolean(opts.skipIfSeen);
+
+  if (skipIfSeen && bucket) {
+    await ensureTikTokSeenIndex(bucket);
+    const idFromUrl = extractTikTokVideoId(tiktokUrl);
+    if (idFromUrl) {
+      const seen = await getSeenRecord(bucket, idFromUrl);
+      if (seen) return alreadyDownloadedResult(seen);
+    }
+  }
+
   let resolved = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd });
   if (!resolved.ok) return resolved;
+
+  if (skipIfSeen && bucket) {
+    const id =
+      String(resolved.meta?.id || resolved.meta?.tiktokId || '').replace(/[^\d]/g, '') ||
+      extractTikTokVideoId(tiktokUrl);
+    if (id) {
+      const seen = await getSeenRecord(bucket, id);
+      if (seen) return alreadyDownloadedResult(seen);
+    }
+  }
 
   const metaSize =
     resolved.meta?.size != null && Number.isFinite(Number(resolved.meta.size))
       ? Number(resolved.meta.size)
       : null;
 
-  // HD ≥20MB → switch to no HD before transferring.
-  if (preferHd && metaSize != null && metaSize >= MAX_ACCEPT_BYTES) {
-    const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
-    if (!sd.ok) return sizeTooBigResult(metaSize);
-    resolved = sd;
-    preferHd = false;
+  // HD ≥20MB → prefer no HD before transferring.
+  if (preferHd && metaSize != null && metaSize >= MAX_HD_BYTES) {
+    if (metaSize >= MAX_SD_BYTES) {
+      // Known size already over the no-HD cap — only continue if a smaller stream exists.
+      const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+      if (!sd.ok) return sizeTooBigResult(metaSize);
+      resolved = sd;
+      preferHd = false;
+    } else {
+      const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+      if (sd.ok) resolved = sd;
+      // Under 40MB: allow download even if no separate SD stream (same URL as HD).
+      preferHd = false;
+    }
   }
 
   const sdMetaSize =
@@ -417,8 +455,8 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
       ? Number(resolved.meta.size)
       : null;
 
-  // No HD (or forced standard) still ≥20MB → reject; don't download.
-  if (!preferHd && sdMetaSize != null && sdMetaSize >= MAX_ACCEPT_BYTES) {
+  // No HD (or forced standard) ≥40MB → reject; don't download.
+  if (!preferHd && sdMetaSize != null && sdMetaSize >= MAX_SD_BYTES) {
     return sizeTooBigResult(sdMetaSize);
   }
 
@@ -429,21 +467,24 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   let transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
   if (!transferred.ok) return transferred;
 
-  // Meta size missing: HD came back ≥20MB → retry no HD once.
-  if (preferHd && transferred.bytes.byteLength >= MAX_ACCEPT_BYTES) {
+  // Meta size missing: HD came back ≥20MB → try a smaller stream once, then allow up to 40MB.
+  if (preferHd && transferred.bytes.byteLength >= MAX_HD_BYTES) {
     const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
     if (sd.ok && sd.playUrl && sd.playUrl !== resolved.playUrl) {
       const retry = await fetchBytesViaCloudConvert(env, sd.playUrl, filename);
       if (!retry.ok) return retry;
       transferred = retry;
       resolved = { ...resolved, playUrl: sd.playUrl, meta: { ...resolved.meta, ...sd.meta } };
-      preferHd = false;
     }
+    preferHd = false;
   }
 
-  // No HD over 20MB → reject (do not save).
-  if (transferred.bytes.byteLength >= MAX_ACCEPT_BYTES) {
+  // Hard cap is always the no-HD max (40MB). HD path only keeps files under 20MB above.
+  if (transferred.bytes.byteLength >= MAX_SD_BYTES) {
     return sizeTooBigResult(transferred.bytes.byteLength);
+  }
+  if (preferHd && transferred.bytes.byteLength >= MAX_HD_BYTES) {
+    preferHd = false;
   }
 
   const key = `tiktok/${authorPart}_${idPart}_${Date.now()}.mp4`;
@@ -470,6 +511,20 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
     });
   } catch (err) {
     return { ok: false, error: 'r2_put_failed', detail: String(err?.message || err) };
+  }
+
+  // Always record in the seen index (library + remix downloads) so duplicates can be blocked later.
+  try {
+    await markTikTokSeen(bucket, {
+      tiktokId: postFlat.tiktokId || idPart,
+      tiktokUrl: postFlat.tiktokUrl || String(tiktokUrl || '').trim(),
+      key,
+      author: postFlat.author || authorPart,
+      title: postFlat.title || '',
+      source: opts.seenSource || 'tiktok-download',
+    });
+  } catch {
+    /* non-fatal */
   }
 
   const meta = {

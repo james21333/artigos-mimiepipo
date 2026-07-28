@@ -26,12 +26,16 @@
   const urlsInput = document.getElementById('tiktok-urls');
   const urlCount = document.getElementById('url-count');
   const smallerNoHd = document.getElementById('opt-smaller-no-hd');
+  const duplicateOverride = document.getElementById('opt-duplicate-override');
+  const duplicateOverrideWrap = document.getElementById('opt-duplicate-override-wrap');
+  const duplicateHint = document.getElementById('duplicate-hint');
   const downloadBtn = document.getElementById('download-btn');
   const stopBtn = document.getElementById('stop-btn');
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const downloadError = document.getElementById('download-error');
   const providerWarning = document.getElementById('provider-warning');
+  const duplicateSkipBanner = document.getElementById('duplicate-skip-banner');
   const results = document.getElementById('results');
   const libraryNote = document.getElementById('library-note');
   const TIKLIVE_TOPUP_MSG =
@@ -167,12 +171,37 @@
     }
   }
 
+  function syncDuplicateOverrideUi() {
+    const isAdmin = sessionRole === 'admin';
+    if (duplicateOverrideWrap) duplicateOverrideWrap.hidden = !isAdmin;
+    if (!isAdmin && duplicateOverride) duplicateOverride.checked = false;
+    if (duplicateHint) {
+      duplicateHint.textContent = isAdmin
+        ? 'Already-downloaded TikToks are blocked by video id. Check Duplicate Video Override (master only) to save one again.'
+        : 'Already-downloaded TikToks are blocked automatically (same video id).';
+    }
+  }
+
   function showApp(session) {
     if (gate) gate.hidden = true;
     if (app) app.hidden = false;
     sessionRole = (session && session.role) || 'admin';
     if (sessionMeta) {
       sessionMeta.textContent = sessionRole === 'download' ? 'Download access' : 'Signed in';
+    }
+    syncDuplicateOverrideUi();
+  }
+
+  async function loadDownloadConfig() {
+    const { ok, data } = await api('/api/contentstation/tiktok-download?action=config');
+    if (!ok || !duplicateHint) return;
+    if (data?.seenCount != null) {
+      const n = data.seenCount;
+      const base =
+        sessionRole === 'admin'
+          ? 'Already-downloaded TikToks are blocked by video id. Check Duplicate Video Override (master only) to save one again.'
+          : 'Already-downloaded TikToks are blocked automatically (same video id).';
+      duplicateHint.textContent = `${base} History: ${n} video${n === 1 ? '' : 's'}.`;
     }
   }
 
@@ -194,6 +223,7 @@
     if (window.CSAuth) window.CSAuth.applyNav(data.role);
     showApp(data);
     await loadAccounts().catch(() => {});
+    await loadDownloadConfig().catch(() => {});
     return true;
   }
 
@@ -229,6 +259,60 @@
       providerWarning.hidden = true;
       providerWarning.textContent = '';
     }
+  }
+
+  function accountLabelForDup(account) {
+    return account ? `Ready account: ${account}` : 'No account selected (Cleaned videos)';
+  }
+
+  /**
+   * @param {{ url: string, account: string|null }[]} skipped
+   */
+  function setDuplicateSkipBanner(skipped) {
+    if (!duplicateSkipBanner) return;
+    if (!skipped.length) {
+      duplicateSkipBanner.hidden = true;
+      duplicateSkipBanner.innerHTML = '';
+      return;
+    }
+    const byAccount = new Map();
+    for (const item of skipped) {
+      const key = item.account || '';
+      if (!byAccount.has(key)) byAccount.set(key, []);
+      byAccount.get(key).push(item.url);
+    }
+    const accountBits = [...byAccount.keys()].map((k) => accountLabelForDup(k || null));
+    const title = document.createElement('p');
+    title.className = 'duplicate-skip-title';
+    title.textContent =
+      skipped.length === 1
+        ? 'Duplicate video skipped — replace it with a new TikTok URL.'
+        : `${skipped.length} duplicate videos skipped — replace them with new TikTok URLs.`;
+
+    const sub = document.createElement('p');
+    sub.style.margin = '0 0 0.35rem';
+    sub.style.fontWeight = '700';
+    sub.textContent = `Intended for: ${accountBits.join(' · ')}. Other downloads kept running.`;
+
+    const list = document.createElement('ul');
+    list.className = 'duplicate-skip-list';
+    for (const [acct, urls] of byAccount) {
+      for (const url of urls) {
+        const li = document.createElement('li');
+        li.appendChild(document.createTextNode(url));
+        const acctLine = document.createElement('span');
+        acctLine.className = 'duplicate-skip-account';
+        acctLine.textContent = accountLabelForDup(acct || null);
+        li.appendChild(acctLine);
+        list.appendChild(li);
+      }
+    }
+
+    duplicateSkipBanner.innerHTML = '';
+    duplicateSkipBanner.appendChild(title);
+    duplicateSkipBanner.appendChild(sub);
+    duplicateSkipBanner.appendChild(list);
+    duplicateSkipBanner.hidden = false;
   }
 
   function looksLikeTikLiveBalanceIssue(data) {
@@ -281,6 +365,7 @@
     results.innerHTML = '';
     results.hidden = true;
     if (libraryNote) libraryNote.hidden = true;
+    setDuplicateSkipBanner([]);
     pendingCleans.clear();
     cleanSubmitQueue.length = 0;
     cleanSubmitActive = 0;
@@ -837,6 +922,8 @@
       }
 
       const smallerFile = Boolean(smallerNoHd && smallerNoHd.checked);
+      const allowDuplicate =
+        sessionRole === 'admin' && Boolean(duplicateOverride && duplicateOverride.checked);
       const account = selectedAccount() || null;
       // Always-on for admin; download role never cleans (no UI checkbox).
       const autoClean = shouldAutoClean();
@@ -848,13 +935,16 @@
       let failCount = 0;
       let cleanStarted = 0;
       let sawTikLiveBalanceIssue = false;
+      /** @type {{ url: string, account: string|null }[]} */
+      const skippedDuplicates = [];
       setProviderWarning('');
+      setDuplicateSkipBanner([]);
 
       for (let i = 0; i < urls.length; i++) {
         if (stopRequested) {
           refreshBatchStatus(
             'Stopped',
-            `${okCount} saved · ${failCount} failed · ${urls.length - i} skipped`,
+            `${okCount} saved · ${failCount} failed · ${skippedDuplicates.length} duplicates skipped · ${urls.length - i} left`,
           );
           break;
         }
@@ -865,8 +955,10 @@
         setStatus(
           `Downloading ${i + 1} / ${urls.length}…`,
           [
-            smallerFile ? 'Smaller (no HD)' : 'HD under 20MB · skip if no-HD still over 20MB',
+            smallerFile ? 'Smaller (no HD)' : 'HD under 20MB · no-HD fallback up to 40MB',
+            allowDuplicate ? 'duplicate override on' : null,
             autoClean ? (account ? `then clean → ${account}` : 'then clean') : null,
+            skippedDuplicates.length ? `${skippedDuplicates.length} duplicates skipped` : null,
           ]
             .filter(Boolean)
             .join(' · '),
@@ -875,20 +967,42 @@
         try {
           const { ok, data } = await api('/api/contentstation/tiktok-download', {
             method: 'POST',
-            body: JSON.stringify({ url, smallerFile }),
+            body: JSON.stringify({ url, smallerFile, allowDuplicate }),
           });
           if (!ok) {
-            failCount += 1;
-            if (looksLikeTikLiveBalanceIssue(data)) {
-              sawTikLiveBalanceIssue = true;
-              setProviderWarning(TIKLIVE_TOPUP_MSG);
+            if (data?.error === 'already_downloaded') {
+              // Skip and continue — do not treat as a hard failure that stops the batch.
+              skippedDuplicates.push({ url, account });
+              setDuplicateSkipBanner(skippedDuplicates);
+              setCardStatus(card, 'Skipped · duplicate');
+              const bits = [
+                'Duplicate — skipped. Replace this URL with a new video for',
+                accountLabelForDup(account) + '.',
+              ];
+              if (data?.downloadPath) {
+                bits.push('Existing file is linked below.');
+                const actions = card.querySelector('.result-actions');
+                const dl = card.querySelector('.result-download');
+                if (actions && dl) {
+                  actions.hidden = false;
+                  dl.href = data.downloadPath;
+                  dl.textContent = 'Open existing MP4';
+                }
+              }
+              setCardError(card, bits.join(' '));
+            } else {
+              failCount += 1;
+              if (looksLikeTikLiveBalanceIssue(data)) {
+                sawTikLiveBalanceIssue = true;
+                setProviderWarning(TIKLIVE_TOPUP_MSG);
+                setCardError(card, data?.message || TIKLIVE_TOPUP_MSG);
+                setCardStatus(card, 'Failed');
+              } else {
+                const detail = data?.detail ? ` (${data.detail})` : '';
+                setCardError(card, (data?.message || data?.error || 'Download failed') + detail);
+                setCardStatus(card, 'Failed');
+              }
             }
-            const detail = data?.detail ? ` (${data.detail})` : '';
-            const baseMsg = looksLikeTikLiveBalanceIssue(data)
-              ? data?.message || TIKLIVE_TOPUP_MSG
-              : data?.message || data?.error || 'Download failed';
-            setCardError(card, baseMsg + (looksLikeTikLiveBalanceIssue(data) ? '' : detail));
-            setCardStatus(card, 'Failed');
           } else {
             okCount += 1;
             if (looksLikeTikLiveBalanceIssue(data) || data?.warning) {
@@ -921,9 +1035,17 @@
       }
 
       batchActive = false;
+      setDuplicateSkipBanner(skippedDuplicates);
 
       if (!stopRequested) {
-        const base = `${okCount} saved · ${failCount} failed · ${urls.length} total`;
+        const base = [
+          `${okCount} saved`,
+          `${failCount} failed`,
+          skippedDuplicates.length ? `${skippedDuplicates.length} duplicates skipped` : null,
+          `${urls.length} total`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
         if (sawTikLiveBalanceIssue) {
           setProviderWarning(TIKLIVE_TOPUP_MSG);
         }
@@ -934,8 +1056,12 @@
             stopBtn.textContent = 'Stop polling';
           }
         } else {
+          let main = 'Done';
+          if (!okCount && failCount && !skippedDuplicates.length) main = 'All downloads failed';
+          else if (!okCount && skippedDuplicates.length && !failCount) main = 'All duplicates skipped';
+          else if (!okCount && skippedDuplicates.length && failCount) main = 'No new downloads';
           setStatus(
-            failCount && !okCount ? 'All downloads failed' : 'Done',
+            main,
             sawTikLiveBalanceIssue ? `${base} · TikLive needs a top-up` : base,
           );
           if (stopBtn) {
@@ -943,13 +1069,14 @@
             stopBtn.textContent = 'Stop';
           }
         }
-        if (failCount && !okCount) {
+        if (failCount && !okCount && !skippedDuplicates.length) {
           setError(
             sawTikLiveBalanceIssue
               ? 'All downloads failed. TikLive balance needs to be topped up — check the errors on each card.'
               : 'All downloads failed. Check the errors on each card.',
           );
         }
+        void loadDownloadConfig().catch(() => {});
       } else if (stopBtn) {
         stopBtn.hidden = ![...pendingCleans.values()].some((j) => !j.done);
         stopBtn.textContent = stopBtn.hidden ? 'Stop' : 'Stop polling';

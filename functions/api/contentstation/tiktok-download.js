@@ -1,9 +1,17 @@
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
+import {
+  countSeenTikToks,
+  ensureTikTokSeenIndex,
+  listSeenTikToks,
+} from '../../lib/tiktok-download-seen.js';
 
 /**
- * POST { url: "https://www.tiktok.com/…" }
+ * POST { url, smallerFile?, allowDuplicate? }
  * → resolve no-watermark video, save to R2 tiktok/, return download path.
+ * Duplicates blocked unless admin sends allowDuplicate: true.
+ *
+ * GET  ?action=config|seen
  */
 export async function onRequestPost(context) {
   try {
@@ -37,6 +45,10 @@ export async function onRequestPost(context) {
     const smallerFile = Boolean(body?.smallerFile || body?.noHd);
     const preferHd = !smallerFile;
 
+    // Only master (admin) may override duplicate blocking. Download-only role cannot.
+    const allowDuplicate = Boolean(body?.allowDuplicate) && auth.role === ROLES.ADMIN;
+    const skipIfSeen = !allowDuplicate;
+
     if (!(context.env.TIKLIVE_API_KEY || context.env.TIKTOK_DOWNLOAD_API_KEY || '').trim()) {
       return json(
         { error: 'api_key_missing', message: 'Download isn’t configured yet.' },
@@ -44,7 +56,11 @@ export async function onRequestPost(context) {
       );
     }
 
-    const result = await downloadTikTokToR2(context.env, bucket, url, { preferHd });
+    const result = await downloadTikTokToR2(context.env, bucket, url, {
+      preferHd,
+      skipIfSeen,
+      seenSource: 'tiktok-download',
+    });
     if (!result.ok) {
       const messages = {
         api_key_missing: 'Download isn’t configured yet.',
@@ -62,14 +78,22 @@ export async function onRequestPost(context) {
         fetch_media_http: 'Video file fetch failed.',
         file_too_large: 'Video too long/big. Please go find another video.',
         r2_put_failed: 'Could not save the video. Try again.',
+        already_downloaded:
+          'This TikTok was already downloaded. Master login can enable Duplicate Video Override to save it again.',
       };
+      const status =
+        result.error === 'file_too_large' ? 413 : result.error === 'already_downloaded' ? 409 : 502;
       return json(
         {
           error: result.error,
           message: messages[result.error] || 'Download failed.',
           detail: result.detail || null,
+          tiktokId: result.tiktokId || null,
+          key: result.key || null,
+          downloadPath: result.downloadPath || null,
+          tiktokUrl: result.tiktokUrl || null,
         },
-        result.error === 'file_too_large' ? 413 : 502,
+        status,
       );
     }
 
@@ -84,6 +108,7 @@ export async function onRequestPost(context) {
       provider: result.provider || null,
       tikliveBalanceExhausted: Boolean(result.tikliveBalanceExhausted),
       warning: result.warning || null,
+      allowDuplicate,
     });
   } catch (err) {
     return json(
@@ -100,13 +125,48 @@ export async function onRequestPost(context) {
 export async function onRequestGet(context) {
   const auth = await requireRole(context, [ROLES.DOWNLOAD]);
   if (!auth.ok) return auth.response;
+
+  const url = new URL(context.request.url);
+  const action = (url.searchParams.get('action') || 'config').trim();
+  const bucket = context.env.MEDIA_BUCKET;
   const ready = Boolean(
-    context.env.MEDIA_BUCKET &&
-      (context.env.TIKLIVE_API_KEY || context.env.TIKTOK_DOWNLOAD_API_KEY || '').trim(),
+    bucket && (context.env.TIKLIVE_API_KEY || context.env.TIKTOK_DOWNLOAD_API_KEY || '').trim(),
   );
+
+  if (action === 'seen') {
+    if (!bucket) return json({ error: 'storage_not_configured' }, 503);
+    await ensureTikTokSeenIndex(bucket);
+    const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') || 200) || 200));
+    const listed = await listSeenTikToks(bucket, {
+      limit,
+      cursor: url.searchParams.get('cursor') || undefined,
+    });
+    return json({
+      status: 'ok',
+      count: listed.objects.length,
+      truncated: listed.truncated,
+      cursor: listed.cursor,
+      objects: listed.objects,
+    });
+  }
+
+  let seenCount = null;
+  if (bucket) {
+    try {
+      await ensureTikTokSeenIndex(bucket);
+      const counted = await countSeenTikToks(bucket);
+      seenCount = counted.truncated ? `${counted.count}+` : counted.count;
+    } catch {
+      seenCount = null;
+    }
+  }
+
   return json({
     status: 'ok',
     ready,
-    hint: 'POST { url } to download a public TikTok video (no watermark when available).',
+    role: auth.role,
+    canOverrideDuplicate: auth.role === ROLES.ADMIN,
+    seenCount,
+    hint: 'POST { url } to download a public TikTok video (no watermark when available). Duplicates blocked unless admin allowDuplicate.',
   });
 }
