@@ -202,16 +202,25 @@ export async function keysForAccount(env, accountRaw) {
     .map(([k]) => k);
 }
 
+function entryIsPosted(entry) {
+  if (!entry) return false;
+  if (entry === true) return true;
+  return Boolean(entry && entry.posted);
+}
+
 export async function accountSummaries(env) {
   const accounts = await listAccounts(env);
   const map = await readTagsMap(env);
+  const postedMap = await readPostedMap(env);
   const counts = {};
   for (const a of accounts) counts[a] = 0;
-  for (const a of Object.values(map)) {
+  // Count only videos not marked Posted (Ready list = still left to upload).
+  for (const [key, a] of Object.entries(map)) {
     const name = sanitizeAccountName(a);
     if (!name) continue;
-    counts[name] = (counts[name] || 0) + 1;
     if (!accounts.includes(name)) accounts.push(name);
+    if (entryIsPosted(postedMap[key])) continue;
+    counts[name] = (counts[name] || 0) + 1;
   }
   accounts.sort(compareAccountNames);
   return accounts.map((name) => ({ name, count: counts[name] || 0 }));
