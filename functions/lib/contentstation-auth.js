@@ -4,6 +4,9 @@
  *
  * Roles: admin | download | ready
  * Token: v2.${role}.${exp}.${sig}  (payload signed: v2.${role}.${exp})
+ * Download role: v2.download.${exp}.${pwdStamp}.${sig}
+ *   pwdStamp binds the session to CONTENT_STATION_PASSWORD_DOWNLOAD so rotating
+ *   that password immediately invalidates existing download sessions.
  * Legacy v1.${exp}.${sig} tokens are accepted as admin until they expire.
  */
 
@@ -124,10 +127,21 @@ export function checkPassword(env, password) {
   return matched;
 }
 
+async function downloadPasswordStamp(env) {
+  const pwd = env.CONTENT_STATION_PASSWORD_DOWNLOAD || '';
+  if (!pwd) return '0';
+  const hex = await hmacHex(getSessionSecret(env), `download-pwd:${pwd}`);
+  return hex.slice(0, 12);
+}
+
 export async function createSessionToken(env, role = ROLES.ADMIN) {
   const safeRole = VALID_ROLES.has(role) ? role : ROLES.ADMIN;
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SEC;
-  const payload = `v2.${safeRole}.${exp}`;
+  let payload = `v2.${safeRole}.${exp}`;
+  if (safeRole === ROLES.DOWNLOAD) {
+    const stamp = await downloadPasswordStamp(env);
+    payload = `v2.${safeRole}.${exp}.${stamp}`;
+  }
   const sig = await hmacHex(getSessionSecret(env), payload);
   return `${payload}.${sig}`;
 }
@@ -150,8 +164,28 @@ export async function verifySessionToken(env, token) {
     return { ok: true, role: ROLES.ADMIN };
   }
 
+  if (parts[0] !== 'v2') return { ok: false };
+
+  // Download: v2.download.${exp}.${pwdStamp}.${sig}
+  if (parts.length === 5 && parts[1] === ROLES.DOWNLOAD) {
+    const [, role, expStr, stamp, sig] = parts;
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return { ok: false };
+    const wantStamp = await downloadPasswordStamp(env);
+    if (!timingSafeEqualStr(stamp, wantStamp)) return { ok: false };
+    const payload = `v2.${role}.${expStr}.${stamp}`;
+    const expected = await hmacHex(getSessionSecret(env), payload);
+    if (!timingSafeEqualStr(expected, sig)) return { ok: false };
+    return { ok: true, role };
+  }
+
+  // Reject legacy download tokens that are not bound to the current password.
+  if (parts.length === 4 && parts[1] === ROLES.DOWNLOAD) {
+    return { ok: false };
+  }
+
   // v2.${role}.${exp}.${sig}
-  if (parts.length !== 4 || parts[0] !== 'v2') return { ok: false };
+  if (parts.length !== 4) return { ok: false };
   const [, role, expStr, sig] = parts;
   if (!VALID_ROLES.has(role)) return { ok: false };
   const exp = Number(expStr);

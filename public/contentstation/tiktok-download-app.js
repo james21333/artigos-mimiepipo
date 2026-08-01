@@ -48,6 +48,9 @@
   const createAccountForm = document.getElementById('create-account-form');
   const newAccountName = document.getElementById('new-account-name');
   const accountError = document.getElementById('account-error');
+  const readyCounts = document.getElementById('ready-counts');
+  const readyCountsList = document.getElementById('ready-counts-list');
+  const readyCountsEmpty = document.getElementById('ready-counts-empty');
 
   let sessionRole = 'admin';
   let stopRequested = false;
@@ -128,6 +131,36 @@
     syncEditAccountButton();
   }
 
+  function renderReadyCounts(accounts) {
+    if (!readyCounts || !readyCountsList) return;
+    const list = [...(accounts || [])].sort((a, b) =>
+      compareAccountNames(a?.name || a, b?.name || b),
+    );
+    readyCounts.hidden = false;
+    readyCountsList.innerHTML = '';
+    if (!list.length) {
+      if (readyCountsEmpty) readyCountsEmpty.hidden = false;
+      return;
+    }
+    if (readyCountsEmpty) readyCountsEmpty.hidden = true;
+    for (const a of list) {
+      const name = typeof a === 'string' ? a : a.name;
+      const n = typeof a === 'object' && a ? Number(a.count) || 0 : 0;
+      if (!name) continue;
+      const li = document.createElement('li');
+      li.className = 'ready-counts-item';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'ready-counts-name';
+      nameEl.textContent = name;
+      const countEl = document.createElement('span');
+      countEl.className = 'ready-counts-count';
+      countEl.textContent = n === 1 ? '1 ready' : `${n} ready`;
+      li.appendChild(nameEl);
+      li.appendChild(countEl);
+      readyCountsList.appendChild(li);
+    }
+  }
+
   async function loadAccounts(prefer) {
     const { ok, data } = await api('/api/contentstation/accounts?action=list');
     if (!ok) {
@@ -136,6 +169,7 @@
     }
     const accounts = data.accounts || [];
     fillAccountSelect(accounts, prefer);
+    renderReadyCounts(accounts);
     setAccountError('');
     return accounts;
   }

@@ -41,6 +41,12 @@
         <button type="button" id="logout-btn" class="ghost">Log out</button>
       </div>
 
+      <aside id="ready-counts" class="ready-counts-panel" hidden aria-label="Videos ready per account">
+        <h2 class="ready-counts-title">Ready (not posted)</h2>
+        <ul id="ready-counts-list" class="ready-counts-list"></ul>
+        <p id="ready-counts-empty" class="muted-line" hidden>No accounts yet.</p>
+      </aside>
+
       <section class="hero-flow">
         <h1>TikTok download</h1>
         <p class="lede">Paste up to 10 public TikTok links (one per line). We’ll save no-watermark copies when available. HD under 20&nbsp;MB; if HD is too big we try no-HD (up to 40&nbsp;MB). Still over 40&nbsp;MB → skip.</p>
@@ -121,6 +127,6 @@ https://www.tiktok.com/@user/video/…
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./tiktok-download-app.js?v=used1"></script>
+  <script src="./tiktok-download-app.js?v=readycounts1"></script>
 </body>
 </html>
