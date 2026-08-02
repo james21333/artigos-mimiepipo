@@ -13,8 +13,9 @@
  *   is ignored when auto-similar is selected.
  *
  * version: "v1" (default) | "v2"
- * identityLock: true (or version=v2) → uploaded character only; never structure_* / TikTok
- *   keyframes as Codex image refs; Grok start images must be Codex stills. Auto-similar forbidden.
+ * identityLock: true (or version=v2) → uploaded character face + structure_* beat-start
+ *   keyframes + vision beat notes; remake similar-from-scratch; Grok start images must be
+ *   Codex stills (never raw TikTok keyframes). Auto-similar forbidden.
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';

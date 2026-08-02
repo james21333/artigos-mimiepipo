@@ -121,7 +121,9 @@
     const { ok, data } = await api('/api/contentstation/character-remix-2-og?action=config');
     if (configEl) {
       configEl.hidden = false;
-      const lockNote = data?.identityLockNote || 'V2 identity-lock: uploaded character only.';
+      const lockNote =
+        data?.identityLockNote ||
+        'V2 identity-lock: character face + beat snapshot structure + beat notes; Grok starts from Codex stills.';
       configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
     }
     return { ok, data };
