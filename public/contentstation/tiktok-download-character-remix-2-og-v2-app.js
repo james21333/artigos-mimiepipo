@@ -1,4 +1,8 @@
 (function () {
+  const MAX_URLS = 20;
+  const POLL_MS = 4000;
+  const ACTIVE_STORAGE_KEY = 'cs_remix2_v2_batch_v1';
+
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
   const loginForm = document.getElementById('login-form');
@@ -10,20 +14,23 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const errorEl = document.getElementById('remix2-v2-error');
-  const jobIdLine = document.getElementById('job-id-line');
-  const frameGallery = document.getElementById('frame-gallery');
-  const outputGallery = document.getElementById('output-gallery');
-  const titleInput = document.getElementById('job-title');
-  const tiktokUrl = document.getElementById('tiktok-url');
+  const urlCountEl = document.getElementById('url-count');
+  const tiktokUrls = document.getElementById('tiktok-urls');
   const characterFile = document.getElementById('character-file');
   const productFile = document.getElementById('product-file');
   const setFile = document.getElementById('set-file');
   const characterPreview = document.getElementById('character-preview');
   const characterPreviewWrap = document.getElementById('character-preview-wrap');
+  const titleInput = document.getElementById('job-title');
   const runBtn = document.getElementById('run-btn');
+  const batchList = document.getElementById('batch-list');
+  const frameGallery = document.getElementById('frame-gallery');
+  const outputGallery = document.getElementById('output-gallery');
 
-  let currentJobId = null;
+  /** @type {{ jobId: string, tiktokUrl: string, title?: string }[]} */
+  let batchJobs = [];
   let pollTimer = null;
+  let submitting = false;
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -64,6 +71,41 @@
     }
   }
 
+  function parseUrls(raw) {
+    return String(raw || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => l.replace(/^\d+[\).:\-\s]+/, '').replace(/^[-*]\s+/, '').trim())
+      .filter((u) => /^https?:\/\//i.test(u));
+  }
+
+  function updateUrlCount() {
+    const n = parseUrls(tiktokUrls?.value).length;
+    if (urlCountEl) {
+      urlCountEl.textContent = `${n} / ${MAX_URLS} links`;
+      urlCountEl.classList.toggle('error', n > MAX_URLS);
+    }
+  }
+
+  function saveBatch() {
+    try {
+      localStorage.setItem(ACTIVE_STORAGE_KEY, JSON.stringify(batchJobs));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function loadBatch() {
+    try {
+      const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      batchJobs = Array.isArray(arr) ? arr.filter((j) => j && j.jobId) : [];
+    } catch {
+      batchJobs = [];
+    }
+  }
+
   async function uploadImage(file, prefix) {
     const form = new FormData();
     form.append('file', file, file.name || 'image.png');
@@ -80,111 +122,151 @@
     if (configEl) {
       configEl.hidden = false;
       const lockNote = data?.identityLockNote || 'V2 identity-lock: uploaded character only.';
-      configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote}`;
+      configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
     }
     return { ok, data };
   }
 
-  function renderFrames(job) {
-    if (!frameGallery) return;
-    const frames = job?.first_frames || job?.firstFrames || {};
-    const entries = Object.entries(frames);
-    if (!entries.length) {
-      frameGallery.hidden = true;
-      frameGallery.innerHTML = '';
-      return;
-    }
-    frameGallery.hidden = false;
-    frameGallery.innerHTML = '';
-    for (const [sceneId, info] of entries) {
-      const card = document.createElement('article');
-      card.className = 'result-card';
-      const url = typeof info === 'string' ? info : info?.url || info?.publicUrl || '';
-      card.innerHTML = `<h3>${sceneId} (Codex)</h3>${
-        url ? `<img src="${url}" alt="${sceneId}" class="character-preview">` : '<p class="muted-line">No URL yet</p>'
-      }`;
-      frameGallery.appendChild(card);
-    }
+  function ensureBatchCard(job) {
+    if (!batchList) return null;
+    batchList.hidden = false;
+    let card = batchList.querySelector(`[data-job-id="${job.jobId}"]`);
+    if (card) return card;
+    card = document.createElement('article');
+    card.className = 'download-result-card';
+    card.dataset.jobId = job.jobId;
+    card.innerHTML = `
+      <p class="result-url muted-line"></p>
+      <p class="result-status status">Queued…</p>
+      <p class="muted-line result-jobid"></p>
+      <div class="result-frames" hidden></div>
+      <div class="result-outputs" hidden></div>
+      <p class="error result-error" hidden></p>
+    `;
+    card.querySelector('.result-url').textContent = job.tiktokUrl || job.jobId;
+    card.querySelector('.result-jobid').textContent = `Job ${job.jobId}`;
+    batchList.appendChild(card);
+    return card;
   }
 
-  function renderOutputs(job) {
-    if (!outputGallery) return;
-    const videos = job?.videos || {};
-    const finalUrl = job?.output_url || job?.outputUrl || '';
-    const videoEntries = Object.entries(videos).filter(([, info]) => {
-      const url = typeof info === 'string' ? info : info?.url || info?.publicUrl || '';
-      return Boolean(url);
-    });
-    if (!finalUrl && !videoEntries.length) {
-      outputGallery.hidden = true;
-      outputGallery.innerHTML = '';
-      return;
-    }
-    outputGallery.hidden = false;
-    outputGallery.innerHTML = '';
-    if (finalUrl) {
-      const card = document.createElement('article');
-      card.className = 'result-card';
-      card.innerHTML = `<h3>Final</h3><video src="${finalUrl}" controls playsinline class="character-preview"></video><p class="muted-line"><a href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a></p>`;
-      outputGallery.appendChild(card);
-    }
-    for (const [sceneId, info] of videoEntries) {
-      const url = typeof info === 'string' ? info : info?.url || info?.publicUrl || '';
-      const card = document.createElement('article');
-      card.className = 'result-card';
-      card.innerHTML = `<h3>${sceneId}</h3><video src="${url}" controls playsinline class="character-preview"></video>`;
-      outputGallery.appendChild(card);
-    }
-  }
-
-  async function pollJob() {
-    if (!currentJobId) return;
-    const { ok, data } = await api(
-      `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(currentJobId)}`,
-    );
-    if (!ok) {
-      setStatus('Status error', data?.message || data?.error || 'worker error');
-      return;
-    }
+  function updateCardFromStatus(job, data) {
+    const card = ensureBatchCard(job);
+    if (!card) return;
     const stage = data?.stage || data?.status || 'unknown';
-    const edlNote = data?.edl?.shotCount ? ` · ${data.edl.shotCount} shots` : '';
-    const lockNote = data?.identityLock ? ' · identity-lock' : '';
-    setStatus(`Job ${currentJobId}: ${stage}${edlNote}${lockNote}`, data?.message || data?.detail || '');
-    renderFrames(data);
-    renderOutputs(data);
-    if (runBtn) {
-      runBtn.disabled =
-        stage === 'analyzing' ||
-        stage === 'running_first_frames' ||
-        stage === 'running_videos' ||
-        stage === 'stitching';
+    const pos = data?.queuePosition;
+    const depth = data?.queueDepth;
+    let label = stage;
+    if (stage === 'queued' && pos) {
+      label = `Queued — #${pos}${depth ? ` of ${depth}` : ''}`;
+    } else if (stage === 'running_first_frames') {
+      label = 'Codex first frames…';
+    } else if (stage === 'running_videos') {
+      label = 'Grok videos…';
+    } else if (stage === 'stitching') {
+      label = 'Stitching…';
+    } else if (stage === 'stitched') {
+      label = 'Done';
+    } else if (stage === 'error') {
+      label = 'Failed';
     }
-    if (stage === 'error') {
-      setError(data?.message || 'Job error');
-      if (runBtn) runBtn.disabled = false;
+    const statusEl = card.querySelector('.result-status');
+    if (statusEl) statusEl.textContent = label;
+    const errEl = card.querySelector('.result-error');
+    if (errEl) {
+      if (stage === 'error' && data?.message) {
+        errEl.hidden = false;
+        errEl.textContent = data.message;
+      } else {
+        errEl.hidden = true;
+      }
     }
-    if (stage === 'stitched') {
-      setStatus('Stitched', data?.output_url || data?.output_path || data?.message || '');
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = null;
+
+    const framesWrap = card.querySelector('.result-frames');
+    const frames = data?.first_frames || data?.firstFrames || {};
+    const frameEntries = Object.entries(frames);
+    if (framesWrap) {
+      if (frameEntries.length) {
+        framesWrap.hidden = false;
+        framesWrap.innerHTML = frameEntries
+          .map(([sid, info]) => {
+            const url = typeof info === 'string' ? info : info?.url || info?.publicUrl || '';
+            return url
+              ? `<figure><figcaption>${sid}</figcaption><img src="${url}" alt="${sid}" class="character-preview"></figure>`
+              : '';
+          })
+          .join('');
+      } else {
+        framesWrap.hidden = true;
+        framesWrap.innerHTML = '';
+      }
+    }
+
+    const outWrap = card.querySelector('.result-outputs');
+    const finalUrl = data?.output_url || data?.outputUrl || '';
+    if (outWrap) {
+      if (finalUrl) {
+        outWrap.hidden = false;
+        outWrap.innerHTML = `<video src="${finalUrl}" controls playsinline class="character-preview"></video>
+          <p class="muted-line"><a href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a></p>`;
+      } else {
+        outWrap.hidden = true;
+        outWrap.innerHTML = '';
+      }
+    }
+  }
+
+  async function pollBatch() {
+    if (!batchJobs.length) {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      return;
+    }
+    let active = 0;
+    let done = 0;
+    let failed = 0;
+    for (const job of batchJobs) {
+      const { ok, data } = await api(
+        `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
+      );
+      if (!ok) {
+        ensureBatchCard(job);
+        const card = batchList?.querySelector(`[data-job-id="${job.jobId}"]`);
+        const statusEl = card?.querySelector('.result-status');
+        if (statusEl) statusEl.textContent = 'Status error';
+        continue;
+      }
+      updateCardFromStatus(job, data);
+      const stage = data?.stage || '';
+      if (stage === 'stitched') done += 1;
+      else if (stage === 'error') failed += 1;
+      else active += 1;
+    }
+    setStatus(
+      `Batch: ${done} done · ${active} in flight/queued · ${failed} failed · ${batchJobs.length} total`,
+      'Worker runs one remake pipeline at a time; the rest stay queued.',
+    );
+    if (active === 0 && !submitting) {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
       if (runBtn) runBtn.disabled = false;
     }
   }
 
   function startPoll() {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollJob, 4000);
-    pollJob();
+    pollTimer = setInterval(pollBatch, POLL_MS);
+    pollBatch();
   }
 
-  function bindJob(jobId) {
-    currentJobId = jobId;
-    if (jobIdLine) {
-      jobIdLine.hidden = false;
-      jobIdLine.textContent = `Job ID: ${currentJobId} · version=v2 · identityLock`;
-    }
-    startPoll();
-  }
+  // Keep legacy gallery elements unused (batch cards own frames/outputs).
+  if (frameGallery) frameGallery.hidden = true;
+  if (outputGallery) outputGallery.hidden = true;
+
+  tiktokUrls?.addEventListener('input', updateUrlCount);
 
   characterFile?.addEventListener('change', () => {
     const f = characterFile.files?.[0];
@@ -195,12 +277,24 @@
 
   runBtn?.addEventListener('click', async () => {
     setError('');
+    const urls = parseUrls(tiktokUrls?.value);
+    const char = characterFile?.files?.[0];
+    if (!urls.length) {
+      setError('Paste 1–20 TikTok URLs (one per line).');
+      return;
+    }
+    if (urls.length > MAX_URLS) {
+      setError(`Max ${MAX_URLS} TikTok links per batch.`);
+      return;
+    }
+    if (!char) {
+      setError('Choose a character image — V2 identity-lock requires your upload');
+      return;
+    }
+
+    submitting = true;
+    if (runBtn) runBtn.disabled = true;
     try {
-      const url = String(tiktokUrl?.value || '').trim();
-      const char = characterFile?.files?.[0];
-      if (!url) throw new Error('Paste a TikTok URL');
-      if (!char) throw new Error('Choose a character image — V2 identity-lock requires your upload');
-      if (runBtn) runBtn.disabled = true;
       setStatus('Uploading character…');
       const characterKey = await uploadImage(char, 'characters/');
       let productKey = null;
@@ -211,43 +305,65 @@
       if (setFile?.files?.[0]) {
         setKey = await uploadImage(setFile.files[0], 'characters/sets/');
       }
-      setStatus('Downloading TikTok + EDL + identity-lock remake…');
-      const { ok, data } = await api('/api/contentstation/character-remix-2-og', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'from-tiktok',
-          tiktokUrl: url,
-          characterKey,
-          productKey,
-          setKey,
-          characterMode: 'upload',
-          version: 'v2',
-          identityLock: true,
-          deriveCharacterFromSource: false,
-          title: titleInput?.value || 'TikTok remake (identity lock)',
-          autoRun: true,
-        }),
-      });
-      if (!ok || !data?.jobId) {
-        const detail =
-          data?.message ||
-          (typeof data?.detail === 'string' ? data.detail : null) ||
-          data?.error ||
-          (data ? JSON.stringify(data).slice(0, 240) : null) ||
-          'Remake failed to start';
-        throw new Error(detail);
+
+      const baseTitle = titleInput?.value || 'TikTok remake (identity lock)';
+      const started = [];
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        setStatus(`Submitting ${i + 1} / ${urls.length}`, url);
+        const { ok, data } = await api('/api/contentstation/character-remix-2-og', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'from-tiktok',
+            tiktokUrl: url,
+            characterKey,
+            productKey,
+            setKey,
+            characterMode: 'upload',
+            version: 'v2',
+            identityLock: true,
+            deriveCharacterFromSource: false,
+            title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
+            autoRun: true,
+          }),
+        });
+        if (!ok || !data?.jobId) {
+          const detail =
+            data?.message ||
+            (typeof data?.detail === 'string' ? data.detail : null) ||
+            data?.error ||
+            `Failed to start job ${i + 1}`;
+          ensureBatchCard({ jobId: `fail-${i}`, tiktokUrl: url });
+          const card = batchList?.querySelector(`[data-job-id="fail-${i}"]`);
+          if (card) {
+            const statusEl = card.querySelector('.result-status');
+            if (statusEl) statusEl.textContent = 'Submit failed';
+            const errEl = card.querySelector('.result-error');
+            if (errEl) {
+              errEl.hidden = false;
+              errEl.textContent = detail;
+            }
+          }
+          continue;
+        }
+        const job = { jobId: data.jobId, tiktokUrl: url, title: data.title || baseTitle };
+        started.push(job);
+        batchJobs.push(job);
+        saveBatch();
+        updateCardFromStatus(job, data);
       }
-      bindJob(data.jobId);
+      if (!started.length) throw new Error('No jobs started');
       setStatus(
-        'Running (identity lock)',
-        data?.edl?.shotCount
-          ? `EDL: ${data.edl.shotCount} shot(s). Codex (character-only refs) → Grok (Codex start) → stitch…`
-          : data?.message || 'Pipeline running…',
+        `Submitted ${started.length} job(s)`,
+        'Pipelines queue on Fast Panda — one remake at a time.',
       );
+      startPoll();
     } catch (err) {
       setError(err?.message || String(err));
       setStatus('Failed');
       if (runBtn) runBtn.disabled = false;
+    } finally {
+      submitting = false;
     }
   });
 
@@ -289,7 +405,15 @@
     if (app) app.hidden = false;
     if (sessionMeta) sessionMeta.textContent = `Signed in · ${data.role || 'admin'}`;
     await loadConfig();
-    setStatus('Ready — upload character + TikTok URL for identity-lock remake.');
+    updateUrlCount();
+    loadBatch();
+    if (batchJobs.length) {
+      for (const job of batchJobs) ensureBatchCard(job);
+      startPoll();
+      setStatus(`Resuming ${batchJobs.length} job(s)…`);
+    } else {
+      setStatus('Ready — upload character + up to 20 TikTok URLs (queued, one pipeline at a time).');
+    }
   }
 
   boot();
