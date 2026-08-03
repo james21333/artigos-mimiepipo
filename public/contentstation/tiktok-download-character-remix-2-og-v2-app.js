@@ -174,7 +174,7 @@
       const who =
         provider === 'grok' ? 'Grok/xAI' : provider === 'codex' || provider === 'openai' ? 'OpenAI/Codex' : 'Provider';
       const est = hours != null && hours !== '' ? `~${hours}h` : 'a few hours';
-      label = `${who} cooling down ${est} — auto-resume`;
+      label = `${who} cooling down ${est} — checking hourly, auto-resume`;
     } else if (stage === 'stitched') {
       label = 'Done';
     } else if (stage === 'error') {
