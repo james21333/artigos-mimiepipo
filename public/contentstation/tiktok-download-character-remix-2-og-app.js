@@ -224,7 +224,22 @@
         stage === 'running_videos' ||
         stage === 'stitching';
     }
-    if (stage === 'error') {
+    if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
+      const who =
+        data?.provider === 'grok'
+          ? 'Grok/xAI'
+          : data?.provider === 'codex' || data?.provider === 'openai'
+            ? 'OpenAI/Codex'
+            : 'Provider';
+      const hours = data?.providerWaitEstimateHours;
+      const est = hours != null && hours !== '' ? `~${hours}h` : 'a few hours';
+      setStatus(
+        `${who} cooling down ${est} — auto-resume`,
+        data?.message || data?.detail || '',
+      );
+      setError('');
+      if (runBtn) runBtn.disabled = true;
+    } else if (stage === 'error') {
       setError(data?.message || 'Job error');
       if (runBtn) runBtn.disabled = false;
     }

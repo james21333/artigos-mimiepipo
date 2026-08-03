@@ -165,12 +165,21 @@
       label = `Queued — #${pos}${depth ? ` of ${depth}` : ''}`;
     } else if (stage === 'running_first_frames') {
       label = 'Codex first frames…';
+    } else if (stage === 'analyzing_beats') {
+      label = 'Analyzing beats…';
     } else if (stage === 'running_videos') {
       label = 'Grok videos…';
     } else if (stage === 'stitching') {
       label = 'Stitching…';
     } else if (stage === 'restoring_overlays') {
       label = 'Restoring on-screen text…';
+    } else if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
+      const provider = data?.provider || '';
+      const hours = data?.providerWaitEstimateHours;
+      const who =
+        provider === 'grok' ? 'Grok/xAI' : provider === 'codex' || provider === 'openai' ? 'OpenAI/Codex' : 'Provider';
+      const est = hours != null && hours !== '' ? `~${hours}h` : 'a few hours';
+      label = `${who} cooling down ${est} — auto-resume`;
     } else if (stage === 'stitched') {
       const n = data?.overlayText?.eventCount ?? data?.overlayText?.events?.length;
       label =
@@ -184,9 +193,16 @@
     if (statusEl) statusEl.textContent = label;
     const errEl = card.querySelector('.result-error');
     if (errEl) {
-      if (stage === 'error' && data?.message) {
+      if ((stage === 'error' || stage === 'waiting_provider' || stage === 'provider_cooldown') && data?.message) {
         errEl.hidden = false;
         errEl.textContent = data.message;
+        if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
+          errEl.classList.remove('error');
+          errEl.classList.add('muted-line');
+        } else {
+          errEl.classList.add('error');
+          errEl.classList.remove('muted-line');
+        }
       } else {
         errEl.hidden = true;
       }
@@ -256,7 +272,7 @@
     }
     setStatus(
       `Batch: ${done} done · ${active} in flight/queued · ${failed} failed · ${batchJobs.length} total`,
-      'Worker runs one remake pipeline at a time; the rest stay queued.',
+      'Worker runs one remake pipeline at a time; the rest stay queued. Quota cooldown auto-resumes.',
     );
     if (active === 0 && !submitting) {
       if (pollTimer) {

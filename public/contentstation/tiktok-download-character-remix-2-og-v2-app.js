@@ -162,10 +162,19 @@
       label = `Queued — #${pos}${depth ? ` of ${depth}` : ''}`;
     } else if (stage === 'running_first_frames') {
       label = 'Codex first frames…';
+    } else if (stage === 'analyzing_beats') {
+      label = 'Analyzing beats…';
     } else if (stage === 'running_videos') {
       label = 'Grok videos…';
     } else if (stage === 'stitching') {
       label = 'Stitching…';
+    } else if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
+      const provider = data?.provider || '';
+      const hours = data?.providerWaitEstimateHours;
+      const who =
+        provider === 'grok' ? 'Grok/xAI' : provider === 'codex' || provider === 'openai' ? 'OpenAI/Codex' : 'Provider';
+      const est = hours != null && hours !== '' ? `~${hours}h` : 'a few hours';
+      label = `${who} cooling down ${est} — auto-resume`;
     } else if (stage === 'stitched') {
       label = 'Done';
     } else if (stage === 'error') {
@@ -175,9 +184,16 @@
     if (statusEl) statusEl.textContent = label;
     const errEl = card.querySelector('.result-error');
     if (errEl) {
-      if (stage === 'error' && data?.message) {
+      if ((stage === 'error' || stage === 'waiting_provider' || stage === 'provider_cooldown') && data?.message) {
         errEl.hidden = false;
         errEl.textContent = data.message;
+        if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
+          errEl.classList.remove('error');
+          errEl.classList.add('muted-line');
+        } else {
+          errEl.classList.add('error');
+          errEl.classList.remove('muted-line');
+        }
       } else {
         errEl.hidden = true;
       }
@@ -245,9 +261,12 @@
       else if (stage === 'error') failed += 1;
       else active += 1;
     }
+    const waitingNote = batchJobs.some(Boolean)
+      ? ' Worker auto-resumes after OpenAI/Grok quota cooldown.'
+      : '';
     setStatus(
       `Batch: ${done} done · ${active} in flight/queued · ${failed} failed · ${batchJobs.length} total`,
-      'Worker runs one remake pipeline at a time; the rest stay queued.',
+      `Worker runs one remake pipeline at a time; the rest stay queued.${waitingNote}`,
     );
     if (active === 0 && !submitting) {
       if (pollTimer) {

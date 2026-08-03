@@ -41,6 +41,7 @@ export function configPayload(env) {
       videos: 'grok-oauth',
       stitch: 'ffmpeg-edl-trim',
       restoringOverlays: 'codex-vision-overlay-ass-burn',
+      waitingProvider: 'provider-quota-cooldown-auto-resume',
     },
     characterModes: ['upload', 'auto-similar'],
     versions: ['v1', 'v2'],
