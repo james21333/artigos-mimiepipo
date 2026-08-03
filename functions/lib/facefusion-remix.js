@@ -99,7 +99,7 @@ export function extractOutputVideoBase64(data) {
 export function extractFacefusionProgress(data) {
   const status = String(data?.status || '').toUpperCase();
   if (status === 'IN_QUEUE') {
-    return { stage: 'queued', label: 'Waiting for GPU…' };
+    return { stage: 'queued', label: 'Queued for GPU…' };
   }
   if (status === 'IN_PROGRESS') {
     return { stage: 'running', label: 'FaceFusion running…' };
@@ -113,6 +113,53 @@ export function extractFacefusionProgress(data) {
   return null;
 }
 
+/** Serverless flex RTX 4090 ≈ $1.10/hr — override with RUNPOD_FACEFUSION_COST_PER_HR. */
+export function facefusionCostPerHour(env) {
+  const n = Number(env?.RUNPOD_FACEFUSION_COST_PER_HR || env?.FACEFUSION_COST_PER_HR || 1.1);
+  return Number.isFinite(n) && n > 0 ? n : 1.1;
+}
+
+/** Estimate $ from RunPod executionTime (ms). Queue wait is not billed. */
+export function estimateFacefusionCostUsd(executionMs, env) {
+  const ms = Number(executionMs);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const usd = (ms / 3_600_000) * facefusionCostPerHour(env);
+  return Math.round(usd * 1000) / 1000;
+}
+
+/**
+ * Account dollar balance (GraphQL myself.clientBalance).
+ * Returns { ok, balanceUsd } — never includes vendor name in message fields.
+ */
+export async function fetchRunpodClientBalance(env) {
+  const key = (env?.RUNPOD_API_KEY || '').trim();
+  if (!key) return { ok: false, balanceUsd: null, error: 'unconfigured' };
+  try {
+    const res = await fetch(`https://api.runpod.io/graphql?api_key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        query: 'query { myself { clientBalance } }',
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    const bal = data?.data?.myself?.clientBalance;
+    if (bal == null || !Number.isFinite(Number(bal))) {
+      return {
+        ok: false,
+        balanceUsd: null,
+        error: data?.errors?.[0]?.message || `http_${res.status}`,
+      };
+    }
+    return { ok: true, balanceUsd: Math.round(Number(bal) * 100) / 100 };
+  } catch (err) {
+    return { ok: false, balanceUsd: null, error: String(err?.message || err) };
+  }
+}
+
 export function configPayload(env) {
   const ep = facefusionEndpointId(env);
   return {
@@ -122,6 +169,7 @@ export function configPayload(env) {
     facesPrefix: FACES_PREFIX,
     outputPrefix: FACEFUSION_PREFIX,
     r2Public: Boolean(env.R2_PUBLIC_BASE_URL),
+    costPerHourUsd: facefusionCostPerHour(env),
   };
 }
 

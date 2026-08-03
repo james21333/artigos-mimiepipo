@@ -45,8 +45,10 @@ export function configPayload(env) {
     versions: ['v1', 'v2'],
     identityLockNote:
       'V2 (identityLock): Codex refs = character face + structure_* beat-start keyframe + vision beat notes only (no product/set); remake similar-from-scratch; Grok start = Codex stills only.',
+    musicLockNote:
+      'musicLock (default false): exact EDL durationMs trim/pad, video-only concat, remux TikTok source audio. Talking Heads keeps Grok audio.',
     message: configured
-      ? 'Remix 2 ready: TikTok → ms EDL → (V2: beat analyze) → Codex frames → Grok clips → stitch. V2 = identity-lock upload + structure snapshots.'
+      ? 'Remix 2 ready: TikTok → ms EDL → (V2: beat analyze) → Codex frames → Grok clips → stitch. V2 Talking Heads (Grok audio) or V2 Music-Only (musicLock + source audio).'
       : 'Set REMIX2_WORKER_URL and REMIX2_WORKER_SECRET (Fast Panda worker).',
     n8nFallbackNote:
       'If video gen fails, fall back to visual n8n on Fast Panda for audit/tweak — not required for v1.',

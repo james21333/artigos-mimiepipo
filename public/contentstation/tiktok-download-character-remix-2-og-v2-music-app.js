@@ -1,7 +1,7 @@
 (function () {
   const MAX_URLS = 20;
   const POLL_MS = 4000;
-  const ACTIVE_STORAGE_KEY = 'cs_remix2_v2_talking_heads_batch_v1';
+  const ACTIVE_STORAGE_KEY = 'cs_remix2_v2_music_only_batch_v1';
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -96,9 +96,7 @@
 
   function loadBatch() {
     try {
-      let raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
-      // Migrate pre-split Talking Heads batch key.
-      if (!raw) raw = localStorage.getItem('cs_remix2_v2_batch_v1');
+      const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
       const arr = raw ? JSON.parse(raw) : [];
       batchJobs = Array.isArray(arr) ? arr.filter((j) => j && j.jobId) : [];
     } catch {
@@ -122,8 +120,9 @@
     if (configEl) {
       configEl.hidden = false;
       const lockNote =
+        data?.musicLockNote ||
         data?.identityLockNote ||
-        'V2 Talking Heads: identity-lock + Grok audio stitch.';
+        'V2 Music-Only: identity-lock + exact EDL timing + original TikTok audio.';
       configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
     }
     return { ok, data };
@@ -290,7 +289,7 @@
       return;
     }
     if (!char) {
-      setError('Choose a character image — V2 Talking Heads requires your upload');
+      setError('Choose a character image — V2 Music-Only requires your upload');
       return;
     }
 
@@ -300,7 +299,7 @@
       setStatus('Uploading character…');
       const characterKey = await uploadImage(char, 'characters/');
 
-      const baseTitle = titleInput?.value || 'TikTok remake (talking heads)';
+      const baseTitle = titleInput?.value || 'TikTok remake (music-only)';
       const started = [];
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
@@ -314,9 +313,9 @@
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
-            musicLock: false,
-            audioMode: 'grok',
-            remixVariant: 'talking-heads',
+            musicLock: true,
+            audioMode: 'source',
+            remixVariant: 'music-only',
             deriveCharacterFromSource: false,
             title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
             autoRun: true,
@@ -392,7 +391,7 @@
       if (app) app.hidden = true;
       return;
     }
-    if (window.CSAuth && !window.CSAuth.gatePage(data, 'tiktok-download-character-remix-2-og-v2')) {
+    if (window.CSAuth && !window.CSAuth.gatePage(data, 'tiktok-download-character-remix-2-og-v2-music')) {
       return;
     }
     if (window.CSAuth) window.CSAuth.applyNav(data.role || 'admin');

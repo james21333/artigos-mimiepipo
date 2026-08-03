@@ -22,11 +22,13 @@ import {
   archiveFacefusionVideoFromBase64,
   buildFacefusionInput,
   configPayload,
+  estimateFacefusionCostUsd,
   extractFacefusionProgress,
   extractOutputVideoBase64,
   extractOutputVideoUrl,
   facefusionConfigured,
   facefusionEndpointId,
+  fetchRunpodClientBalance,
   fetchableMediaUrl,
   publicMediaUrl,
   runpodFetch,
@@ -139,6 +141,20 @@ async function statusJob(env, jobId, endpointId) {
       ? data.output.error || null
       : null;
 
+  const delayMs = data.delayTime != null ? Number(data.delayTime) : null;
+  const execMsRaw = data.executionTime != null ? Number(data.executionTime) : null;
+  const workerElapsedSec =
+    data.output && typeof data.output === 'object' && data.output.elapsedSec != null
+      ? Number(data.output.elapsedSec)
+      : null;
+  const execMs =
+    execMsRaw != null && Number.isFinite(execMsRaw)
+      ? execMsRaw
+      : workerElapsedSec != null && Number.isFinite(workerElapsedSec)
+        ? workerElapsedSec * 1000
+        : null;
+  const estimatedCostUsd = estimateFacefusionCostUsd(execMs, env);
+
   if (b64 && !videoUrl) {
     const archived = await archiveFacefusionVideoFromBase64(env, {
       base64: b64.base64,
@@ -158,6 +174,9 @@ async function statusJob(env, jobId, endpointId) {
         key: archived.key,
         downloadPath: archived.downloadPath,
         progress,
+        delayTime: delayMs,
+        executionTime: execMs,
+        estimatedCostUsd,
       });
     }
   }
@@ -173,21 +192,18 @@ async function statusJob(env, jobId, endpointId) {
       remixReady: false,
       videoUrl: null,
       progress,
+      delayTime: delayMs,
+      executionTime: execMs,
+      estimatedCostUsd,
     });
   }
 
-  const delayMs = data.delayTime != null ? Number(data.delayTime) : null;
   let message = null;
   if (status === 'IN_QUEUE') {
-    // IN_QUEUE covers both "waiting for a cold worker" and "queued behind another job".
-    // With workersMax=1 the common case after a second submit is the latter — not a 2nd GPU.
-    const mins = delayMs != null && Number.isFinite(delayMs) ? Math.round(delayMs / 60000) : null;
-    message =
-      mins != null && mins >= 2
-        ? `Queued for the GPU… (~${mins} min waiting). Starts when the current job finishes or a worker comes up.`
-        : 'Queued for the GPU… starts when the current job finishes (or after cold start if none is up).';
+    // Short label — UI puts this on the video card; fleet summary lives at the top.
+    message = 'Queued for GPU…';
   } else if (status === 'IN_PROGRESS') {
-    message = 'FaceFusion swapping faces…';
+    message = 'FaceFusion running…';
   }
 
   return json({
@@ -201,6 +217,8 @@ async function statusJob(env, jobId, endpointId) {
     progress,
     message,
     delayTime: delayMs,
+    executionTime: execMs != null && Number.isFinite(execMs) ? execMs : null,
+    estimatedCostUsd,
     error: status === 'FAILED' ? data.error || data.output?.error || null : null,
   });
 }
@@ -213,7 +231,25 @@ export async function onRequestGet(context) {
   const action = (url.searchParams.get('action') || 'config').trim();
 
   if (action === 'config') {
-    return json({ status: 'ok', ...configPayload(context.env) });
+    const cfg = configPayload(context.env);
+    const bal = await fetchRunpodClientBalance(context.env);
+    return json({
+      status: 'ok',
+      ...cfg,
+      balanceUsd: bal.ok ? bal.balanceUsd : null,
+      balanceOk: bal.ok,
+    });
+  }
+  if (action === 'balance') {
+    const bal = await fetchRunpodClientBalance(context.env);
+    return json(
+      {
+        status: bal.ok ? 'ok' : 'error',
+        balanceUsd: bal.balanceUsd,
+        costPerHourUsd: configPayload(context.env).costPerHourUsd,
+      },
+      bal.ok ? 200 : 502,
+    );
   }
   if (action === 'list') {
     return listArchived(context.env, url);

@@ -285,7 +285,12 @@
   async function downloadTikTok(url) {
     const { ok, data } = await api('/api/contentstation/tiktok-download', {
       method: 'POST',
-      body: JSON.stringify({ url, smallerFile: Boolean(smallerNoHd?.checked) }),
+      // Remix may re-use a library URL; skip the download-page duplicate block.
+      body: JSON.stringify({
+        url,
+        smallerFile: Boolean(smallerNoHd?.checked),
+        allowDuplicate: true,
+      }),
     });
     if (!ok || !data?.key) {
       throw new Error(data?.message || data?.error || 'Download failed');

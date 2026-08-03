@@ -6,6 +6,13 @@
   const MAX_POLL_ERRORS = 20;
   const ACTIVE_STORAGE_KEY = 'cs_facefusion_remix_active_v2';
   const ACTIVE_JOB_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+  /** Match FaceFusion endpoint idleTimeout (600s) — after this with no work, GPU is cold. */
+  const GPU_IDLE_MS = 10 * 60 * 1000;
+  /** Typical warm FaceFusion job length (minutes) for ETA heuristics. */
+  const TYPICAL_JOB_MIN = 6;
+  const TYPICAL_JOB_HI_MIN = 10;
+  const COLD_START_EXTRA_MIN = 3;
+  const ETA_DISPLAY_MAX_MIN = 55;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -26,12 +33,41 @@
   const statusDetail = document.getElementById('status-detail');
   const ffError = document.getElementById('ff-error');
   const results = document.getElementById('results');
+  const ffBalance = document.getElementById('ff-balance');
+  const ffSpend = document.getElementById('ff-spend');
 
   let stopRequested = false;
   /** In-flight browser pipelines (download + poll). Allow >1 so the next job can queue on RunPod. */
   let activeRuns = 0;
   /** @type {string|null} */
   let uploadedFaceKey = null;
+  /** $/hr used for estimates (from config). */
+  let costPerHourUsd = 1.1;
+  /** Session totals for finished FaceFusion jobs. */
+  let sessionSpendUsd = 0;
+  let sessionFinishedCount = 0;
+  /** @type {Map<string, { status: string, delayMs: number|null, execMs: number|null, startedAt: number, progressAt: number|null, card: HTMLElement|null }>} */
+  const liveJobs = new Map();
+  /** Last time we saw a worker actively processing (IN_PROGRESS). Survives refresh via sessionStorage. */
+  let lastGpuActiveAt = (() => {
+    try {
+      const n = Number(sessionStorage.getItem('cs_facefusion_gpu_active_at') || 0);
+      return Number.isFinite(n) ? n : 0;
+    } catch {
+      return 0;
+    }
+  })();
+  /** Override top status while a non-GPU pipeline step is happening (upload/download/etc). */
+  let statusOverride = null;
+
+  function touchGpuActive() {
+    lastGpuActiveAt = Date.now();
+    try {
+      sessionStorage.setItem('cs_facefusion_gpu_active_at', String(lastGpuActiveAt));
+    } catch {
+      /* ignore */
+    }
+  }
 
   function setRunUiBusy() {
     const busy = activeRuns > 0;
@@ -153,6 +189,7 @@
     if (gate) gate.hidden = true;
     if (app) app.hidden = false;
     if (sessionMeta) sessionMeta.textContent = 'Signed in';
+    refreshFleetStatus();
     void loadConfig();
   }
 
@@ -168,23 +205,305 @@
   }
 
   function setStatus(main, detail) {
-    if (statusLine) statusLine.textContent = main || '';
-    if (!statusDetail) return;
-    if (detail) {
-      statusDetail.hidden = false;
-      statusDetail.textContent = detail;
-    } else {
-      statusDetail.hidden = true;
-      statusDetail.textContent = '';
+    statusOverride = main
+      ? { main: main || '', detail: detail || '', at: Date.now() }
+      : null;
+    refreshFleetStatus();
+  }
+
+  function clampEtaMin(n) {
+    return Math.max(1, Math.min(ETA_DISPLAY_MAX_MIN, Math.round(n)));
+  }
+
+  function formatEtaRange(lo, hi) {
+    let a = clampEtaMin(lo);
+    let b = clampEtaMin(hi);
+    if (b < a) b = a;
+    if (a === b) return `~${a} min`;
+    return `~${a}–${b} min`;
+  }
+
+  function isGpuWarm() {
+    if ([...liveJobs.values()].some((j) => String(j.status || '').toUpperCase() === 'IN_PROGRESS')) {
+      return true;
     }
+    return lastGpuActiveAt > 0 && Date.now() - lastGpuActiveAt < GPU_IDLE_MS;
+  }
+
+  function estimateRunningLeftMin(job) {
+    const execMin =
+      job.execMs != null && Number.isFinite(job.execMs) ? job.execMs / 60000 : null;
+    const sinceProgress =
+      job.progressAt != null ? (Date.now() - job.progressAt) / 60000 : 0;
+    const elapsed = execMin != null ? execMin : sinceProgress;
+    const typical = isGpuWarm() ? TYPICAL_JOB_MIN : TYPICAL_JOB_MIN + COLD_START_EXTRA_MIN;
+    const typicalHi = isGpuWarm() ? TYPICAL_JOB_HI_MIN : TYPICAL_JOB_HI_MIN + COLD_START_EXTRA_MIN;
+    const leftLo = Math.max(0.75, typical - elapsed);
+    const leftHi = Math.max(leftLo + 1, typicalHi - elapsed * 0.7);
+    return { lo: leftLo, hi: leftHi };
+  }
+
+  function estimateQueuedJobMin() {
+    // Full job once it gets the GPU; cold start only if GPU is currently cold and nothing running.
+    const running = [...liveJobs.values()].some(
+      (j) => String(j.status || '').toUpperCase() === 'IN_PROGRESS',
+    );
+    if (running || isGpuWarm()) {
+      return { lo: TYPICAL_JOB_MIN, hi: TYPICAL_JOB_HI_MIN };
+    }
+    return {
+      lo: TYPICAL_JOB_MIN + COLD_START_EXTRA_MIN,
+      hi: TYPICAL_JOB_HI_MIN + COLD_START_EXTRA_MIN + 2,
+    };
+  }
+
+  function queueAheadCount(job) {
+    const queued = [...liveJobs.values()]
+      .filter((j) => String(j.status || '').toUpperCase() === 'IN_QUEUE')
+      .sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+    const idx = queued.findIndex((j) => j === job || j.jobId === job.jobId);
+    return idx < 0 ? queued.length : idx;
+  }
+
+  function cardStatusForJob(job) {
+    const st = String(job?.status || '').toUpperCase();
+    if (st === 'IN_QUEUE') {
+      const ahead = queueAheadCount(job);
+      const current = estimateCurrentRunLeftMin();
+      const per = estimateQueuedJobMin();
+      let lo = (current?.lo || 0) + ahead * per.lo;
+      let hi = (current?.hi || 0) + ahead * per.hi;
+      if (!current && ahead === 0 && !isGpuWarm()) {
+        lo = COLD_START_EXTRA_MIN;
+        hi = COLD_START_EXTRA_MIN + 2;
+        return `Queued for GPU… · cold start ${formatEtaRange(lo, hi)}`;
+      }
+      if (lo <= 0 && hi <= 0) {
+        return `Queued for GPU… · ${formatEtaRange(per.lo, per.hi)} once started`;
+      }
+      return `Queued for GPU… · starts in ${formatEtaRange(Math.max(0.75, lo), Math.max(1, hi))}`;
+    }
+    if (st === 'IN_PROGRESS') {
+      const left = estimateRunningLeftMin(job);
+      return `FaceFusion running… · ${formatEtaRange(left.lo, left.hi)} left`;
+    }
+    return job?.status || 'FaceFusion…';
+  }
+
+  function estimateCurrentRunLeftMin() {
+    const running = [...liveJobs.values()].filter(
+      (j) => String(j.status || '').toUpperCase() === 'IN_PROGRESS',
+    );
+    if (!running.length) return null;
+    let lo = 0;
+    let hi = 0;
+    for (const job of running) {
+      const e = estimateRunningLeftMin(job);
+      lo = Math.max(lo, e.lo);
+      hi = Math.max(hi, e.hi);
+    }
+    return { lo, hi };
+  }
+
+  function estimateTotalLeftMin() {
+    const jobs = [...liveJobs.values()];
+    const running = jobs.filter((j) => String(j.status || '').toUpperCase() === 'IN_PROGRESS');
+    const queued = jobs.filter((j) => String(j.status || '').toUpperCase() === 'IN_QUEUE');
+    if (!running.length && !queued.length) return null;
+
+    let lo = 0;
+    let hi = 0;
+    const current = estimateCurrentRunLeftMin();
+    if (current) {
+      lo += current.lo;
+      hi += current.hi;
+    } else if (queued.length && !isGpuWarm()) {
+      lo += COLD_START_EXTRA_MIN;
+      hi += COLD_START_EXTRA_MIN + 2;
+    }
+    // Serial GPU assumption (workersMax often 1; safe upper bound even with 2).
+    const per = estimateQueuedJobMin();
+    lo += queued.length * per.lo;
+    hi += queued.length * per.hi;
+    return { lo: Math.max(0.75, lo), hi: Math.max(1, hi) };
+  }
+
+  function refreshFleetStatus() {
+    if (statusOverride && liveJobs.size === 0) {
+      if (statusLine) statusLine.textContent = statusOverride.main || '';
+      if (statusDetail) {
+        if (statusOverride.detail) {
+          statusDetail.hidden = false;
+          statusDetail.textContent = statusOverride.detail;
+        } else {
+          statusDetail.hidden = true;
+          statusDetail.textContent = '';
+        }
+      }
+      return;
+    }
+
+    const jobs = [...liveJobs.values()];
+    const running = jobs.filter((j) => String(j.status || '').toUpperCase() === 'IN_PROGRESS').length;
+    const queued = jobs.filter((j) => String(j.status || '').toUpperCase() === 'IN_QUEUE').length;
+    const warm = isGpuWarm();
+
+    if (!jobs.length && !statusOverride) {
+      if (statusLine) {
+        statusLine.textContent = warm ? 'GPU warm · Ready.' : 'GPU cold · Ready.';
+      }
+      if (statusDetail) {
+        statusDetail.hidden = true;
+        statusDetail.textContent = '';
+      }
+      return;
+    }
+
+    const parts = [
+      warm ? 'GPU warm' : 'GPU cold',
+      `${running} running`,
+      `${queued} queued for GPU`,
+    ];
+    const current = estimateCurrentRunLeftMin();
+    if (current) {
+      parts.push(`${formatEtaRange(current.lo, current.hi)} left this run`);
+    }
+    const total = estimateTotalLeftMin();
+    if (total && (queued > 0 || running > 0)) {
+      parts.push(`${formatEtaRange(total.lo, total.hi)} total`);
+    }
+
+    if (statusLine) statusLine.textContent = parts.join(' · ');
+    if (statusDetail) {
+      if (statusOverride?.main) {
+        statusDetail.hidden = false;
+        statusDetail.textContent = statusOverride.detail
+          ? `${statusOverride.main} — ${statusOverride.detail}`
+          : statusOverride.main;
+      } else {
+        statusDetail.hidden = true;
+        statusDetail.textContent = '';
+      }
+    }
+
+    // Keep card labels in sync when fleet ETAs move.
+    for (const job of liveJobs.values()) {
+      if (!job.card) continue;
+      const st = String(job.status || '').toUpperCase();
+      if (st === 'IN_QUEUE' || st === 'IN_PROGRESS') {
+        setCardStatus(job.card, cardStatusForJob(job));
+      }
+    }
+  }
+
+  function upsertLiveJob(jobId, patch) {
+    if (!jobId) return;
+    const prev = liveJobs.get(jobId) || {
+      status: '',
+      delayMs: null,
+      execMs: null,
+      startedAt: Date.now(),
+      progressAt: null,
+      card: null,
+    };
+    const next = { ...prev, ...patch, jobId };
+    const st = String(next.status || '').toUpperCase();
+    if (st === 'IN_PROGRESS') {
+      touchGpuActive();
+      if (!next.progressAt || String(prev.status || '').toUpperCase() !== 'IN_PROGRESS') {
+        next.progressAt = Date.now();
+      }
+    }
+    liveJobs.set(jobId, next);
+    if (next.card && (st === 'IN_QUEUE' || st === 'IN_PROGRESS')) {
+      setCardStatus(next.card, cardStatusForJob(next));
+    }
+    refreshFleetStatus();
+  }
+
+  function clearLiveJob(jobId) {
+    if (!jobId) return;
+    const job = liveJobs.get(jobId);
+    if (job && String(job.status || '').toUpperCase() === 'IN_PROGRESS') {
+      touchGpuActive();
+    }
+    liveJobs.delete(jobId);
+    refreshFleetStatus();
   }
 
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
 
+  function formatUsd(n, { cents = true } = {}) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '—';
+    if (!cents && Math.abs(v) >= 1) return `$${v.toFixed(2)}`;
+    if (Math.abs(v) >= 1) return `$${v.toFixed(2)}`;
+    return `$${v.toFixed(3)}`;
+  }
+
+  function estimateCostFromMs(execMs) {
+    const ms = Number(execMs);
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    return Math.round((ms / 3_600_000) * costPerHourUsd * 1000) / 1000;
+  }
+
+  function setBalanceUi(balanceUsd) {
+    if (!ffBalance) return;
+    if (balanceUsd == null || !Number.isFinite(Number(balanceUsd))) {
+      ffBalance.innerHTML = 'Balance unavailable';
+      return;
+    }
+    ffBalance.innerHTML = `Balance <span class="ff-balance-amt">${formatUsd(balanceUsd, { cents: true })}</span>`;
+  }
+
+  function refreshSpendUi() {
+    if (!ffSpend) return;
+    if (!sessionFinishedCount) {
+      ffSpend.hidden = true;
+      ffSpend.textContent = '';
+      return;
+    }
+    ffSpend.hidden = false;
+    ffSpend.textContent = `Est. spent on ${sessionFinishedCount} finished video${
+      sessionFinishedCount === 1 ? '' : 's'
+    }: ${formatUsd(sessionSpendUsd)} (GPU runtime only · warm idle not included)`;
+  }
+
+  function noteFinishedCost(estimatedCostUsd, execMs) {
+    let cost = estimatedCostUsd != null ? Number(estimatedCostUsd) : null;
+    if (!Number.isFinite(cost)) cost = estimateCostFromMs(execMs);
+    if (!Number.isFinite(cost) || cost < 0) return null;
+    sessionSpendUsd = Math.round((sessionSpendUsd + cost) * 1000) / 1000;
+    sessionFinishedCount += 1;
+    refreshSpendUi();
+    return cost;
+  }
+
+  async function refreshBalance() {
+    const { ok, data } = await api('/api/contentstation/facefusion-remix?action=balance');
+    if (ok && data?.balanceUsd != null) {
+      setBalanceUi(data.balanceUsd);
+      if (data.costPerHourUsd != null && Number.isFinite(Number(data.costPerHourUsd))) {
+        costPerHourUsd = Number(data.costPerHourUsd);
+      }
+      return data.balanceUsd;
+    }
+    return null;
+  }
+
   async function loadConfig() {
     const { ok, data } = await api('/api/contentstation/facefusion-remix?action=config');
+    if (data?.costPerHourUsd != null && Number.isFinite(Number(data.costPerHourUsd))) {
+      costPerHourUsd = Number(data.costPerHourUsd);
+    }
+    if (data?.balanceUsd != null) {
+      setBalanceUi(data.balanceUsd);
+    } else if (ffBalance) {
+      ffBalance.textContent = 'Balance…';
+      void refreshBalance();
+    }
     if (!ffConfig) return;
     if (!ok) {
       ffConfig.hidden = false;
@@ -193,8 +512,8 @@
     }
     ffConfig.hidden = false;
     ffConfig.textContent = data.configured
-      ? `RunPod FaceFusion ready · endpoint ${data.endpointId || '—'}`
-      : 'FaceFusion not configured — set RUNPOD_FACEFUSION_ENDPOINT_ID on Pages.';
+      ? 'FaceFusion ready.'
+      : 'FaceFusion not configured.';
   }
 
   async function refreshSession() {
@@ -271,7 +590,7 @@
     }
   }
 
-  function fillCardSuccess(card, { downloadPath, key }) {
+  function fillCardSuccess(card, { downloadPath, key, estimatedCostUsd }) {
     setCardError(card, '');
     const preview = card.querySelector('.result-preview');
     const actions = card.querySelector('.result-actions');
@@ -283,13 +602,17 @@
       dl.href = downloadPath;
       dl.setAttribute('download', (key || 'facefusion.mp4').split('/').pop());
     }
-    setCardStatus(card, 'Saved');
+    const cost = estimatedCostUsd != null && Number.isFinite(Number(estimatedCostUsd))
+      ? Number(estimatedCostUsd)
+      : null;
+    setCardStatus(card, cost != null ? `Saved · est. ${formatUsd(cost)}` : 'Saved');
   }
 
   async function downloadTikTok(url, smallerFile) {
     const { ok, data } = await api('/api/contentstation/tiktok-download', {
       method: 'POST',
-      body: JSON.stringify({ url, smallerFile }),
+      // Remix may re-use a library URL; skip the download-page duplicate block.
+      body: JSON.stringify({ url, smallerFile, allowDuplicate: true }),
     });
     if (!ok) {
       throw new Error(
@@ -367,11 +690,13 @@
     throw new Error('Stopped');
   }
 
-  async function pollFacefusion(jobId, meta) {
+  async function pollFacefusion(jobId, meta, card) {
     const started = Date.now();
     let errors = 0;
+    upsertLiveJob(jobId, { card: card || null, startedAt: started, status: 'IN_QUEUE' });
     while (!stopRequested) {
       if (Date.now() - started > MAX_POLL_MS) {
+        clearLiveJob(jobId);
         throw new Error(
           'FaceFusion timed out after 45 minutes. Refresh — the GPU job may still finish in the library.',
         );
@@ -382,6 +707,7 @@
       );
       if (!ok) {
         if (httpStatus === 404 || data?.error === 'job_not_found') {
+          clearLiveJob(jobId);
           throw new Error(
             data?.message ||
               'RunPod job not found (finished, expired, or never submitted). Check FaceFusion remixes.',
@@ -395,6 +721,7 @@
           jobId,
         );
         if (errors >= MAX_POLL_ERRORS) {
+          clearLiveJob(jobId);
           throw new Error(
             data?.message ||
               data?.error ||
@@ -404,8 +731,16 @@
         continue;
       }
       errors = 0;
+      statusOverride = null;
       const status = String(data.status || '').toUpperCase();
-      setStatus(data.message || data.progress?.label || status, jobId);
+      const delayMs = data.delayTime != null ? Number(data.delayTime) : null;
+      const execMs = data.executionTime != null ? Number(data.executionTime) : null;
+      upsertLiveJob(jobId, {
+        status,
+        delayMs: delayMs != null && Number.isFinite(delayMs) ? delayMs : null,
+        execMs: execMs != null && Number.isFinite(execMs) ? execMs : null,
+        card: card || null,
+      });
 
       if (status === 'COMPLETED' && (data.videoUrl || data.key || data.downloadPath)) {
         let downloadPath = data.downloadPath;
@@ -426,22 +761,31 @@
             }),
           });
           if (!saved.ok) {
+            clearLiveJob(jobId);
             throw new Error(saved.data?.message || saved.data?.error || 'Could not archive FaceFusion output');
           }
           downloadPath = saved.data.downloadPath;
           key = saved.data.key;
         }
         if (!key || !downloadPath) {
+          clearLiveJob(jobId);
           throw new Error('FaceFusion completed but no output key/URL');
         }
+        clearLiveJob(jobId);
         removeActiveJob(jobId);
-        return { key, downloadPath, jobId };
+        const estimatedCostUsd =
+          data.estimatedCostUsd != null && Number.isFinite(Number(data.estimatedCostUsd))
+            ? Number(data.estimatedCostUsd)
+            : estimateCostFromMs(execMs);
+        return { key, downloadPath, jobId, estimatedCostUsd, executionTime: execMs };
       }
       if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
+        clearLiveJob(jobId);
         removeActiveJob(jobId);
         throw new Error(data.message || data.error || status);
       }
     }
+    clearLiveJob(jobId);
     throw new Error('Stopped');
   }
 
@@ -502,7 +846,8 @@
         startedAt: Date.now(),
       });
 
-      setCardStatus(card, 'FaceFusion running…');
+      setCardStatus(card, 'Queued for GPU…');
+      statusOverride = null;
       let final = await finishFacefusionJob(data.jobId, {
         faceKey: uploadedFaceKey,
         videoKey,
@@ -510,8 +855,21 @@
         deepAiRemake: Boolean(deepAiRemake && deepAiRemake.checked),
       }, card);
 
-      fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
-      setStatus('Done', data.jobId);
+      const cost = noteFinishedCost(final.estimatedCostUsd, final.executionTime);
+      fillCardSuccess(card, {
+        downloadPath: final.downloadPath,
+        key: final.key,
+        estimatedCostUsd: cost,
+      });
+      statusOverride = null;
+      refreshFleetStatus();
+      void refreshBalance();
+      if (!liveJobs.size) {
+        setStatus(
+          'Done',
+          cost != null ? `${formatUsd(cost)} this video · ${formatUsd(sessionSpendUsd)} session` : data.jobId,
+        );
+      }
     } catch (err) {
       const msg = String(err?.message || err);
       setCardError(card, msg);
@@ -525,8 +883,8 @@
   }
 
   async function finishFacefusionJob(jobId, meta, card) {
-    setCardStatus(card, 'FaceFusion running…');
-    let final = await pollFacefusion(jobId, meta);
+    setCardStatus(card, 'Queued for GPU…');
+    let final = await pollFacefusion(jobId, meta, card);
     if (meta.deepAiRemake && final.key && !stopRequested) {
       setStatus('Deep AI remake (after FaceFusion)…');
       setCardStatus(card, 'Deep AI remake…');
@@ -535,6 +893,8 @@
         key: cleanedKey,
         downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(cleanedKey)}`,
         jobId,
+        estimatedCostUsd: final.estimatedCostUsd,
+        executionTime: final.executionTime,
       };
     }
     removeActiveJob(jobId);
@@ -543,12 +903,20 @@
 
   async function resumeActiveJobs() {
     const jobs = loadActiveJobs();
-    if (!jobs.length) return;
+    if (!jobs.length) {
+      refreshFleetStatus();
+      return;
+    }
     setStatus(`Resuming ${jobs.length} FaceFusion job${jobs.length === 1 ? '' : 's'}…`);
     await Promise.all(
       jobs.map(async (job) => {
         const card = addCard(job.tiktokUrl || job.jobId);
         setCardStatus(card, 'Resuming GPU poll…');
+        upsertLiveJob(job.jobId, {
+          card,
+          status: 'IN_QUEUE',
+          startedAt: Number(job.startedAt) || Date.now(),
+        });
         activeRuns += 1;
         setRunUiBusy();
         try {
@@ -562,9 +930,25 @@
             },
             card,
           );
-          fillCardSuccess(card, { downloadPath: final.downloadPath, key: final.key });
-          setStatus('Done', job.jobId);
+          const cost = noteFinishedCost(final.estimatedCostUsd, final.executionTime);
+          fillCardSuccess(card, {
+            downloadPath: final.downloadPath,
+            key: final.key,
+            estimatedCostUsd: cost,
+          });
+          statusOverride = null;
+          refreshFleetStatus();
+          void refreshBalance();
+          if (!liveJobs.size) {
+            setStatus(
+              'Done',
+              cost != null
+                ? `${formatUsd(cost)} this video · ${formatUsd(sessionSpendUsd)} session`
+                : job.jobId,
+            );
+          }
         } catch (err) {
+          clearLiveJob(job.jobId);
           const msg = String(err?.message || err);
           setCardError(card, msg);
           setCardStatus(card, 'Failed');

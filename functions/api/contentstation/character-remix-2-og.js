@@ -3,8 +3,8 @@
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
- * POST { action: "create", characterKey?, characterMode?, version?, identityLock?, scenes? | sourceKey?, autoRun? }
- * POST { action: "from-tiktok", tiktokUrl, characterKey?, characterMode?, version?, identityLock?, autoRun? }
+ * POST { action: "create", characterKey?, characterMode?, version?, identityLock?, musicLock?, scenes? | sourceKey?, autoRun? }
+ * POST { action: "from-tiktok", tiktokUrl, characterKey?, characterMode?, version?, identityLock?, musicLock?, autoRun? }
  * POST { action: "run" | "first-frames" | "videos" | "stitch" | "derive-character", jobId }
  *
  * characterMode: "upload" (default) | "auto-similar"
@@ -16,6 +16,10 @@
  * identityLock: true (or version=v2) → uploaded character face + structure_* beat-start
  *   keyframes + vision beat notes; remake similar-from-scratch; Grok start images must be
  *   Codex stills (never raw TikTok keyframes). Auto-similar forbidden.
+ *
+ * musicLock: false (default) | true — V2 Music-Only: exact EDL durationMs (trim/pad),
+ *   video-only concat, remux TikTok source audio. Also accepted via audioMode:"source"
+ *   or remixVariant:"music-only".
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
@@ -89,6 +93,17 @@ export async function onRequest(context) {
     const versionRaw = String(body.version || 'v1').trim().toLowerCase();
     const identityLock = body.identityLock === true || versionRaw === 'v2' || versionRaw === '2';
     const version = identityLock ? 'v2' : 'v1';
+    const remixVariantRaw = String(body.remixVariant || '').trim().toLowerCase().replace(/_/g, '-');
+    const musicLock =
+      body.musicLock === true ||
+      String(body.audioMode || '').trim().toLowerCase() === 'source' ||
+      remixVariantRaw === 'music-only' ||
+      remixVariantRaw === 'musiconly' ||
+      remixVariantRaw === 'music';
+    const audioMode = musicLock ? 'source' : String(body.audioMode || 'grok').trim() || 'grok';
+    const remixVariant =
+      body.remixVariant ||
+      (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -150,9 +165,18 @@ export async function onRequest(context) {
         deriveCharacterFromSource: autoSimilar,
         version,
         identityLock,
+        musicLock,
+        audioMode,
+        remixVariant,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
-        title: body.title || (identityLock ? 'TikTok remake (identity lock)' : 'TikTok remake'),
+        title:
+          body.title ||
+          (musicLock
+            ? 'TikTok remake (music-only)'
+            : identityLock
+              ? 'TikTok remake (talking heads)'
+              : 'TikTok remake'),
         sourceKey,
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         scenes: [],
@@ -191,6 +215,17 @@ export async function onRequest(context) {
     const versionRaw = String(body.version || 'v1').trim().toLowerCase();
     const identityLock = body.identityLock === true || versionRaw === 'v2' || versionRaw === '2';
     const version = identityLock ? 'v2' : 'v1';
+    const remixVariantRaw = String(body.remixVariant || '').trim().toLowerCase().replace(/_/g, '-');
+    const musicLock =
+      body.musicLock === true ||
+      String(body.audioMode || '').trim().toLowerCase() === 'source' ||
+      remixVariantRaw === 'music-only' ||
+      remixVariantRaw === 'musiconly' ||
+      remixVariantRaw === 'music';
+    const audioMode = musicLock ? 'source' : String(body.audioMode || 'grok').trim() || 'grok';
+    const remixVariant =
+      body.remixVariant ||
+      (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -243,9 +278,18 @@ export async function onRequest(context) {
         deriveCharacterFromSource: autoSimilar,
         version,
         identityLock,
+        musicLock,
+        audioMode,
+        remixVariant,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
-        title: body.title || (identityLock ? 'Remix 2 OG V2' : 'Remix 2 OG'),
+        title:
+          body.title ||
+          (musicLock
+            ? 'Remix 2 OG V2 Music-Only'
+            : identityLock
+              ? 'Remix 2 OG V2 Talking Heads'
+              : 'Remix 2 OG'),
         scenes,
         sourceKey: body.sourceKey || null,
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
