@@ -51,7 +51,7 @@
           <strong>queue on Fast Panda</strong> — one remake pipeline at a time (Codex → Grok → stitch).
           Identity is locked to <strong>your uploaded character only</strong>.
           Clips are forced to exact EDL timing; final audio is the <strong>original TikTok track</strong>
-          (Grok audio muted).
+          (Grok audio muted). Original on-screen hooks/titles are restored onto the final at the same times.
           Prefer talking-heads with Grok dialogue?
           <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads Remix</a>
           ·
@@ -72,9 +72,16 @@ https://www.tiktok.com/@user/video/…
         </div>
         <p class="muted-line">
           Same identity-lock first-frame pipeline as Talking Heads. Music-lock stitch: each beat trimmed
-          or freeze-padded to exact <code>durationMs</code>, video-only concat, then remux
-          <code>source.mp4</code> audio.
+          or freeze-padded to exact <code>durationMs</code>, video-only concat, remux
+          <code>source.mp4</code> audio. Optionally burns original on-screen hooks/titles back at source timings.
         </p>
+
+        <label class="check" for="restore-overlays">
+          <input id="restore-overlays" type="checkbox" checked>
+          <span>Restore original on-screen text / hooks
+            <em class="muted-line">— OCR from source, burned onto final at the same times</em>
+          </span>
+        </label>
 
         <label for="job-title">Title (optional)</label>
         <input id="job-title" type="text" value="TikTok remake (music-only)" autocomplete="off">

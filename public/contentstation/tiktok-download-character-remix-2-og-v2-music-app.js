@@ -20,6 +20,7 @@
   const characterPreview = document.getElementById('character-preview');
   const characterPreviewWrap = document.getElementById('character-preview-wrap');
   const titleInput = document.getElementById('job-title');
+  const restoreOverlaysEl = document.getElementById('restore-overlays');
   const runBtn = document.getElementById('run-btn');
   const batchList = document.getElementById('batch-list');
   const frameGallery = document.getElementById('frame-gallery');
@@ -123,7 +124,10 @@
         data?.musicLockNote ||
         data?.identityLockNote ||
         'V2 Music-Only: identity-lock + exact EDL timing + original TikTok audio.';
-      configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
+      const overlayNote =
+        data?.restoreOverlaysNote ||
+        'Original on-screen hooks restored onto final (Music-Only default on).';
+      configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote} · ${overlayNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
     }
     return { ok, data };
   }
@@ -165,8 +169,14 @@
       label = 'Grok videos…';
     } else if (stage === 'stitching') {
       label = 'Stitching…';
+    } else if (stage === 'restoring_overlays') {
+      label = 'Restoring on-screen text…';
     } else if (stage === 'stitched') {
-      label = 'Done';
+      const n = data?.overlayText?.eventCount ?? data?.overlayText?.events?.length;
+      label =
+        data?.overlaysBurned && n
+          ? `Done (overlays×${n})`
+          : 'Done';
     } else if (stage === 'error') {
       label = 'Failed';
     }
@@ -316,6 +326,7 @@
             musicLock: true,
             audioMode: 'source',
             remixVariant: 'music-only',
+            restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
             deriveCharacterFromSource: false,
             title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
             autoRun: true,

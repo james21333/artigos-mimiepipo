@@ -20,6 +20,9 @@
  * musicLock: false (default) | true — V2 Music-Only: exact EDL durationMs (trim/pad),
  *   video-only concat, remux TikTok source audio. Also accepted via audioMode:"source"
  *   or remixVariant:"music-only".
+ *
+ * restoreOverlays: Music-Only default true — OCR original on-screen hooks/titles from
+ *   source.mp4 and burn ASS onto final at the same startMs/endMs. Ignored when !musicLock.
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
@@ -104,6 +107,9 @@ export async function onRequest(context) {
     const remixVariant =
       body.remixVariant ||
       (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
+    const restoreOverlays = musicLock
+      ? body.restoreOverlays !== false
+      : body.restoreOverlays === true;
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -168,6 +174,7 @@ export async function onRequest(context) {
         musicLock,
         audioMode,
         remixVariant,
+        restoreOverlays,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
         title:
@@ -226,6 +233,9 @@ export async function onRequest(context) {
     const remixVariant =
       body.remixVariant ||
       (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
+    const restoreOverlays = musicLock
+      ? body.restoreOverlays !== false
+      : body.restoreOverlays === true;
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -281,6 +291,7 @@ export async function onRequest(context) {
         musicLock,
         audioMode,
         remixVariant,
+        restoreOverlays,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
         title:
