@@ -44,7 +44,7 @@ export function configPayload(env) {
     characterModes: ['upload', 'auto-similar'],
     versions: ['v1', 'v2'],
     identityLockNote:
-      'V2 (identityLock): Codex refs = character face + structure_* beat-start keyframe (+ product/set) + vision beat notes; remake similar-from-scratch; Grok start = Codex stills only.',
+      'V2 (identityLock): Codex refs = character face + structure_* beat-start keyframe + vision beat notes only (no product/set); remake similar-from-scratch; Grok start = Codex stills only.',
     message: configured
       ? 'Remix 2 ready: TikTok → ms EDL → (V2: beat analyze) → Codex frames → Grok clips → stitch. V2 = identity-lock upload + structure snapshots.'
       : 'Set REMIX2_WORKER_URL and REMIX2_WORKER_SECRET (Fast Panda worker).',

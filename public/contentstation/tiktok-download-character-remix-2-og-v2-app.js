@@ -17,8 +17,6 @@
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const characterFile = document.getElementById('character-file');
-  const productFile = document.getElementById('product-file');
-  const setFile = document.getElementById('set-file');
   const characterPreview = document.getElementById('character-preview');
   const characterPreviewWrap = document.getElementById('character-preview-wrap');
   const titleInput = document.getElementById('job-title');
@@ -299,14 +297,6 @@
     try {
       setStatus('Uploading character…');
       const characterKey = await uploadImage(char, 'characters/');
-      let productKey = null;
-      let setKey = null;
-      if (productFile?.files?.[0]) {
-        productKey = await uploadImage(productFile.files[0], 'characters/products/');
-      }
-      if (setFile?.files?.[0]) {
-        setKey = await uploadImage(setFile.files[0], 'characters/sets/');
-      }
 
       const baseTitle = titleInput?.value || 'TikTok remake (identity lock)';
       const started = [];
@@ -319,8 +309,6 @@
             action: 'from-tiktok',
             tiktokUrl: url,
             characterKey,
-            productKey,
-            setKey,
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
