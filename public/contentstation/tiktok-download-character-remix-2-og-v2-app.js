@@ -16,19 +16,19 @@
   const errorEl = document.getElementById('remix2-v2-error');
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
-  const characterFile = document.getElementById('character-file');
-  const characterPreview = document.getElementById('character-preview');
-  const characterPreviewWrap = document.getElementById('character-preview-wrap');
   const titleInput = document.getElementById('job-title');
   const runBtn = document.getElementById('run-btn');
   const batchList = document.getElementById('batch-list');
   const frameGallery = document.getElementById('frame-gallery');
   const outputGallery = document.getElementById('output-gallery');
 
-  /** @type {{ jobId: string, tiktokUrl: string, title?: string }[]} */
+  /** @type {{ jobId: string, tiktokUrl: string, title?: string, characterUrl?: string, outputUrl?: string, account?: string, tagged?: boolean, characterKey?: string }[]} */
   let batchJobs = [];
   let pollTimer = null;
   let submitting = false;
+  let publicBaseUrl = '';
+  /** @type {any[]} */
+  let accountsCache = [];
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -48,6 +48,125 @@
       data = null;
     }
     return { ok: res.ok, status: res.status, data };
+  }
+
+  const accountsUi =
+    window.CSRemix2Accounts &&
+    window.CSRemix2Accounts.createController({
+      api,
+      getPublicBaseUrl: () => publicBaseUrl,
+      onError: (msg) => {
+        if (msg) setError(msg);
+      },
+    });
+
+  function mediaFinalPath(jobId) {
+    const key = `character-remix-2-og/${jobId}/final.mp4`;
+    return `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+  }
+
+  function publicFinalUrl(jobId) {
+    const base = String(publicBaseUrl || '').replace(/\/$/, '');
+    if (!base || !jobId) return '';
+    return `${base}/character-remix-2-og/${jobId}/final.mp4`;
+  }
+
+  function resolveFinalUrl(job, data) {
+    const fromStatus = data?.output_url || data?.outputUrl || '';
+    if (fromStatus) return fromStatus;
+    if (job?.outputUrl) return job.outputUrl;
+    const stage = data?.stage || data?.status || '';
+    if (stage === 'stitched' || data?.outputUploaded) {
+      return publicFinalUrl(job?.jobId) || mediaFinalPath(job?.jobId);
+    }
+    return '';
+  }
+
+  function renderFinalOutput(outWrap, finalUrl, job) {
+    if (!outWrap) return;
+    if (!finalUrl) {
+      outWrap.hidden = true;
+      outWrap.innerHTML = '';
+      return;
+    }
+    outWrap.hidden = false;
+    const readyHref = job?.account
+      ? `./ready-account.html?account=${encodeURIComponent(job.account)}`
+      : './remix2-ready.html';
+    const readyLabel = job?.account ? `Ready · ${job.account}` : 'Remix 2 ready';
+    outWrap.innerHTML = `<figure class="result-final">
+        <figcaption>Final</figcaption>
+        <video src="${finalUrl}" controls playsinline preload="metadata" class="result-preview"></video>
+      </figure>
+      <div class="job-account-row" data-job-tag-row></div>
+      <p class="muted-line job-tag-status" data-job-tag-status hidden></p>
+      <p class="muted-line result-actions">
+        <a class="btn-link" href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a>
+        ·
+        <a class="btn-link" href="${readyHref}">${readyLabel}</a>
+      </p>`;
+    wireJobTagRow(outWrap, job);
+  }
+
+  function wireJobTagRow(outWrap, job) {
+    const row = outWrap.querySelector('[data-job-tag-row]');
+    const statusEl = outWrap.querySelector('[data-job-tag-status]');
+    if (!row || !job?.jobId) return;
+    row.innerHTML = '';
+    const label = document.createElement('label');
+    label.textContent = 'Tag for account';
+    const select = document.createElement('select');
+    select.className = 'account-select';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— Choose account —';
+    select.appendChild(placeholder);
+    for (const a of accountsCache) {
+      const name = typeof a === 'string' ? a : a.name;
+      if (!name) continue;
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+    if (job.account) select.value = job.account;
+    if (job.tagged && job.account) {
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.textContent = `Tagged → Ready For Upload (${job.account})`;
+      }
+    }
+    select.addEventListener('change', async () => {
+      if (!select.value) return;
+      select.disabled = true;
+      try {
+        const { ok, data } = await api('/api/contentstation/accounts', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'tag',
+            key: `character-remix-2-og/${job.jobId}/final.mp4`,
+            account: select.value,
+          }),
+        });
+        if (!ok) throw new Error((data && (data.message || data.error)) || 'Could not tag video.');
+        job.account = select.value;
+        job.tagged = true;
+        saveBatch();
+        if (data?.accounts) accountsCache = data.accounts;
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.textContent = `Tagged → Ready For Upload (${job.account})`;
+        }
+        accountsUi?.refresh?.().catch(() => {});
+      } catch (err) {
+        setError(err?.message || String(err));
+        select.value = job.account || '';
+      } finally {
+        select.disabled = false;
+      }
+    });
+    label.appendChild(select);
+    row.appendChild(label);
   }
 
   function setError(msg) {
@@ -97,7 +216,6 @@
   function loadBatch() {
     try {
       let raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
-      // Migrate pre-split Talking Heads batch key.
       if (!raw) raw = localStorage.getItem('cs_remix2_v2_batch_v1');
       const arr = raw ? JSON.parse(raw) : [];
       batchJobs = Array.isArray(arr) ? arr.filter((j) => j && j.jobId) : [];
@@ -119,6 +237,7 @@
 
   async function loadConfig() {
     const { ok, data } = await api('/api/contentstation/character-remix-2-og?action=config');
+    publicBaseUrl = String(data?.r2?.publicBaseUrl || data?.publicBaseUrl || '').trim();
     if (configEl) {
       configEl.hidden = false;
       const lockNote =
@@ -152,6 +271,16 @@
     return card;
   }
 
+  async function maybeAutoTag(job, stage) {
+    if (stage !== 'stitched' || !job?.account || job.tagged) return;
+    const result = await accountsUi?.tagFinalForAccount(job.jobId, job.account);
+    if (result?.ok) {
+      job.tagged = true;
+      saveBatch();
+      accountsUi?.refresh?.().catch(() => {});
+    }
+  }
+
   function updateCardFromStatus(job, data) {
     const card = ensureBatchCard(job);
     if (!card) return;
@@ -178,6 +307,7 @@
       label = `${who} cooling down ${est} — checking hourly, auto-resume`;
     } else if (stage === 'stitched') {
       label = 'Done';
+      if (job.account) label += job.tagged ? ` · ${job.account}` : ` → ${job.account}`;
     } else if (stage === 'error') {
       label = 'Failed';
     }
@@ -239,24 +369,10 @@
     }
 
     const outWrap = card.querySelector('.result-outputs');
-    const finalUrl = data?.output_url || data?.outputUrl || '';
-    if (outWrap) {
-      if (finalUrl) {
-        outWrap.hidden = false;
-        outWrap.innerHTML = `<figure class="result-final">
-            <figcaption>Final</figcaption>
-            <video src="${finalUrl}" controls playsinline preload="metadata" class="result-preview"></video>
-          </figure>
-          <p class="muted-line result-actions">
-            <a class="btn-link" href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a>
-            ·
-            <a class="btn-link" href="./remix2-ready.html">Remix 2 ready</a>
-          </p>`;
-      } else {
-        outWrap.hidden = true;
-        outWrap.innerHTML = '';
-      }
-    }
+    const finalUrl = resolveFinalUrl(job, data);
+    if (finalUrl && job) job.outputUrl = finalUrl;
+    renderFinalOutput(outWrap, finalUrl, job);
+    maybeAutoTag(job, stage).catch(() => {});
   }
 
   async function pollBatch() {
@@ -278,7 +394,17 @@
         ensureBatchCard(job);
         const card = batchList?.querySelector(`[data-job-id="${job.jobId}"]`);
         const statusEl = card?.querySelector('.result-status');
-        if (statusEl) statusEl.textContent = 'Status error';
+        const fallbackUrl = job.outputUrl || publicFinalUrl(job.jobId) || mediaFinalPath(job.jobId);
+        if (fallbackUrl && card) {
+          if (!job.outputUrl) job.outputUrl = fallbackUrl;
+          if (statusEl && (!statusEl.textContent || statusEl.textContent === 'Status error' || statusEl.textContent === 'Queued…')) {
+            statusEl.textContent = 'Done (from R2)';
+          }
+          renderFinalOutput(card.querySelector('.result-outputs'), fallbackUrl, job);
+          await maybeAutoTag(job, 'stitched');
+        } else if (statusEl) {
+          statusEl.textContent = 'Status error';
+        }
         continue;
       }
       updateCardFromStatus(job, data);
@@ -287,12 +413,9 @@
       else if (stage === 'error') failed += 1;
       else active += 1;
     }
-    const waitingNote = batchJobs.some(Boolean)
-      ? ' Worker auto-resumes after OpenAI/Grok quota cooldown.'
-      : '';
     setStatus(
       `Batch: ${done} done · ${active} in flight/queued · ${failed} failed · ${batchJobs.length} total`,
-      `Worker runs one remake pipeline at a time; the rest stay queued.${waitingNote}`,
+      'Worker runs one remake pipeline at a time; the rest stay queued. Quota cooldown auto-resumes.',
     );
     if (active === 0 && !submitting) {
       if (pollTimer) {
@@ -309,23 +432,14 @@
     pollBatch();
   }
 
-  // Keep legacy gallery elements unused (batch cards own frames/outputs).
   if (frameGallery) frameGallery.hidden = true;
   if (outputGallery) outputGallery.hidden = true;
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
 
-  characterFile?.addEventListener('change', () => {
-    const f = characterFile.files?.[0];
-    if (!f || !characterPreview || !characterPreviewWrap) return;
-    characterPreview.src = URL.createObjectURL(f);
-    characterPreviewWrap.hidden = false;
-  });
-
   runBtn?.addEventListener('click', async () => {
     setError('');
     const urls = parseUrls(tiktokUrls?.value);
-    const char = characterFile?.files?.[0];
     if (!urls.length) {
       setError('Paste 1–20 TikTok URLs (one per line).');
       return;
@@ -334,16 +448,17 @@
       setError(`Max ${MAX_URLS} TikTok links per batch.`);
       return;
     }
-    if (!char) {
-      setError('Choose a character image — V2 Talking Heads requires your upload');
+    if (!accountsUi?.hasCharacter()) {
+      setError('Choose a character image — or select an account that already has a saved character.');
       return;
     }
 
     submitting = true;
     if (runBtn) runBtn.disabled = true;
     try {
-      setStatus('Uploading character…');
-      const characterKey = await uploadImage(char, 'characters/');
+      setStatus('Preparing character…');
+      const characterKey = await accountsUi.resolveCharacterKeyForCreate(uploadImage);
+      const account = accountsUi.selected() || '';
 
       const baseTitle = titleInput?.value || 'TikTok remake (talking heads)';
       const started = [];
@@ -386,7 +501,14 @@
           }
           continue;
         }
-        const job = { jobId: data.jobId, tiktokUrl: url, title: data.title || baseTitle };
+        const job = {
+          jobId: data.jobId,
+          tiktokUrl: url,
+          title: data.title || baseTitle,
+          account: account || undefined,
+          characterKey,
+          tagged: false,
+        };
         started.push(job);
         batchJobs.push(job);
         saveBatch();
@@ -394,10 +516,13 @@
       }
       if (!started.length) throw new Error('No jobs started');
       setStatus(
-        `Submitted ${started.length} job(s)`,
-        'Pipelines queue on Fast Panda — one remake at a time.',
+        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}`,
+        account
+          ? 'Pipelines queue on Fast Panda. Finished MP4s auto-tag to Ready For Upload.'
+          : 'Pipelines queue on Fast Panda — one remake at a time. Tag later on the job card or Remix 2 ready.',
       );
       startPoll();
+      accountsUi?.refresh?.().catch(() => {});
     } catch (err) {
       setError(err?.message || String(err));
       setStatus('Failed');
@@ -445,6 +570,9 @@
     if (app) app.hidden = false;
     if (sessionMeta) sessionMeta.textContent = `Signed in · ${data.role || 'admin'}`;
     await loadConfig();
+    if (accountsUi) {
+      accountsCache = (await accountsUi.loadAccounts()) || [];
+    }
     updateUrlCount();
     loadBatch();
     if (batchJobs.length) {
@@ -452,7 +580,7 @@
       startPoll();
       setStatus(`Resuming ${batchJobs.length} job(s)…`);
     } else {
-      setStatus('Ready — upload character + up to 20 TikTok URLs (queued, one pipeline at a time).');
+      setStatus('Ready — pick account (optional) + character + up to 20 TikTok URLs.');
     }
   }
 

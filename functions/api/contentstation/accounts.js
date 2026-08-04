@@ -2,12 +2,15 @@ import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
   accountSummaries,
   createAccount,
+  getAccountCharacter,
   getTagForKey,
   isVideoPosted,
   keysForAccount,
+  listAccountCharacters,
   readTagsMap,
   renameAccount,
   sanitizeAccountName,
+  setAccountCharacter,
   setVideoAccount,
   setVideoPosted,
 } from '../../lib/account-tags.js';
@@ -21,15 +24,18 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  *   download → list, tag, create, rename (account picker on TikTok download)
  *   ready    → list, tags, videos, tag, posted, create, rename, info
  *
- * GET  ?action=list              → accounts + counts
+ * GET  ?action=list              → accounts + counts (+ character defaults)
  * GET  ?action=tags              → full key→account map
  * GET  ?action=videos&account=   → tagged keys for account (cleaned + Remix 2 finals)
  * GET  ?action=tag&key=          → tag for one key
  * GET  ?action=info&key=         → original TikTok post info for a cleaned video
+ * GET  ?action=character&account= → default character + history for one account
+ * GET  ?action=characters        → all account character defaults/history
  * POST { action: "create", name }
  * POST { action: "rename", from, to }
  * POST { action: "tag", key, account }   // account "" clears
  * POST { action: "posted", key, posted } // boolean — marked posted to TikTok
+ * POST { action: "set-character", account, key } // key "" clears default
  */
 
 function downloadPath(key) {
@@ -56,6 +62,26 @@ async function enrichKeys(env, keys) {
       }
     }
     const remix2 = /^character-remix-2-og\/([^/]+)\/final\.mp4$/i.exec(key);
+    if (remix2 && bucket) {
+      try {
+        const sidecar = await bucket.get(`character-remix-2-og/${remix2[1]}/ready.json`);
+        if (sidecar) {
+          const text = await sidecar.text();
+          const json = text ? JSON.parse(text) : null;
+          if (json && typeof json === 'object') {
+            if (json.musicLock != null) customMetadata.musicLock = json.musicLock ? 'true' : 'false';
+            if (json.remixVariant) customMetadata.remixVariant = String(json.remixVariant);
+            if (json.tiktokUrl) customMetadata.tiktokUrl = String(json.tiktokUrl);
+            if (json.uploadedAt) {
+              const t = Date.parse(json.uploadedAt);
+              if (Number.isFinite(t)) uploaded = new Date(t).toISOString();
+            }
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     const musicLockRaw = String(customMetadata.musicLock || customMetadata.musiclock || '').toLowerCase();
     const musicLock =
       musicLockRaw === '1' || musicLockRaw === 'true' || musicLockRaw === 'yes'
@@ -151,6 +177,23 @@ export async function onRequestGet(context) {
     });
   }
 
+  if (action === 'character') {
+    const account = sanitizeAccountName(url.searchParams.get('account'));
+    if (!account) {
+      return json({ ok: false, error: 'missing_account', message: 'Account name required.' }, 400);
+    }
+    const result = await getAccountCharacter(env, account);
+    if (!result.ok) {
+      return json({ ok: false, error: 'character_failed', message: result.error }, 400);
+    }
+    return json({ ok: true, ...result });
+  }
+
+  if (action === 'characters') {
+    const characters = await listAccountCharacters(env);
+    return json({ ok: true, characters });
+  }
+
   return json({ ok: false, error: 'unknown_action' }, 400);
 }
 
@@ -227,6 +270,18 @@ export async function onRequestPost(context) {
       key: result.key,
       posted: result.posted,
       postedAt: result.postedAt,
+    });
+  }
+
+  if (action === 'set-character') {
+    const result = await setAccountCharacter(env, body.account, body.key);
+    if (!result.ok) {
+      return json({ ok: false, error: 'set_character_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      ...result,
+      accounts: await accountSummaries(env),
     });
   }
 

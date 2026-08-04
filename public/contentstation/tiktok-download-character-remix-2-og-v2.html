@@ -45,6 +45,13 @@
         <button type="button" id="logout-btn" class="ghost">Log out</button>
       </div>
 
+      <aside id="account-character-rail" class="account-character-rail" hidden aria-label="Accounts and characters">
+        <h2 class="account-character-rail-title">Accounts</h2>
+        <ul id="account-character-rail-list" class="account-character-rail-list"></ul>
+        <p id="account-character-rail-empty" class="muted-line" hidden>No accounts yet.</p>
+        <p class="muted-line">Tap to select · character thumb = default</p>
+      </aside>
+
       <section class="hero-flow">
         <h1>V2 Talking Heads Remix</h1>
         <p class="lede">
@@ -58,6 +65,24 @@
           <a href="./tiktok-download-character-remix-2-og.html">Version 1: Same Character</a>
         </p>
 
+        <section class="account-picker" id="account-picker">
+          <label for="account-select">Ready For Upload account</label>
+          <p class="muted-line">Uses that account’s saved character (if any) and auto-tags the finished MP4.</p>
+          <div class="row account-select-row">
+            <select id="account-select" class="account-select">
+              <option value="">— No account (tag later) —</option>
+            </select>
+          </div>
+          <form id="create-account-form" class="account-create-row">
+            <label for="new-account-name">Create account</label>
+            <div class="row">
+              <input id="new-account-name" type="text" maxlength="80" placeholder="e.g. 1 - GLP" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+        </section>
+
         <label for="tiktok-urls">TikTok URLs (max 20)</label>
         <textarea id="tiktok-urls" rows="8" autocomplete="off" spellcheck="false"
           placeholder="https://www.tiktok.com/@user/video/…
@@ -65,10 +90,22 @@ https://www.tiktok.com/@user/video/…
 (up to 20 links)"></textarea>
         <p id="url-count" class="muted-line">0 / 20 links</p>
 
-        <label for="character-file">Character image (required)</label>
-        <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*" required>
+        <label for="character-file">Character image</label>
+        <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
         <div id="character-preview-wrap" class="character-preview-wrap" hidden>
           <img id="character-preview" alt="Character preview" class="character-preview">
+        </div>
+        <p id="character-account-hint" class="muted-line">
+          Optional: pick a Ready For Upload account to use its saved character and auto-tag the final.
+        </p>
+        <div id="character-history-wrap" class="character-history-wrap" hidden>
+          <label for="character-history-select">Previously used for this account</label>
+          <div class="row">
+            <select id="character-history-select" class="account-select">
+              <option value="">— Saved characters —</option>
+            </select>
+            <button type="button" id="set-character-default-btn" class="ghost" hidden>Set as default</button>
+          </div>
         </div>
         <p class="muted-line">
           Identity lock: Codex remakes each beat from the exact TikTok beat-start snapshot (pose/body/scene)
@@ -84,8 +121,11 @@ https://www.tiktok.com/@user/video/…
           <button type="button" id="run-btn">Queue remakes (talking heads)</button>
         </div>
         <p class="muted-line">
-          Finished finals → tag for accounts on
-          <a class="btn-link" href="./remix2-ready.html">Remix 2 ready</a>.
+          Finished finals →
+          <a class="btn-link" href="./remix2-ready.html">Remix 2 ready</a>
+          or the account’s
+          <a class="btn-link" href="./ready.html">Ready For Upload</a>
+          when tagged.
         </p>
 
         <p id="status-line" class="status" aria-live="polite">Ready.</p>
@@ -109,6 +149,7 @@ https://www.tiktok.com/@user/video/…
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./tiktok-download-character-remix-2-og-v2-app.js?v=v2talk2"></script>
+  <script src="./remix2-account-ui.js?v=1"></script>
+  <script src="./tiktok-download-character-remix-2-og-v2-app.js?v=v2talk3"></script>
 </body>
 </html>

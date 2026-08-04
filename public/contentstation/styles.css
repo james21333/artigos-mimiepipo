@@ -665,8 +665,124 @@ a { color: var(--accent); }
   font-variant-numeric: tabular-nums;
 }
 
+.account-character-rail {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 40;
+  width: min(17.5rem, calc(100vw - 2rem));
+  max-height: min(72vh, 32rem);
+  overflow: auto;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--rule);
+  background: var(--panel, #fff);
+  color: inherit;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.account-character-rail-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.account-character-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.account-character-item {
+  margin: 0;
+}
+
+.account-character-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-character-item.is-selected .account-character-btn {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.account-character-thumb,
+.account-character-placeholder {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: #0f1713;
+  border: 1px solid var(--rule);
+}
+
+.account-character-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.account-character-meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.account-character-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.account-character-count {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.character-history-wrap {
+  margin: 0.55rem 0 0.25rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.job-account-row {
+  margin: 0.55rem 0 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.job-account-row label {
+  font-size: 0.88rem;
+}
+
+.job-account-row select {
+  min-width: 10rem;
+}
+
+.job-tag-status {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 720px) {
-  .ready-counts-panel {
+  .ready-counts-panel,
+  .account-character-rail {
     position: static;
     width: auto;
     max-height: none;

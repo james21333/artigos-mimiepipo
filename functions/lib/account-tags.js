@@ -5,15 +5,26 @@
  *   meta/accounts.json      → string[] account names
  *   meta/cleaned-tags.json  → { [mediaKey]: accountName }
  *   meta/cleaned-posted.json → { [mediaKey]: { posted, postedAt } }
+ *   meta/account-characters.json → {
+ *     [accountName]: {
+ *       defaultKey: string,
+ *       history: [{ key, uploadedAt }]  // newest first, capped
+ *     }
+ *   }
  *
  * Tagable keys: cleaned/* and character-remix-2-og/{jobId}/final.mp4
+ * Character images: account-characters/{slug}/… (and legacy characters/)
  */
 
 const ACCOUNTS_KEY = 'meta/accounts.json';
 const TAGS_KEY = 'meta/cleaned-tags.json';
 const POSTED_KEY = 'meta/cleaned-posted.json';
+const CHARACTERS_KEY = 'meta/account-characters.json';
 
 const REMIX2_FINAL_RE = /^character-remix-2-og\/[^/]+\/final\.mp4$/i;
+const MAX_CHARACTER_HISTORY = 24;
+
+export const ACCOUNT_CHARACTERS_PREFIX = 'account-characters/';
 
 export function sanitizeAccountName(raw) {
   if (!raw || typeof raw !== 'string') return null;
@@ -103,6 +114,154 @@ export async function createAccount(env, nameRaw) {
   return { ok: true, name, accounts: await listAccounts(env) };
 }
 
+/** Safe R2 folder segment for an account name. */
+export function accountSlug(nameRaw) {
+  const name = sanitizeAccountName(nameRaw);
+  if (!name) return null;
+  return name.replace(/[^a-zA-Z0-9._\-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'account';
+}
+
+function publicUrlForKey(env, key) {
+  const base = String(env?.R2_PUBLIC_BASE_URL || '').replace(/\/$/, '');
+  if (!base || !key) return null;
+  return `${base}/${key}`;
+}
+
+function downloadPathForKey(key) {
+  return `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+}
+
+function isCharacterImageKey(keyRaw) {
+  const key = String(keyRaw || '').trim();
+  if (!key || key.includes('..')) return false;
+  return (
+    key.startsWith(ACCOUNT_CHARACTERS_PREFIX) ||
+    key.startsWith('characters/') ||
+    /^character-remix-2-og\/[^/]+\/character\.(jpg|jpeg|png|webp)$/i.test(key)
+  );
+}
+
+async function readCharactersMap(env) {
+  const bucket = getBucket(env);
+  if (!bucket) return {};
+  const map = await readJson(bucket, CHARACTERS_KEY, {});
+  return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+}
+
+async function writeCharactersMap(env, map) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  await writeJson(bucket, CHARACTERS_KEY, map);
+  return { ok: true };
+}
+
+function normalizeCharacterEntry(raw) {
+  if (!raw || typeof raw !== 'object') return { defaultKey: null, history: [] };
+  const history = Array.isArray(raw.history)
+    ? raw.history
+        .map((h) => {
+          if (!h) return null;
+          if (typeof h === 'string') return { key: h, uploadedAt: null };
+          const key = String(h.key || '').trim();
+          if (!key) return null;
+          return { key, uploadedAt: h.uploadedAt || null };
+        })
+        .filter(Boolean)
+    : [];
+  const defaultKey = String(raw.defaultKey || raw.key || '').trim() || null;
+  return { defaultKey, history };
+}
+
+function enrichCharacterPayload(env, account, entry) {
+  const { defaultKey, history } = normalizeCharacterEntry(entry);
+  const hist = [];
+  const seen = new Set();
+  for (const h of history) {
+    if (!h.key || seen.has(h.key)) continue;
+    seen.add(h.key);
+    hist.push({
+      key: h.key,
+      uploadedAt: h.uploadedAt || null,
+      downloadPath: downloadPathForKey(h.key),
+      publicUrl: publicUrlForKey(env, h.key),
+    });
+  }
+  return {
+    account,
+    defaultKey,
+    downloadPath: defaultKey ? downloadPathForKey(defaultKey) : null,
+    publicUrl: defaultKey ? publicUrlForKey(env, defaultKey) : null,
+    history: hist.slice(0, MAX_CHARACTER_HISTORY),
+  };
+}
+
+export async function getAccountCharacter(env, accountRaw) {
+  const account = sanitizeAccountName(accountRaw);
+  if (!account) return { ok: false, error: 'Enter a valid account name.' };
+  const map = await readCharactersMap(env);
+  // Case-insensitive lookup
+  let entry = map[account];
+  if (!entry) {
+    const hit = Object.keys(map).find((k) => k.toLowerCase() === account.toLowerCase());
+    if (hit) entry = map[hit];
+  }
+  return { ok: true, ...enrichCharacterPayload(env, account, entry) };
+}
+
+/**
+ * Set (or clear) the default character image for an account.
+ * Adds key to history (newest first). Pass empty key to clear default only.
+ */
+export async function setAccountCharacter(env, accountRaw, keyRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const account = sanitizeAccountName(accountRaw);
+  if (!account) return { ok: false, error: 'Enter a valid account name.' };
+
+  const clear = keyRaw == null || String(keyRaw).trim() === '';
+  const key = clear ? null : String(keyRaw).trim();
+  if (!clear && !isCharacterImageKey(key)) {
+    return { ok: false, error: 'Invalid character image key.' };
+  }
+
+  await createAccount(env, account);
+
+  const map = await readCharactersMap(env);
+  const existingKey =
+    Object.keys(map).find((k) => k.toLowerCase() === account.toLowerCase()) || account;
+  const prev = normalizeCharacterEntry(map[existingKey]);
+
+  if (clear) {
+    map[account] = { defaultKey: null, history: prev.history };
+    if (existingKey !== account) delete map[existingKey];
+    await writeJson(bucket, CHARACTERS_KEY, map);
+    return { ok: true, ...enrichCharacterPayload(env, account, map[account]) };
+  }
+
+  const uploadedAt = new Date().toISOString();
+  const history = [{ key, uploadedAt }, ...prev.history.filter((h) => h.key !== key)].slice(
+    0,
+    MAX_CHARACTER_HISTORY,
+  );
+  map[account] = { defaultKey: key, history };
+  if (existingKey !== account) delete map[existingKey];
+  await writeJson(bucket, CHARACTERS_KEY, map);
+  return { ok: true, ...enrichCharacterPayload(env, account, map[account]) };
+}
+
+export async function listAccountCharacters(env) {
+  const accounts = await listAccounts(env);
+  const map = await readCharactersMap(env);
+  const out = {};
+  for (const name of accounts) {
+    const hit =
+      map[name] ||
+      map[Object.keys(map).find((k) => k.toLowerCase() === name.toLowerCase()) || ''];
+    out[name] = enrichCharacterPayload(env, name, hit);
+  }
+  return out;
+}
+
 /**
  * Rename an account and retarget all video tags that used the old name.
  */
@@ -154,6 +313,18 @@ export async function renameAccount(env, fromRaw, toRaw) {
     }
   }
   await writeJson(bucket, TAGS_KEY, map);
+
+  // Migrate default character + history under the new account name.
+  const charMap = await readCharactersMap(env);
+  const fromCharKey = Object.keys(charMap).find((k) => k.toLowerCase() === from.toLowerCase());
+  if (fromCharKey) {
+    const entry = charMap[fromCharKey];
+    delete charMap[fromCharKey];
+    const toConflict = Object.keys(charMap).find((k) => k.toLowerCase() === to.toLowerCase());
+    if (toConflict) delete charMap[toConflict];
+    charMap[to] = entry;
+    await writeJson(bucket, CHARACTERS_KEY, charMap);
+  }
 
   return {
     ok: true,
@@ -225,6 +396,7 @@ export async function accountSummaries(env) {
   const accounts = await listAccounts(env);
   const map = await readTagsMap(env);
   const postedMap = await readPostedMap(env);
+  const charMap = await readCharactersMap(env);
   const counts = {};
   for (const a of accounts) counts[a] = 0;
   // Count only videos not marked Posted (Ready list = still left to upload).
@@ -236,7 +408,19 @@ export async function accountSummaries(env) {
     counts[name] = (counts[name] || 0) + 1;
   }
   accounts.sort(compareAccountNames);
-  return accounts.map((name) => ({ name, count: counts[name] || 0 }));
+  return accounts.map((name) => {
+    const charHit =
+      charMap[name] ||
+      charMap[Object.keys(charMap).find((k) => k.toLowerCase() === name.toLowerCase()) || ''];
+    const character = enrichCharacterPayload(env, name, charHit);
+    return {
+      name,
+      count: counts[name] || 0,
+      characterKey: character.defaultKey || null,
+      characterUrl: character.publicUrl || null,
+      characterDownloadPath: character.downloadPath || null,
+    };
+  });
 }
 
 export async function readPostedMap(env) {

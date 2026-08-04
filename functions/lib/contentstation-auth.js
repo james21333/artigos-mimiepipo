@@ -303,7 +303,10 @@ export function mediaKeyAllowed(role, key) {
   if (role === ROLES.DOWNLOAD) return key.startsWith('tiktok/');
   if (role === ROLES.READY) {
     return (
-      key.startsWith('cleaned/') || /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
+      key.startsWith('cleaned/') ||
+      key.startsWith('characters/') ||
+      key.startsWith('account-characters/') ||
+      /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
     );
   }
   return false;
@@ -317,6 +320,10 @@ export function mediaPrefixAllowed(role, prefix) {
     return (
       p === 'cleaned/' ||
       p.startsWith('cleaned/') ||
+      p === 'characters/' ||
+      p.startsWith('characters/') ||
+      p === 'account-characters/' ||
+      p.startsWith('account-characters/') ||
       p === 'character-remix-2-og/' ||
       p.startsWith('character-remix-2-og/')
     );
