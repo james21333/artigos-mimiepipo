@@ -3,9 +3,10 @@
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
- * GET  ?action=list[&limit=][&cursor=][&variant=all|music-only|talking-heads]
+ * GET  ?action=list[&limit=][&cursor=][&variant=all|music-only|talking-heads|viral-builder]
  * POST { action: "create", characterKey?, characterMode?, version?, identityLock?, musicLock?, scenes? | sourceKey?, autoRun? }
- * POST { action: "from-tiktok", tiktokUrl, characterKey?, characterMode?, version?, identityLock?, musicLock?, autoRun? }
+ * POST { action: "from-tiktok", tiktokUrl, characterKey?, characterMode?, version?, identityLock?, musicLock?, writeFromScratch?, autoRun? }
+ * POST { action: "continue", jobId, scenes[], grokDialogue?, musicOnly?, restoreOverlays? }
  * POST { action: "run" | "first-frames" | "videos" | "stitch" | "derive-character", jobId }
  *
  * characterMode: "upload" (default) | "auto-similar"
@@ -22,8 +23,12 @@
  *   video-only concat, remux TikTok source audio. Also accepted via audioMode:"source"
  *   or remixVariant:"music-only".
  *
+ * writeFromScratch / remixVariant:"viral-builder" — two-phase Viral Video Builder:
+ *   analyze (EDL + beats + overlays) → awaiting_prompts → continue with user scene prompts.
+ *
  * restoreOverlays: Music-Only default true — OCR original on-screen hooks/titles from
- *   source.mp4 and burn ASS onto final at the same startMs/endMs. Ignored when !musicLock.
+ *   source.mp4 and burn ASS onto final at the same startMs/endMs. Ignored when !musicLock
+ *   (except viral-builder, which burns rewritten text when provided).
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
@@ -226,22 +231,48 @@ export async function onRequest(context) {
     const tiktokUrl = String(body.tiktokUrl || body.url || '').trim();
     const characterKey = body.characterKey || null;
     const versionRaw = String(body.version || 'v1').trim().toLowerCase();
-    const identityLock = body.identityLock === true || versionRaw === 'v2' || versionRaw === '2';
-    const version = identityLock ? 'v2' : 'v1';
     const remixVariantRaw = String(body.remixVariant || '').trim().toLowerCase().replace(/_/g, '-');
+    const writeFromScratch =
+      body.writeFromScratch === true ||
+      remixVariantRaw === 'viral-builder' ||
+      remixVariantRaw === 'viralbuilder' ||
+      remixVariantRaw === 'write-from-scratch' ||
+      remixVariantRaw === 'writefromscratch';
+    const identityLock =
+      body.identityLock === true || versionRaw === 'v2' || versionRaw === '2' || writeFromScratch;
+    const version = identityLock ? 'v2' : 'v1';
     const musicLock =
       body.musicLock === true ||
+      body.musicOnly === true ||
       String(body.audioMode || '').trim().toLowerCase() === 'source' ||
+      String(body.audioMode || '').trim().toLowerCase() === 'mix' ||
       remixVariantRaw === 'music-only' ||
       remixVariantRaw === 'musiconly' ||
       remixVariantRaw === 'music';
-    const audioMode = musicLock ? 'source' : String(body.audioMode || 'grok').trim() || 'grok';
+    let audioMode = String(body.audioMode || 'grok').trim() || 'grok';
+    if (writeFromScratch) {
+      const wantGrok = body.grokDialogue !== false;
+      const wantMusic = body.musicOnly === true || body.musicLock === true;
+      if (wantGrok && wantMusic) audioMode = 'mix';
+      else if (wantMusic) audioMode = 'source';
+      else audioMode = 'grok';
+    } else if (musicLock && audioMode !== 'mix') {
+      audioMode = 'source';
+    }
     const remixVariant =
       body.remixVariant ||
-      (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
-    const restoreOverlays = musicLock
+      (writeFromScratch
+        ? 'viral-builder'
+        : musicLock
+          ? 'music-only'
+          : identityLock
+            ? 'talking-heads'
+            : undefined);
+    const restoreOverlays = writeFromScratch
       ? body.restoreOverlays !== false
-      : body.restoreOverlays === true;
+      : musicLock
+        ? body.restoreOverlays !== false
+        : body.restoreOverlays === true;
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -303,23 +334,29 @@ export async function onRequest(context) {
         deriveCharacterFromSource: autoSimilar,
         version,
         identityLock,
-        musicLock,
+        musicLock: writeFromScratch ? audioMode !== 'grok' : musicLock,
         audioMode,
         remixVariant,
         restoreOverlays,
+        writeFromScratch,
+        grokDialogue: writeFromScratch ? body.grokDialogue !== false : undefined,
+        musicOnly: writeFromScratch ? body.musicOnly === true : undefined,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
         title:
           body.title ||
-          (musicLock
-            ? 'TikTok remake (music-only)'
-            : identityLock
-              ? 'TikTok remake (talking heads)'
-              : 'TikTok remake'),
+          (writeFromScratch
+            ? 'Viral Video Builder — Write From Scratch'
+            : musicLock
+              ? 'TikTok remake (music-only)'
+              : identityLock
+                ? 'TikTok remake (talking heads)'
+                : 'TikTok remake'),
         sourceKey,
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         scenes: [],
-        autoRun: body.autoRun !== false,
+        // Viral builder never auto-runs generate; worker kicks analyze-only prepare.
+        autoRun: writeFromScratch ? false : body.autoRun !== false,
         r2,
       },
     });
@@ -349,6 +386,26 @@ export async function onRequest(context) {
       },
       200,
     );
+  }
+
+  if (action === 'continue') {
+    if (!remix2WorkerConfigured(env)) {
+      return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+    }
+    const jobId = body.jobId;
+    if (!jobId) return json({ error: 'missing_jobId' }, 400);
+    const result = await workerFetch(env, `/jobs/${encodeURIComponent(jobId)}/continue`, {
+      method: 'POST',
+      body: {
+        scenes: Array.isArray(body.scenes) ? body.scenes : [],
+        grokDialogue: body.grokDialogue !== false,
+        musicOnly: body.musicOnly === true,
+        restoreOverlays: body.restoreOverlays,
+        title: body.title || undefined,
+        autoRun: body.autoRun !== false,
+      },
+    });
+    return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
   }
 
   if (action === 'create') {

@@ -51,11 +51,13 @@ export function configPayload(env) {
     identityLockNote:
       'V2 (identityLock): Codex refs = character face + structure_* beat-start keyframe + vision beat notes only (no product/set); remake similar-from-scratch; Grok start = Codex stills only.',
     musicLockNote:
-      'musicLock (default false): exact EDL durationMs trim/pad, video-only concat, remux TikTok source audio. Talking Heads keeps Grok audio.',
+      'musicLock (default false): exact EDL durationMs trim/pad, video-only concat, remux TikTok source audio. Talking Heads keeps Grok audio. audioMode=mix = source bed + Grok amix.',
     restoreOverlaysNote:
       'restoreOverlays (Music-Only default true): OCR original on-screen hooks from source.mp4 and burn ASS onto final at source timings. Gen prompts stay no-captions.',
+    viralBuilderNote:
+      'viral-builder / writeFromScratch: analyze → awaiting_prompts (edit per-scene prompts + text rewrites) → continue → Codex → Grok → stitch. Codex uses Josh’s written prompts + identity lock.',
     message: configured
-      ? 'Remix 2 ready: TikTok → ms EDL → (V2: beat analyze) → Codex frames → Grok clips → stitch. V2 Talking Heads (Grok audio) or V2 Music-Only (musicLock + source audio + overlay restore).'
+      ? 'Remix 2 ready: TikTok → ms EDL → (V2: beat analyze) → Codex frames → Grok clips → stitch. V2 Talking Heads, Music-Only, or Viral Builder (write-from-scratch).'
       : 'Set REMIX2_WORKER_URL and REMIX2_WORKER_SECRET (Fast Panda worker).',
     n8nFallbackNote:
       'If video gen fails, fall back to visual n8n on Fast Panda for audit/tweak — not required for v1.',

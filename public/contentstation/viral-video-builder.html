@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | V2 Talking Heads Remix</title>
+  <title>Content Station | Viral Video Builder – Write From Scratch</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="V2 Talking Heads Remix: identity-lock remake — beat snapshots + character face → Codex stills → Grok audio + stitch.">
+  <meta name="description" content="Viral Video Builder: analyze a TikTok, write per-scene prompts, then Codex stills → Grok → stitch.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -17,16 +17,16 @@
         <a href="./tiktok-download.html">TikTok download</a>
         <a href="./tiktok-download-character-remix.html">Character remix</a>
         <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
-        <a href="./tiktok-download-character-remix-2-og-v2.html" aria-current="page">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
         <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
-        <a href="./viral-video-builder.html">Viral Video Builder</a>
+        <a href="./viral-video-builder.html" aria-current="page">Viral Video Builder</a>
         <a href="./remix2-ready.html">Remix 2 ready</a>
         <a href="./character-remixes.html">Recent remixes</a>
         <a href="./downloaded.html">Downloaded videos</a>
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">V2 Talking Heads Remix</p>
+      <p class="sub">Viral Video Builder – Write From Scratch</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -54,16 +54,11 @@
       </aside>
 
       <section class="hero-flow">
-        <h1>V2 Talking Heads Remix</h1>
+        <h1>Viral Video Builder – Write From Scratch</h1>
         <p class="lede">
-          Upload your character + paste up to <strong>20 TikTok URLs</strong> (one per line). Jobs
-          <strong>queue on Fast Panda</strong> — one remake pipeline at a time (Codex → Grok → stitch).
-          Identity is locked to <strong>your uploaded character only</strong>.
-          Final audio is <strong>Grok dialogue / ambient</strong> (talking heads).
-          Prefer original TikTok music instead?
-          <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only Remix</a>
-          ·
-          <a href="./tiktok-download-character-remix-2-og.html">Version 1: Same Character</a>
+          Paste a TikTok → <strong>analyze</strong> (EDL, beat notes, on-screen text) → write your own
+          per-scene prompts → <strong>generate</strong> (Codex stills → Grok clips → stitch).
+          Codex uses <em>your</em> prompts plus character identity lock — not auto V2 image prompts alone.
         </p>
 
         <section class="account-picker" id="account-picker">
@@ -84,12 +79,10 @@
           <p id="account-error" class="error" hidden></p>
         </section>
 
-        <label for="tiktok-urls">TikTok URLs (max 20)</label>
-        <textarea id="tiktok-urls" rows="8" autocomplete="off" spellcheck="false"
-          placeholder="https://www.tiktok.com/@user/video/…
-https://www.tiktok.com/@user/video/…
-(up to 20 links)"></textarea>
-        <p id="url-count" class="muted-line">0 / 20 links</p>
+        <label for="tiktok-urls">TikTok URL(s) (max 5 — analyze one job at a time)</label>
+        <textarea id="tiktok-urls" rows="4" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…"></textarea>
+        <p id="url-count" class="muted-line">0 / 5 links</p>
 
         <label for="character-file">Character image</label>
         <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
@@ -108,20 +101,33 @@ https://www.tiktok.com/@user/video/…
             <button type="button" id="set-character-default-btn" class="ghost" hidden>Set as default</button>
           </div>
         </div>
-        <p class="muted-line">
-          Identity lock: Codex remakes each beat from the exact TikTok beat-start snapshot (pose/body/scene)
-          plus written beat notes, with this upload as the face. Grok clip starts are those Codex stills only.
-        </p>
+
+        <fieldset class="options viral-audio-options">
+          <legend>Audio</legend>
+          <label class="check" for="opt-grok-dialogue">
+            <input id="opt-grok-dialogue" type="checkbox" checked>
+            <span>Grok dialogue <em class="muted-line">— talking-heads audio path (default on)</em></span>
+          </label>
+          <label class="check" for="opt-music-only">
+            <input id="opt-music-only" type="checkbox">
+            <span>Music-only <em class="muted-line">— remux source TikTok audio (musicLock)</em></span>
+          </label>
+          <p class="muted-line">
+            Both checked → music-lock timing + source bed amixed with Grok dialogue.
+            Grok only → Talking Heads audio. Music only → source remux.
+          </p>
+        </fieldset>
 
         <label for="job-title">Title (optional)</label>
-        <input id="job-title" type="text" value="TikTok remake (talking heads)" autocomplete="off">
+        <input id="job-title" type="text" value="Viral Video Builder — Write From Scratch" autocomplete="off">
 
         <p id="remix2-config" class="muted-line" hidden></p>
 
         <div class="row">
-          <button type="button" id="run-btn">Queue remakes (talking heads)</button>
+          <button type="button" id="analyze-btn">Analyze TikTok(s)</button>
         </div>
         <p class="muted-line">
+          Step 1 analyzes only. After scenes appear, write prompts → Generate remake.
           Finished finals →
           <a class="btn-link" href="./remix2-ready.html">Remix 2 ready</a>
           or the account’s
@@ -137,15 +143,15 @@ https://www.tiktok.com/@user/video/…
           <button type="button" id="clear-finished-btn" class="ghost">Clear finished from this list</button>
         </div>
         <div id="batch-list" class="download-results" hidden></div>
-        <div id="frame-gallery" class="download-results" hidden></div>
-        <div id="output-gallery" class="download-results" hidden></div>
       </section>
     </section>
 
     <p class="foot">
-      <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only Remix →</a>
+      <a href="./tiktok-download-character-remix-2-og-v2.html">← V2 Talking Heads</a>
       ·
-      <a href="./tiktok-download-character-remix-2-og.html">← Remix 2 OG V1</a>
+      <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+      ·
+      <a href="./remix2-ready.html">Remix 2 ready</a>
       ·
       <a href="./">Clean video</a>
       ·
@@ -154,6 +160,6 @@ https://www.tiktok.com/@user/video/…
   </main>
   <script src="./auth-gate.js"></script>
   <script src="./remix2-account-ui.js?v=1"></script>
-  <script src="./tiktok-download-character-remix-2-og-v2-app.js?v=v2talk5"></script>
+  <script src="./viral-video-builder-app.js?v=1"></script>
 </body>
 </html>

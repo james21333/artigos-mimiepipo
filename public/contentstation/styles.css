@@ -932,3 +932,80 @@ a { color: var(--accent); }
 .slider-row input[type='range'] {
   width: 100%;
 }
+
+/* Viral Video Builder — Write From Scratch */
+.viral-audio-options {
+  margin: 1rem 0;
+}
+
+.viral-editor-title {
+  margin: 1rem 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.viral-scenes {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.viral-scene-block {
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--rule);
+}
+
+.viral-scene-grid {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) 1fr;
+  gap: 0.85rem 1rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .viral-scene-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.viral-scene-still {
+  margin: 0;
+}
+
+.viral-still-img {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  background: #0f1713;
+}
+
+.viral-scene-fields {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.viral-scene-fields label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.viral-scene-fields textarea,
+.viral-scene-fields input[type='text'] {
+  width: 100%;
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.viral-scene-fields strong,
+.viral-scene-fields .scene-label-strong {
+  font-weight: 700;
+}
+
+.viral-generate-row {
+  margin-top: 0.5rem;
+}
