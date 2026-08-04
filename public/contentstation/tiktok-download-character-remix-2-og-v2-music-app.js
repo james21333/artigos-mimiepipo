@@ -19,11 +19,13 @@
   const titleInput = document.getElementById('job-title');
   const restoreOverlaysEl = document.getElementById('restore-overlays');
   const runBtn = document.getElementById('run-btn');
+  const clearFinishedBtn = document.getElementById('clear-finished-btn');
+  const batchActions = document.getElementById('batch-actions');
   const batchList = document.getElementById('batch-list');
   const frameGallery = document.getElementById('frame-gallery');
   const outputGallery = document.getElementById('output-gallery');
 
-  /** @type {{ jobId: string, tiktokUrl: string, title?: string, characterUrl?: string, outputUrl?: string, account?: string, tagged?: boolean, characterKey?: string }[]} */
+  /** @type {{ jobId: string, tiktokUrl: string, title?: string, characterUrl?: string, outputUrl?: string, account?: string, tagged?: boolean, characterKey?: string, stage?: string }[]} */
   let batchJobs = [];
   let pollTimer = null;
   let submitting = false;
@@ -252,9 +254,32 @@
     return { ok, data };
   }
 
+  function syncBatchActionsVisibility() {
+    const hasCards = Boolean(batchList && batchList.children.length);
+    if (batchList) batchList.hidden = !hasCards;
+    if (batchActions) batchActions.hidden = !hasCards;
+  }
+
+  function isTerminalStage(stage) {
+    return stage === 'stitched' || stage === 'error';
+  }
+
+  function isTerminalJob(job) {
+    if (!job) return false;
+    if (String(job.jobId || '').startsWith('fail-')) return true;
+    if (isTerminalStage(job.stage)) return true;
+    if (!job.stage && job.outputUrl) return true;
+    return false;
+  }
+
+  function removeJobCard(jobId) {
+    batchList?.querySelector(`[data-job-id="${jobId}"]`)?.remove();
+  }
+
   function ensureBatchCard(job) {
     if (!batchList) return null;
     batchList.hidden = false;
+    if (batchActions) batchActions.hidden = false;
     let card = batchList.querySelector(`[data-job-id="${job.jobId}"]`);
     if (card) return card;
     card = document.createElement('article');
@@ -289,6 +314,7 @@
     const card = ensureBatchCard(job);
     if (!card) return;
     const stage = data?.stage || data?.status || 'unknown';
+    if (job) job.stage = stage;
     const pos = data?.queuePosition;
     const depth = data?.queueDepth;
     let label = stage;
@@ -407,6 +433,7 @@
         const fallbackUrl = job.outputUrl || publicFinalUrl(job.jobId) || mediaFinalPath(job.jobId);
         if (fallbackUrl && card) {
           if (!job.outputUrl) job.outputUrl = fallbackUrl;
+          job.stage = 'stitched';
           if (statusEl && (!statusEl.textContent || statusEl.textContent === 'Status error' || statusEl.textContent === 'Queued…')) {
             statusEl.textContent = 'Done (from R2)';
           }
@@ -427,6 +454,7 @@
       `Batch: ${done} done · ${active} in flight/queued · ${failed} failed · ${batchJobs.length} total`,
       'Worker runs one remake pipeline at a time; the rest stay queued. Quota cooldown auto-resumes.',
     );
+    saveBatch();
     if (active === 0 && !submitting) {
       if (pollTimer) {
         clearInterval(pollTimer);
@@ -442,10 +470,69 @@
     pollBatch();
   }
 
+  async function refreshMissingStages() {
+    await Promise.all(
+      batchJobs.map(async (job) => {
+        if (isTerminalStage(job.stage)) return;
+        const { ok, data } = await api(
+          `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
+        );
+        if (ok && data?.stage) {
+          job.stage = data.stage;
+          if (data.stage === 'stitched') {
+            const finalUrl = resolveFinalUrl(job, data);
+            if (finalUrl) job.outputUrl = finalUrl;
+          }
+        } else if (job.outputUrl) {
+          job.stage = 'stitched';
+        }
+      }),
+    );
+  }
+
+  async function clearFinishedFromList() {
+    setError('');
+    await refreshMissingStages();
+    const finished = batchJobs.filter(isTerminalJob);
+    const orphanFailCards = batchList
+      ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) =>
+          String(card.dataset.jobId || '').startsWith('fail-'),
+        )
+      : [];
+    if (!finished.length && !orphanFailCards.length) {
+      setStatus('No finished jobs to clear.', 'In-flight and queued jobs stay on this list.');
+      return;
+    }
+    const ok = confirm(
+      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\nIn-flight and queued jobs stay. Does not delete R2 files or Ready For Upload tags.`,
+    );
+    if (!ok) return;
+
+    const keep = [];
+    for (const job of batchJobs) {
+      if (isTerminalJob(job)) removeJobCard(job.jobId);
+      else keep.push(job);
+    }
+    batchJobs = keep;
+    for (const card of orphanFailCards) card.remove();
+    saveBatch();
+    syncBatchActionsVisibility();
+    setStatus(
+      keep.length
+        ? `Cleared finished jobs · ${keep.length} still on list`
+        : 'Cleared finished jobs from this list.',
+      'R2 finals and Ready For Upload tags are unchanged.',
+    );
+  }
+
   if (frameGallery) frameGallery.hidden = true;
   if (outputGallery) outputGallery.hidden = true;
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
+
+  clearFinishedBtn?.addEventListener('click', () => {
+    clearFinishedFromList().catch((err) => setError(err?.message || String(err)));
+  });
 
   runBtn?.addEventListener('click', async () => {
     setError('');
