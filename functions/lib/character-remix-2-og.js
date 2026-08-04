@@ -186,6 +186,7 @@ export async function listRemix2Finals(env, opts = {}) {
       if (!head) continue;
 
       const meta = { ...(head.customMetadata || {}) };
+      let uploadedAt = head.uploaded ? new Date(head.uploaded).toISOString() : null;
       // Always prefer ready.json sidecar when present (metadata casing / stripping is unreliable on R2).
       try {
         const sidecar = await bucket.get(`${REMIX2_PREFIX}${jobId}/ready.json`);
@@ -202,6 +203,10 @@ export async function listRemix2Finals(env, opts = {}) {
             if (json.tiktokUrl) meta.tiktokUrl = String(json.tiktokUrl);
             if (json.title) meta.title = String(json.title);
             if (json.audioMode) meta.audioMode = String(json.audioMode);
+            if (json.uploadedAt) {
+              const t = Date.parse(json.uploadedAt);
+              if (Number.isFinite(t)) uploadedAt = new Date(t).toISOString();
+            }
           }
         }
       } catch {
@@ -217,7 +222,7 @@ export async function listRemix2Finals(env, opts = {}) {
         key,
         jobId,
         size: head.size ?? null,
-        uploaded: head.uploaded ? new Date(head.uploaded).toISOString() : null,
+        uploaded: uploadedAt,
         contentType: head.httpMetadata?.contentType || 'video/mp4',
         downloadPath: downloadPath(key),
         publicUrl: publicUrl(env, key),
