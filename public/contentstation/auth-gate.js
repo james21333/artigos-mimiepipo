@@ -23,6 +23,7 @@
     { match: /tiktok-download-character-remix-2-og-v2\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og(?:-v1)?\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix\.html/, roles: ['admin'] },
+    { match: /remix2-ready\.html/, roles: ['admin'] },
     { match: /character-remixes\.html/, roles: ['admin'] },
     { match: /tiktok-download\.html/, roles: ['admin', 'download'] },
     { match: /downloaded\.html/, roles: ['admin'] },
@@ -42,6 +43,7 @@
     'tiktok-download-character-remix-2-og-v2': ['admin'],
     'tiktok-download-character-remix-2-og-v2-music': ['admin'],
     'character-remixes': ['admin'],
+    'remix2-ready': ['admin'],
     ready: ['admin', 'ready'],
     'ready-account': ['admin', 'ready'],
     old: ['admin'],
@@ -86,6 +88,8 @@
       let allowed = false;
       if (/ready(?:-account)?\.html/.test(href) || href.includes('ready.html')) {
         allowed = r === 'ready';
+      } else if (/remix2-ready\.html/.test(href)) {
+        allowed = false;
       } else if (/tiktok-download-character-remix-2-og(?:-v\d+(?:-music)?)?\.html/.test(href)) {
         allowed = false;
       } else if (/tiktok-download-character-remix\.html/.test(href)) {

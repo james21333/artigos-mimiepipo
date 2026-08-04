@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | Recent remixes</title>
+  <title>Content Station | Remix 2 ready</title>
   <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Library of character-remixed TikTok videos archived on the station.">
+  <meta name="description" content="Tag finished Remix 2 OG finals for posting accounts.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -16,13 +16,16 @@
         <a href="./cleaned.html">Cleaned videos</a>
         <a href="./tiktok-download.html">TikTok download</a>
         <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
         <a href="./remix2-ready.html">Remix 2 ready</a>
-        <a href="./character-remixes.html" aria-current="page">Recent remixes</a>
+        <a href="./character-remixes.html">Recent remixes</a>
         <a href="./downloaded.html">Downloaded videos</a>
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Recent remixes</p>
+      <p class="sub">Remix 2 ready</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -43,14 +46,20 @@
       </div>
 
       <section class="hero-flow">
-        <h1>Recent remixes</h1>
+        <h1>Remix 2 ready</h1>
         <p class="lede">
-          Archived character remixes from
-          <a class="btn-link" href="./tiktok-download-character-remix.html">Character remix</a>.
-          Run new jobs there — this page only lists finished MP4s.
+          Untagged Remix 2 finals only (default: Music-Only). Tag one for an account and it moves to
+          <a class="btn-link" href="./ready.html">Ready For Upload</a>.
+          New jobs:
+          <a class="btn-link" href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+          ·
+          <a class="btn-link" href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
         </p>
 
-        <div class="row">
+        <div class="row filter-row" role="group" aria-label="Variant filter">
+          <button type="button" class="filter-btn" data-variant="music-only" aria-pressed="true">Music-Only</button>
+          <button type="button" class="filter-btn ghost" data-variant="talking-heads" aria-pressed="false">Talking Heads</button>
+          <button type="button" class="filter-btn ghost" data-variant="all" aria-pressed="false">All Remix 2</button>
           <button type="button" id="refresh-btn">Refresh</button>
         </div>
 
@@ -58,19 +67,21 @@
         <p id="gallery-error" class="error" hidden></p>
 
         <div id="gallery-grid" class="gallery-grid" hidden></div>
-        <p id="gallery-empty" class="muted-line" hidden>No remixes yet. Finish a job on Character remix and it will show up here.</p>
+        <p id="gallery-empty" class="muted-line" hidden>No untagged Remix 2 finals for this filter. Tagged clips live under Ready For Upload.</p>
       </section>
     </section>
 
     <p class="foot">
-      <a href="./tiktok-download-character-remix.html">← Character remix</a>
+      <a href="./tiktok-download-character-remix-2-og-v2-music.html">← V2 Music-Only</a>
       ·
-      <a href="./">Clean video</a>
+      <a href="./ready.html">Ready For Upload</a>
+      ·
+      <a href="./cleaned.html">Cleaned videos</a>
       ·
       <a href="/">Artigos hub</a>
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./character-remixes-app.js"></script>
+  <script src="./remix2-ready-app.js?v=1"></script>
 </body>
 </html>

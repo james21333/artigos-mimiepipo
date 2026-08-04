@@ -3,6 +3,7 @@
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
+ * GET  ?action=list[&limit=][&cursor=][&variant=all|music-only|talking-heads]
  * POST { action: "create", characterKey?, characterMode?, version?, identityLock?, musicLock?, scenes? | sourceKey?, autoRun? }
  * POST { action: "from-tiktok", tiktokUrl, characterKey?, characterMode?, version?, identityLock?, musicLock?, autoRun? }
  * POST { action: "run" | "first-frames" | "videos" | "stitch" | "derive-character", jobId }
@@ -26,8 +27,15 @@
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
-import { configPayload, remix2WorkerConfigured, workerFetch, remix2R2Payload } from '../../lib/character-remix-2-og.js';
+import {
+  configPayload,
+  listRemix2Finals,
+  remix2WorkerConfigured,
+  workerFetch,
+  remix2R2Payload,
+} from '../../lib/character-remix-2-og.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
+import { getTagForKey } from '../../lib/account-tags.js';
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -71,6 +79,97 @@ export async function onRequest(context) {
       if (!jobId) return json({ error: 'missing_jobId' }, 400);
       const result = await workerFetch(env, `/jobs/${encodeURIComponent(jobId)}`);
       return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
+    }
+    if (action === 'list') {
+      const pageLimit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50) || 50));
+      const wantVariant = String(url.searchParams.get('variant') || 'all')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, '-');
+      // Pull a wider R2 window when filtering so Music-Only still fills after enrichment.
+      const scanLimit =
+        wantVariant === 'all' || wantVariant === '' ? pageLimit : Math.min(200, pageLimit * 3);
+
+      const result = await listRemix2Finals(env, {
+        limit: scanLimit,
+        cursor: url.searchParams.get('cursor') || undefined,
+      });
+      if (!result.ok) return json({ error: result.error || 'list_failed' }, 503);
+
+      const needEnrich = (result.objects || []).filter((o) => o.musicLock == null);
+      if (needEnrich.length && remix2WorkerConfigured(env)) {
+        const concurrency = 6;
+        for (let i = 0; i < needEnrich.length; i += concurrency) {
+          const batch = needEnrich.slice(i, i + concurrency);
+          await Promise.all(
+            batch.map(async (obj) => {
+              try {
+                const st = await workerFetch(env, `/jobs/${encodeURIComponent(obj.jobId)}`);
+                if (!st.ok || !st.data) return;
+                if (st.data.musicLock === true) obj.musicLock = true;
+                else if (st.data.musicLock === false) obj.musicLock = false;
+                else if (String(st.data.audioMode || '').toLowerCase() === 'source') {
+                  obj.musicLock = true;
+                }
+                const rv = String(st.data.remixVariant || '')
+                  .trim()
+                  .toLowerCase()
+                  .replace(/_/g, '-');
+                if (rv) obj.remixVariant = rv;
+                else if (obj.musicLock === true) obj.remixVariant = 'music-only';
+                else if (obj.musicLock === false) obj.remixVariant = 'talking-heads';
+                if (!obj.tiktokUrl && st.data.tiktokUrl) obj.tiktokUrl = st.data.tiktokUrl;
+                if (!obj.title && st.data.title) obj.title = st.data.title;
+              } catch {
+                /* keep unknown */
+              }
+            }),
+          );
+        }
+      }
+
+      let objects = [];
+      for (const obj of result.objects || []) {
+        let { musicLock, remixVariant } = obj;
+        if (!remixVariant) {
+          if (musicLock === true) remixVariant = 'music-only';
+          else if (musicLock === false) remixVariant = 'talking-heads';
+        }
+
+        if (wantVariant === 'music-only' || wantVariant === 'musiconly' || wantVariant === 'music') {
+          if (musicLock !== true && remixVariant !== 'music-only' && remixVariant !== 'music') {
+            continue;
+          }
+        } else if (
+          wantVariant === 'talking-heads' ||
+          wantVariant === 'talkingheads' ||
+          wantVariant === 'talking'
+        ) {
+          if (musicLock === true || remixVariant === 'music-only' || remixVariant === 'music') {
+            continue;
+          }
+        }
+
+        objects.push({
+          ...obj,
+          musicLock,
+          remixVariant: remixVariant || null,
+          account: await getTagForKey(env, obj.key),
+        });
+      }
+
+      const truncated = Boolean(result.truncated) || objects.length > pageLimit;
+      if (objects.length > pageLimit) objects = objects.slice(0, pageLimit);
+
+      return json({
+        status: 'ok',
+        ok: true,
+        prefix: result.prefix,
+        variant: wantVariant || 'all',
+        truncated,
+        cursor: truncated ? result.cursor : null,
+        objects,
+      });
     }
     return json({ error: 'unknown_action' }, 400);
   }

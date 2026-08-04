@@ -91,7 +91,24 @@
     }
   }
 
-  function displayName(key) {
+  function displayName(obj) {
+    const key = typeof obj === 'string' ? obj : obj && obj.key;
+    const remix2 = /^character-remix-2-og\/([^/]+)\/final\.mp4$/i.exec(key || '');
+    if (remix2) {
+      const job = remix2[1];
+      const short = job.length > 10 ? `${job.slice(0, 8)}…` : job;
+      const kind =
+        obj &&
+        (obj.musicLock === true ||
+          obj.remixVariant === 'music-only' ||
+          obj.remixVariant === 'music')
+          ? 'Music-Only'
+          : obj &&
+              (obj.musicLock === false || obj.remixVariant === 'talking-heads')
+            ? 'Talking Heads'
+            : 'Remix 2';
+      return `${kind} · ${short}`;
+    }
     const base = String(key || '').split('/').pop() || key;
     return base.replace(/\.mp4$/i, '');
   }
@@ -229,7 +246,7 @@
 
       const title = document.createElement('p');
       title.className = 'gallery-title';
-      title.textContent = displayName(obj.key);
+      title.textContent = displayName(obj);
 
       const info = document.createElement('p');
       info.className = 'muted-line';
@@ -243,7 +260,9 @@
       select.className = 'account-select';
       const unt = document.createElement('option');
       unt.value = '';
-      unt.textContent = '— Untagged (Cleaned videos) —';
+      unt.textContent = String(obj.key || '').startsWith('character-remix-2-og/')
+        ? '— Untagged (Remix 2 ready) —'
+        : '— Untagged (Cleaned videos) —';
       select.appendChild(unt);
       const names = new Set(accountsCache);
       if (accountName) names.add(accountName);
@@ -332,48 +351,53 @@
       dl.setAttribute('download', '');
       actions.appendChild(dl);
 
+      const isRemix2 = String(obj.key || '').startsWith('character-remix-2-og/');
       const infoBtn = document.createElement('button');
       infoBtn.type = 'button';
       infoBtn.className = 'ghost btn-info';
       infoBtn.textContent = 'Info';
-      actions.appendChild(infoBtn);
+      if (!isRemix2) {
+        actions.appendChild(infoBtn);
+      }
 
       const postInfo = document.createElement('div');
       postInfo.className = 'post-info-panel';
       postInfo.hidden = true;
 
-      infoBtn.addEventListener('click', async () => {
-        if (!postInfo.hidden) {
-          postInfo.hidden = true;
-          infoBtn.setAttribute('aria-expanded', 'false');
-          return;
-        }
-        infoBtn.disabled = true;
-        infoBtn.textContent = 'Info…';
-        try {
-          const { ok, data } = await api(
-            `/api/contentstation/accounts?action=info&key=${encodeURIComponent(obj.key)}`,
-          );
-          if (!ok) {
-            throw new Error((data && (data.message || data.error)) || 'Could not load info.');
+      if (!isRemix2) {
+        infoBtn.addEventListener('click', async () => {
+          if (!postInfo.hidden) {
+            postInfo.hidden = true;
+            infoBtn.setAttribute('aria-expanded', 'false');
+            return;
           }
-          renderPostInfo(postInfo, data.info || {});
-          postInfo.hidden = false;
-          infoBtn.setAttribute('aria-expanded', 'true');
-        } catch (err) {
-          setError(err && err.message ? err.message : String(err));
-        } finally {
-          infoBtn.disabled = false;
-          infoBtn.textContent = 'Info';
-        }
-      });
+          infoBtn.disabled = true;
+          infoBtn.textContent = 'Info…';
+          try {
+            const { ok, data } = await api(
+              `/api/contentstation/accounts?action=info&key=${encodeURIComponent(obj.key)}`,
+            );
+            if (!ok) {
+              throw new Error((data && (data.message || data.error)) || 'Could not load info.');
+            }
+            renderPostInfo(postInfo, data.info || {});
+            postInfo.hidden = false;
+            infoBtn.setAttribute('aria-expanded', 'true');
+          } catch (err) {
+            setError(err && err.message ? err.message : String(err));
+          } finally {
+            infoBtn.disabled = false;
+            infoBtn.textContent = 'Info';
+          }
+        });
+      }
 
       meta.appendChild(title);
       if (info.textContent) meta.appendChild(info);
       meta.appendChild(postedRow);
       meta.appendChild(tagRow);
       meta.appendChild(actions);
-      meta.appendChild(postInfo);
+      if (!isRemix2) meta.appendChild(postInfo);
 
       card.appendChild(media);
       card.appendChild(meta);

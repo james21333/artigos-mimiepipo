@@ -342,6 +342,10 @@ button:disabled {
   margin-bottom: 0.85rem;
 }
 
+.filter-row .filter-btn[aria-pressed='true'] {
+  font-weight: 600;
+}
+
 .toolbar {
   display: flex;
   align-items: center;

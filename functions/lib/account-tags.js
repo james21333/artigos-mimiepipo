@@ -1,14 +1,19 @@
 /**
- * Account tags for cleaned videos (Ready For Upload).
+ * Account tags for Ready For Upload.
  * Durable index in R2 — avoids re-uploading video bytes to retag.
  *
  *   meta/accounts.json      → string[] account names
- *   meta/cleaned-tags.json  → { [cleanedKey]: accountName }
+ *   meta/cleaned-tags.json  → { [mediaKey]: accountName }
+ *   meta/cleaned-posted.json → { [mediaKey]: { posted, postedAt } }
+ *
+ * Tagable keys: cleaned/* and character-remix-2-og/{jobId}/final.mp4
  */
 
 const ACCOUNTS_KEY = 'meta/accounts.json';
 const TAGS_KEY = 'meta/cleaned-tags.json';
 const POSTED_KEY = 'meta/cleaned-posted.json';
+
+const REMIX2_FINAL_RE = /^character-remix-2-og\/[^/]+\/final\.mp4$/i;
 
 export function sanitizeAccountName(raw) {
   if (!raw || typeof raw !== 'string') return null;
@@ -19,6 +24,14 @@ export function sanitizeAccountName(raw) {
     .slice(0, 80);
   if (!name) return null;
   return name;
+}
+
+/** Keys that may be tagged for an account (cleaned + Remix 2 finals). */
+export function isTaggableMediaKey(keyRaw) {
+  const key = String(keyRaw || '').trim();
+  if (!key || key.includes('..')) return false;
+  if (key.startsWith('cleaned/')) return true;
+  return REMIX2_FINAL_RE.test(key);
 }
 
 /** Natural order so "2-…" comes before "10-…". */
@@ -166,15 +179,15 @@ export async function getTagForKey(env, key) {
 }
 
 /**
- * Set or clear account tag for a cleaned/ object key.
+ * Set or clear account tag for a tagable media key.
  * @param {string|null|undefined} accountRaw — null/'' clears tag
  */
 export async function setVideoAccount(env, keyRaw, accountRaw) {
   const bucket = getBucket(env);
   if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
   const key = String(keyRaw || '').trim();
-  if (!key.startsWith('cleaned/') || key.includes('..')) {
-    return { ok: false, error: 'Invalid cleaned video key.' };
+  if (!isTaggableMediaKey(key)) {
+    return { ok: false, error: 'Invalid video key (cleaned or Remix 2 final only).' };
   }
 
   const clear = accountRaw == null || String(accountRaw).trim() === '';
@@ -246,8 +259,8 @@ export async function setVideoPosted(env, keyRaw, posted) {
   const bucket = getBucket(env);
   if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
   const key = String(keyRaw || '').trim();
-  if (!key.startsWith('cleaned/') || key.includes('..')) {
-    return { ok: false, error: 'Invalid cleaned video key.' };
+  if (!isTaggableMediaKey(key)) {
+    return { ok: false, error: 'Invalid video key (cleaned or Remix 2 final only).' };
   }
 
   const map = await readPostedMap(env);

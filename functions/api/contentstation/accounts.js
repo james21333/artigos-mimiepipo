@@ -23,7 +23,7 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  *
  * GET  ?action=list              → accounts + counts
  * GET  ?action=tags              → full key→account map
- * GET  ?action=videos&account=   → cleaned keys for account
+ * GET  ?action=videos&account=   → tagged keys for account (cleaned + Remix 2 finals)
  * GET  ?action=tag&key=          → tag for one key
  * GET  ?action=info&key=         → original TikTok post info for a cleaned video
  * POST { action: "create", name }
@@ -42,17 +42,28 @@ async function enrichKeys(env, keys) {
   for (const key of keys) {
     let size = null;
     let uploaded = null;
+    let customMetadata = {};
     if (bucket) {
       try {
         const head = await bucket.head(key);
         if (head) {
           size = head.size ?? null;
           uploaded = head.uploaded ? new Date(head.uploaded).toISOString() : null;
+          customMetadata = head.customMetadata || {};
         }
       } catch {
         /* skip head errors */
       }
     }
+    const remix2 = /^character-remix-2-og\/([^/]+)\/final\.mp4$/i.exec(key);
+    const musicLockRaw = String(customMetadata.musicLock || customMetadata.musiclock || '').toLowerCase();
+    const musicLock =
+      musicLockRaw === '1' || musicLockRaw === 'true' || musicLockRaw === 'yes'
+        ? true
+        : musicLockRaw === '0' || musicLockRaw === 'false' || musicLockRaw === 'no'
+          ? false
+          : null;
+    const remixVariant = String(customMetadata.remixVariant || customMetadata.remixvariant || '').trim();
     out.push({
       key,
       size,
@@ -60,6 +71,11 @@ async function enrichKeys(env, keys) {
       downloadPath: downloadPath(key),
       account: await getTagForKey(env, key),
       posted: await isVideoPosted(env, key),
+      kind: remix2 ? 'remix2' : 'cleaned',
+      jobId: remix2 ? remix2[1] : null,
+      musicLock,
+      remixVariant,
+      tiktokUrl: customMetadata.tiktokUrl || customMetadata.tiktokurl || null,
     });
   }
   // Newest first

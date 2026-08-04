@@ -108,3 +108,146 @@ export async function workerFetch(env, path, { method = 'GET', body } = {}) {
   }
   return { ok: res.ok, status: res.status, data: sanitizeWorkerPayload(data) };
 }
+
+function downloadPath(key) {
+  return `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+}
+
+function publicUrl(env, key) {
+  const base = (env.R2_PUBLIC_BASE_URL || '').replace(/\/$/, '');
+  if (!base) return null;
+  return `${base}/${key}`;
+}
+
+function parseBoolMeta(raw) {
+  const v = String(raw ?? '').trim().toLowerCase();
+  if (v === '1' || v === 'true' || v === 'yes') return true;
+  if (v === '0' || v === 'false' || v === 'no') return false;
+  return null;
+}
+
+function variantFromMeta(meta = {}) {
+  const musicLock = parseBoolMeta(meta.musicLock ?? meta.musiclock);
+  let remixVariant = String(meta.remixVariant || meta.remixvariant || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-');
+  if (!remixVariant) {
+    if (musicLock === true) remixVariant = 'music-only';
+    else if (musicLock === false) remixVariant = 'talking-heads';
+  }
+  return { musicLock, remixVariant };
+}
+
+/**
+ * List Remix 2 OG finals under character-remix-2-og/{jobId}/final.mp4.
+ * Uses delimiter listing of job folders so intermediate frames/clips are skipped.
+ *
+ * @param {object} env
+ * @param {{ limit?: number, cursor?: string }} opts
+ */
+export async function listRemix2Finals(env, opts = {}) {
+  const bucket = env.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'MEDIA_BUCKET not bound' };
+
+  const wantLimit = Math.min(200, Math.max(1, Number(opts.limit || 50) || 50));
+  let cursor = opts.cursor || undefined;
+  const objects = [];
+  let truncated = false;
+  let nextCursor = null;
+
+  for (let round = 0; round < 40 && objects.length < wantLimit; round += 1) {
+    const listed = await bucket.list({
+      prefix: REMIX2_PREFIX,
+      delimiter: '/',
+      limit: 100,
+      cursor,
+    });
+    const prefixes = listed.delimitedPrefixes || [];
+    for (const folder of prefixes) {
+      if (objects.length >= wantLimit) {
+        truncated = true;
+        nextCursor = listed.truncated ? listed.cursor : folder;
+        break;
+      }
+      const m = /^character-remix-2-og\/([^/]+)\/$/.exec(folder);
+      if (!m) continue;
+      const jobId = m[1];
+      const key = `${REMIX2_PREFIX}${jobId}/final.mp4`;
+      let head;
+      try {
+        head = await bucket.head(key);
+      } catch {
+        head = null;
+      }
+      if (!head) continue;
+
+      const meta = { ...(head.customMetadata || {}) };
+      // Fallback sidecar written by the worker for older/partial metadata.
+      if ((!meta.musicLock && !meta.musiclock) || !meta.remixVariant) {
+        try {
+          const sidecar = await bucket.get(`${REMIX2_PREFIX}${jobId}/ready.json`);
+          if (sidecar) {
+            const text = await sidecar.text();
+            const json = text ? JSON.parse(text) : null;
+            if (json && typeof json === 'object') {
+              if (json.musicLock != null && meta.musicLock == null && meta.musiclock == null) {
+                meta.musicLock = json.musicLock ? 'true' : 'false';
+              }
+              if (json.remixVariant && !meta.remixVariant && !meta.remixvariant) {
+                meta.remixVariant = String(json.remixVariant);
+              }
+              if (json.tiktokUrl && !meta.tiktokUrl && !meta.tiktokurl) {
+                meta.tiktokUrl = String(json.tiktokUrl);
+              }
+              if (json.title && !meta.title) meta.title = String(json.title);
+            }
+          }
+        } catch {
+          /* ignore sidecar errors */
+        }
+      }
+
+      const { musicLock, remixVariant } = variantFromMeta(meta);
+      objects.push({
+        key,
+        jobId,
+        size: head.size ?? null,
+        uploaded: head.uploaded ? new Date(head.uploaded).toISOString() : null,
+        contentType: head.httpMetadata?.contentType || 'video/mp4',
+        downloadPath: downloadPath(key),
+        publicUrl: publicUrl(env, key),
+        musicLock,
+        remixVariant: remixVariant || null,
+        tiktokUrl: meta.tiktokUrl || meta.tiktokurl || null,
+        title: meta.title || null,
+        customMetadata: meta,
+      });
+    }
+
+    if (objects.length >= wantLimit) break;
+    if (!listed.truncated) {
+      truncated = false;
+      nextCursor = null;
+      break;
+    }
+    cursor = listed.cursor;
+    truncated = true;
+    nextCursor = listed.cursor;
+  }
+
+  objects.sort((a, b) => {
+    const ta = a.uploaded ? Date.parse(a.uploaded) : 0;
+    const tb = b.uploaded ? Date.parse(b.uploaded) : 0;
+    if (tb !== ta) return tb - ta;
+    return String(b.key).localeCompare(String(a.key));
+  });
+
+  return {
+    ok: true,
+    prefix: REMIX2_PREFIX,
+    truncated,
+    cursor: truncated ? nextCursor : null,
+    objects,
+  };
+}

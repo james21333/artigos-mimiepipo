@@ -30,9 +30,14 @@ const ROLE_PAGES = Object.freeze({
     '/downloaded.html',
     '/tiktok-download.html',
     '/tiktok-download-character-remix.html',
+    '/tiktok-download-character-remix-2-og.html',
+    '/tiktok-download-character-remix-2-og-v1.html',
+    '/tiktok-download-character-remix-2-og-v2.html',
+    '/tiktok-download-character-remix-2-og-v2-music.html',
     '/tiktok-download-facefusion-remix.html',
     '/facefusion-remixes.html',
     '/character-remixes.html',
+    '/remix2-ready.html',
     '/ready.html',
     '/ready-account.html',
     '/old213223523.html',
@@ -268,9 +273,16 @@ export function roleMayAccessPage(role, pageId) {
     downloaded: ['/downloaded.html'],
     'tiktok-download': ['/tiktok-download.html'],
     'tiktok-download-character-remix': ['/tiktok-download-character-remix.html'],
+    'tiktok-download-character-remix-2-og': ['/tiktok-download-character-remix-2-og.html'],
+    'tiktok-download-character-remix-2-og-v1': ['/tiktok-download-character-remix-2-og-v1.html'],
+    'tiktok-download-character-remix-2-og-v2': ['/tiktok-download-character-remix-2-og-v2.html'],
+    'tiktok-download-character-remix-2-og-v2-music': [
+      '/tiktok-download-character-remix-2-og-v2-music.html',
+    ],
     'tiktok-download-facefusion-remix': ['/tiktok-download-facefusion-remix.html'],
     'facefusion-remixes': ['/facefusion-remixes.html'],
     'character-remixes': ['/character-remixes.html'],
+    'remix2-ready': ['/remix2-ready.html'],
     ready: ['/ready.html'],
     'ready-account': ['/ready-account.html'],
     old: ['/old213223523.html'],
@@ -282,14 +294,18 @@ export function roleMayAccessPage(role, pageId) {
 /**
  * Media key/prefix access by role.
  * download → tiktok/ read
- * ready → cleaned/ read
+ * ready → cleaned/ + Remix 2 finals read
  * admin → all
  */
 export function mediaKeyAllowed(role, key) {
   if (role === ROLES.ADMIN) return true;
   if (!key || typeof key !== 'string') return false;
   if (role === ROLES.DOWNLOAD) return key.startsWith('tiktok/');
-  if (role === ROLES.READY) return key.startsWith('cleaned/');
+  if (role === ROLES.READY) {
+    return (
+      key.startsWith('cleaned/') || /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
+    );
+  }
   return false;
 }
 
@@ -297,7 +313,14 @@ export function mediaPrefixAllowed(role, prefix) {
   if (role === ROLES.ADMIN) return true;
   const p = prefix || '';
   if (role === ROLES.DOWNLOAD) return p === 'tiktok/' || p.startsWith('tiktok/');
-  if (role === ROLES.READY) return p === 'cleaned/' || p.startsWith('cleaned/');
+  if (role === ROLES.READY) {
+    return (
+      p === 'cleaned/' ||
+      p.startsWith('cleaned/') ||
+      p === 'character-remix-2-og/' ||
+      p.startsWith('character-remix-2-og/')
+    );
+  }
   return false;
 }
 
