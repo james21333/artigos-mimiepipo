@@ -243,8 +243,15 @@
     if (outWrap) {
       if (finalUrl) {
         outWrap.hidden = false;
-        outWrap.innerHTML = `<video src="${finalUrl}" controls playsinline class="character-preview"></video>
-          <p class="muted-line"><a href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a></p>`;
+        outWrap.innerHTML = `<figure class="result-final">
+            <figcaption>Final</figcaption>
+            <video src="${finalUrl}" controls playsinline preload="metadata" class="result-preview"></video>
+          </figure>
+          <p class="muted-line result-actions">
+            <a class="btn-link" href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a>
+            ·
+            <a class="btn-link" href="./remix2-ready.html">Remix 2 ready</a>
+          </p>`;
       } else {
         outWrap.hidden = true;
         outWrap.innerHTML = '';

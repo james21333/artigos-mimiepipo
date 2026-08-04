@@ -778,6 +778,25 @@ a { color: var(--accent); }
   margin: 0.5rem 0;
 }
 
+.result-outputs {
+  margin: 0.85rem 0 0.35rem;
+}
+
+.result-final {
+  margin: 0;
+}
+
+.result-final figcaption {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.result-final .result-preview {
+  margin-top: 0;
+}
+
 .slider-row {
   display: grid;
   gap: 0.35rem;

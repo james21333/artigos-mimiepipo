@@ -28,11 +28,14 @@ export function remix2R2Payload(env) {
 
 export function configPayload(env) {
   const configured = remix2WorkerConfigured(env);
+  const publicBaseUrl = env.R2_PUBLIC_BASE_URL || null;
   return {
     configured,
     backend: 'fast-panda-og',
     hasWorkerUrl: Boolean(String(env?.REMIX2_WORKER_URL || '').trim()),
     hasWorkerSecret: Boolean(String(env?.REMIX2_WORKER_SECRET || '').trim()),
+    publicBaseUrl,
+    r2: { publicBaseUrl },
     stages: {
       analyze: 'ffmpeg-edl-ms',
       analyzingBeats: 'codex-vision-beat-notes',
@@ -183,30 +186,31 @@ export async function listRemix2Finals(env, opts = {}) {
       if (!head) continue;
 
       const meta = { ...(head.customMetadata || {}) };
-      // Fallback sidecar written by the worker for older/partial metadata.
-      if ((!meta.musicLock && !meta.musiclock) || !meta.remixVariant) {
-        try {
-          const sidecar = await bucket.get(`${REMIX2_PREFIX}${jobId}/ready.json`);
-          if (sidecar) {
-            const text = await sidecar.text();
-            const json = text ? JSON.parse(text) : null;
-            if (json && typeof json === 'object') {
-              if (json.musicLock != null && meta.musicLock == null && meta.musiclock == null) {
-                meta.musicLock = json.musicLock ? 'true' : 'false';
-              }
-              if (json.remixVariant && !meta.remixVariant && !meta.remixvariant) {
-                meta.remixVariant = String(json.remixVariant);
-              }
-              if (json.tiktokUrl && !meta.tiktokUrl && !meta.tiktokurl) {
-                meta.tiktokUrl = String(json.tiktokUrl);
-              }
-              if (json.title && !meta.title) meta.title = String(json.title);
+      // Always prefer ready.json sidecar when present (metadata casing / stripping is unreliable on R2).
+      try {
+        const sidecar = await bucket.get(`${REMIX2_PREFIX}${jobId}/ready.json`);
+        if (sidecar) {
+          const text = await sidecar.text();
+          const json = text ? JSON.parse(text) : null;
+          if (json && typeof json === 'object') {
+            if (json.musicLock != null) {
+              meta.musicLock = json.musicLock ? 'true' : 'false';
             }
+            if (json.remixVariant) {
+              meta.remixVariant = String(json.remixVariant);
+            }
+            if (json.tiktokUrl) meta.tiktokUrl = String(json.tiktokUrl);
+            if (json.title) meta.title = String(json.title);
+            if (json.audioMode) meta.audioMode = String(json.audioMode);
           }
-        } catch {
-          /* ignore sidecar errors */
         }
+      } catch {
+        /* ignore sidecar errors */
       }
+      // Normalize lowercase S3-style metadata keys if sidecar was missing.
+      if (meta.musiclock != null && meta.musicLock == null) meta.musicLock = meta.musiclock;
+      if (meta.remixvariant && !meta.remixVariant) meta.remixVariant = meta.remixvariant;
+      if (meta.tiktokurl && !meta.tiktokUrl) meta.tiktokUrl = meta.tiktokurl;
 
       const { musicLock, remixVariant } = variantFromMeta(meta);
       objects.push({

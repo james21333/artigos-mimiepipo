@@ -26,10 +26,52 @@
   const frameGallery = document.getElementById('frame-gallery');
   const outputGallery = document.getElementById('output-gallery');
 
-  /** @type {{ jobId: string, tiktokUrl: string, title?: string }[]} */
+  /** @type {{ jobId: string, tiktokUrl: string, title?: string, characterUrl?: string, outputUrl?: string }[]} */
   let batchJobs = [];
   let pollTimer = null;
   let submitting = false;
+  let publicBaseUrl = '';
+
+  function mediaFinalPath(jobId) {
+    const key = `character-remix-2-og/${jobId}/final.mp4`;
+    return `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+  }
+
+  function publicFinalUrl(jobId) {
+    const base = String(publicBaseUrl || '').replace(/\/$/, '');
+    if (!base || !jobId) return '';
+    return `${base}/character-remix-2-og/${jobId}/final.mp4`;
+  }
+
+  function resolveFinalUrl(job, data) {
+    const fromStatus = data?.output_url || data?.outputUrl || '';
+    if (fromStatus) return fromStatus;
+    if (job?.outputUrl) return job.outputUrl;
+    const stage = data?.stage || data?.status || '';
+    if (stage === 'stitched' || data?.outputUploaded) {
+      return publicFinalUrl(job?.jobId) || mediaFinalPath(job?.jobId);
+    }
+    return '';
+  }
+
+  function renderFinalOutput(outWrap, finalUrl) {
+    if (!outWrap) return;
+    if (!finalUrl) {
+      outWrap.hidden = true;
+      outWrap.innerHTML = '';
+      return;
+    }
+    outWrap.hidden = false;
+    outWrap.innerHTML = `<figure class="result-final">
+        <figcaption>Final</figcaption>
+        <video src="${finalUrl}" controls playsinline preload="metadata" class="result-preview"></video>
+      </figure>
+      <p class="muted-line result-actions">
+        <a class="btn-link" href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a>
+        ·
+        <a class="btn-link" href="./remix2-ready.html">Remix 2 ready</a>
+      </p>`;
+  }
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -118,6 +160,7 @@
 
   async function loadConfig() {
     const { ok, data } = await api('/api/contentstation/character-remix-2-og?action=config');
+    publicBaseUrl = String(data?.r2?.publicBaseUrl || data?.publicBaseUrl || '').trim();
     if (configEl) {
       configEl.hidden = false;
       const lockNote =
@@ -248,17 +291,9 @@
     }
 
     const outWrap = card.querySelector('.result-outputs');
-    const finalUrl = data?.output_url || data?.outputUrl || '';
-    if (outWrap) {
-      if (finalUrl) {
-        outWrap.hidden = false;
-        outWrap.innerHTML = `<video src="${finalUrl}" controls playsinline class="character-preview"></video>
-          <p class="muted-line"><a href="${finalUrl}" target="_blank" rel="noopener">Open MP4</a></p>`;
-      } else {
-        outWrap.hidden = true;
-        outWrap.innerHTML = '';
-      }
-    }
+    const finalUrl = resolveFinalUrl(job, data);
+    if (finalUrl && job) job.outputUrl = finalUrl;
+    renderFinalOutput(outWrap, finalUrl);
   }
 
   async function pollBatch() {
@@ -280,7 +315,17 @@
         ensureBatchCard(job);
         const card = batchList?.querySelector(`[data-job-id="${job.jobId}"]`);
         const statusEl = card?.querySelector('.result-status');
-        if (statusEl) statusEl.textContent = 'Status error';
+        // Worker may be briefly unreachable — still surface a finished R2 final if we have one.
+        const fallbackUrl = job.outputUrl || publicFinalUrl(job.jobId) || mediaFinalPath(job.jobId);
+        if (fallbackUrl && card) {
+          if (!job.outputUrl) job.outputUrl = fallbackUrl;
+          if (statusEl && (!statusEl.textContent || statusEl.textContent === 'Status error' || statusEl.textContent === 'Queued…')) {
+            statusEl.textContent = 'Done (from R2)';
+          }
+          renderFinalOutput(card.querySelector('.result-outputs'), fallbackUrl);
+        } else if (statusEl) {
+          statusEl.textContent = 'Status error';
+        }
         continue;
       }
       updateCardFromStatus(job, data);

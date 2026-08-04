@@ -145,7 +145,12 @@ export async function onRequest(context) {
           wantVariant === 'talkingheads' ||
           wantVariant === 'talking'
         ) {
-          if (musicLock === true || remixVariant === 'music-only' || remixVariant === 'music') {
+          // Require an explicit non-music classification — unknowns used to leak into Talking Heads.
+          const isMusic =
+            musicLock === true || remixVariant === 'music-only' || remixVariant === 'music';
+          const isTalking =
+            musicLock === false || remixVariant === 'talking-heads' || remixVariant === 'talking';
+          if (isMusic || !isTalking) {
             continue;
           }
         }
