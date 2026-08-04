@@ -29,6 +29,7 @@
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
   configPayload,
+  describeWorkerFailure,
   listRemix2Finals,
   remix2WorkerConfigured,
   workerFetch,
@@ -73,6 +74,33 @@ export async function onRequest(context) {
     const action = url.searchParams.get('action') || 'config';
     if (action === 'config') {
       return json(configPayload(env), remix2WorkerConfigured(env) ? 200 : 503);
+    }
+    if (action === 'health' || action === 'ping') {
+      if (!remix2WorkerConfigured(env)) {
+        return json(
+          {
+            ok: false,
+            error: 'remix2_unconfigured',
+            message: 'REMIX2_WORKER_URL / REMIX2_WORKER_SECRET missing.',
+            ...configPayload(env),
+          },
+          503,
+        );
+      }
+      const result = await workerFetch(env, '/health', { timeoutMs: 8000 });
+      const message = result.ok
+        ? 'Worker reachable'
+        : describeWorkerFailure(result.status, result.data, 'Worker health check failed');
+      return json(
+        {
+          ok: result.ok,
+          status: result.status,
+          message,
+          worker: result.data,
+          ...configPayload(env),
+        },
+        result.ok ? 200 : result.status || 502,
+      );
     }
     if (action === 'status') {
       const jobId = url.searchParams.get('jobId');
@@ -297,14 +325,19 @@ export async function onRequest(context) {
     });
     if (!result.ok) {
       const d = result.data || {};
-      const detail =
-        d.message ||
-        d.detail ||
-        (Array.isArray(d.detail) ? JSON.stringify(d.detail).slice(0, 400) : null) ||
-        d.error ||
-        'Worker rejected job create';
+      const detail = describeWorkerFailure(
+        result.status,
+        d,
+        'Worker rejected job create',
+      );
       return json(
-        { error: 'worker_error', message: String(detail).slice(0, 500), sourceKey, raw: d },
+        {
+          error: d.error || 'worker_error',
+          message: String(detail).slice(0, 500),
+          sourceKey,
+          workerStatus: result.status || null,
+          raw: d,
+        },
         result.status || 502,
       );
     }

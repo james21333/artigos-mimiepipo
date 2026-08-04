@@ -81,7 +81,58 @@ export function sanitizeWorkerPayload(data) {
   return out;
 }
 
-export async function workerFetch(env, path, { method = 'GET', body } = {}) {
+/**
+ * Turn opaque worker / Cloudflare edge failures into a UI-safe message.
+ * Avoids the generic "Worker rejected job create" when the body is HTML/CF text.
+ */
+export function describeWorkerFailure(status, data, fallback = 'Worker request failed') {
+  const d = data && typeof data === 'object' ? data : {};
+  if (typeof d.message === 'string' && d.message.trim()) return d.message.trim().slice(0, 500);
+  if (typeof d.detail === 'string' && d.detail.trim()) return d.detail.trim().slice(0, 500);
+  if (Array.isArray(d.detail) && d.detail.length) {
+    try {
+      return JSON.stringify(d.detail).slice(0, 400);
+    } catch {
+      /* ignore */
+    }
+  }
+  const raw = typeof d.raw === 'string' ? d.raw : '';
+  const rawLower = raw.toLowerCase();
+  const cfCode = (raw.match(/error\s*code:\s*(\d+)/i) || [])[1];
+  if (
+    status === 530 ||
+    cfCode === '1033' ||
+    rawLower.includes('error code: 1033') ||
+    rawLower.includes('origin is unreachable')
+  ) {
+    return (
+      'Remix 2 worker unreachable (Cloudflare 1033 — Fast Panda origin/tunnel down). ' +
+      'Power on / reboot Fast Panda and ensure cloudflared + worker on :8791.'
+    );
+  }
+  if (status === 401 || status === 403) {
+    return (
+      (typeof d.error === 'string' && d.error) ||
+      `Worker auth failed (HTTP ${status}) — check REMIX2_WORKER_SECRET matches Fast Panda.`
+    );
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return (
+      (typeof d.error === 'string' && d.error !== 'worker_error' ? d.error : null) ||
+      `Worker gateway error (HTTP ${status}). Fast Panda may be down or overloaded.`
+    );
+  }
+  if (typeof d.error === 'string' && d.error.trim() && d.error !== 'worker_error') {
+    return d.error.trim().slice(0, 500);
+  }
+  if (raw && !raw.trimStart().startsWith('<')) {
+    return `Worker HTTP ${status || '?'}: ${raw.replace(/\s+/g, ' ').trim().slice(0, 240)}`;
+  }
+  if (status) return `Worker HTTP ${status}: ${fallback}`;
+  return fallback;
+}
+
+export async function workerFetch(env, path, { method = 'GET', body, timeoutMs = 60000 } = {}) {
   const base = remix2WorkerBase(env);
   const secret = String(env?.REMIX2_WORKER_SECRET || '').trim();
   if (!base || !secret) {
@@ -101,7 +152,27 @@ export async function workerFetch(env, path, { method = 'GET', body } = {}) {
     headers['Content-Type'] = 'application/json';
     payload = JSON.stringify(body);
   }
-  const res = await fetch(url, { method, headers, body: payload });
+  let res;
+  try {
+    const init = { method, headers, body: payload };
+    if (timeoutMs > 0 && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+      init.signal = AbortSignal.timeout(timeoutMs);
+    }
+    res = await fetch(url, init);
+  } catch (err) {
+    const msg = String(err?.message || err || 'fetch failed').slice(0, 240);
+    const timedOut = /abort|timeout/i.test(msg);
+    return {
+      ok: false,
+      status: timedOut ? 504 : 502,
+      data: {
+        error: timedOut ? 'worker_timeout' : 'worker_unreachable',
+        message: timedOut
+          ? `Remix 2 worker timed out after ${Math.round(timeoutMs / 1000)}s (${base}).`
+          : `Remix 2 worker unreachable: ${msg}. Check Fast Panda + tunnel (${base}).`,
+      },
+    };
+  }
   const text = await res.text();
   let data;
   try {
@@ -109,7 +180,20 @@ export async function workerFetch(env, path, { method = 'GET', body } = {}) {
   } catch {
     data = { raw: text };
   }
-  return { ok: res.ok, status: res.status, data: sanitizeWorkerPayload(data) };
+  data = sanitizeWorkerPayload(data);
+  if (!res.ok) {
+    const message = describeWorkerFailure(res.status, data, 'Worker rejected request');
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      data = { error: 'worker_error', message, raw: text?.slice?.(0, 400) };
+    } else if (!data.message) {
+      data = {
+        ...data,
+        error: data.error || (res.status === 401 || res.status === 403 ? 'worker_auth' : 'worker_error'),
+        message,
+      };
+    }
+  }
+  return { ok: res.ok, status: res.status, data };
 }
 
 function downloadPath(key) {

@@ -237,9 +237,52 @@
     return data.object.key;
   }
 
+  function createFailureDetail(data, httpStatus, index) {
+    const msg =
+      (typeof data?.message === 'string' && data.message.trim()) ||
+      (typeof data?.detail === 'string' && data.detail.trim()) ||
+      (typeof data?.error === 'string' && data.error.trim() && data.error !== 'worker_error'
+        ? data.error
+        : '') ||
+      '';
+    if (msg) return msg;
+    if (httpStatus) return `Create failed (HTTP ${httpStatus}) for URL ${index + 1}.`;
+    return `Failed to start job ${index + 1}`;
+  }
+
+  function showSubmitFailure(url, index, detail) {
+    const placeholderId = `submit-failed-${index + 1}`;
+    ensureBatchCard({ jobId: placeholderId, tiktokUrl: url });
+    const card = batchList?.querySelector(`[data-job-id="${placeholderId}"]`);
+    if (!card) return;
+    const statusEl = card.querySelector('.result-status');
+    if (statusEl) statusEl.textContent = 'Submit failed';
+    const idEl = card.querySelector('.result-jobid');
+    if (idEl) idEl.textContent = 'No job created';
+    const errEl = card.querySelector('.result-error');
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = detail;
+    }
+  }
+
   async function loadConfig() {
     const { ok, data } = await api('/api/contentstation/character-remix-2-og?action=config');
     publicBaseUrl = String(data?.r2?.publicBaseUrl || data?.publicBaseUrl || '').trim();
+    let healthNote = '';
+    if (ok && data?.configured) {
+      try {
+        const ping = await api('/api/contentstation/character-remix-2-og?action=ping');
+        if (!ping.ok) {
+          healthNote =
+            ping.data?.message ||
+            `Worker unreachable (HTTP ${ping.status || '?'}) — creates will fail until Fast Panda is back.`;
+          setError(healthNote);
+        }
+      } catch {
+        /* ignore ping errors */
+      }
+    }
     if (configEl) {
       configEl.hidden = false;
       const lockNote =
@@ -249,7 +292,10 @@
       const overlayNote =
         data?.restoreOverlaysNote ||
         'Original on-screen hooks restored onto final (Music-Only default on).';
-      configEl.textContent = `${data?.message || (ok ? 'Configured' : 'Worker not configured')} · ${lockNote} · ${overlayNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
+      const baseMsg = data?.message || (ok ? 'Configured' : 'Worker not configured');
+      configEl.textContent = healthNote
+        ? `${healthNote} · ${lockNote}`
+        : `${baseMsg} · ${lockNote} · ${overlayNote} · Pipelines queue (1 at a time), up to ${MAX_URLS} links.`;
     }
     return { ok, data };
   }
@@ -267,6 +313,7 @@
   function isTerminalJob(job) {
     if (!job) return false;
     if (String(job.jobId || '').startsWith('fail-')) return true;
+    if (String(job.jobId || '').startsWith('submit-failed-')) return true;
     if (isTerminalStage(job.stage)) return true;
     if (!job.stage && job.outputUrl) return true;
     return false;
@@ -495,9 +542,10 @@
     await refreshMissingStages();
     const finished = batchJobs.filter(isTerminalJob);
     const orphanFailCards = batchList
-      ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) =>
-          String(card.dataset.jobId || '').startsWith('fail-'),
-        )
+      ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) => {
+          const id = String(card.dataset.jobId || '');
+          return id.startsWith('fail-') || id.startsWith('submit-failed-');
+        })
       : [];
     if (!finished.length && !orphanFailCards.length) {
       setStatus('No finished jobs to clear.', 'In-flight and queued jobs stay on this list.');
@@ -549,20 +597,30 @@
       setError('Choose a character image — or select an account that already has a saved character.');
       return;
     }
+    for (const u of urls) {
+      if (!/tiktok\.com\//i.test(u) && !/vm\.tiktok\.com\//i.test(u)) {
+        setError(`Not a TikTok URL: ${u}`);
+        return;
+      }
+    }
 
     submitting = true;
     if (runBtn) runBtn.disabled = true;
     try {
       setStatus('Preparing character…');
       const characterKey = await accountsUi.resolveCharacterKeyForCreate(uploadImage);
+      if (!characterKey) {
+        throw new Error('Character key missing — upload a character or pick an account with one saved.');
+      }
       const account = accountsUi.selected() || '';
 
       const baseTitle = titleInput?.value || 'TikTok remake (music-only)';
       const started = [];
+      const failures = [];
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         setStatus(`Submitting ${i + 1} / ${urls.length}`, url);
-        const { ok, data } = await api('/api/contentstation/character-remix-2-og', {
+        const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
           method: 'POST',
           body: JSON.stringify({
             action: 'from-tiktok',
@@ -581,22 +639,9 @@
           }),
         });
         if (!ok || !data?.jobId) {
-          const detail =
-            data?.message ||
-            (typeof data?.detail === 'string' ? data.detail : null) ||
-            data?.error ||
-            `Failed to start job ${i + 1}`;
-          ensureBatchCard({ jobId: `fail-${i}`, tiktokUrl: url });
-          const card = batchList?.querySelector(`[data-job-id="fail-${i}"]`);
-          if (card) {
-            const statusEl = card.querySelector('.result-status');
-            if (statusEl) statusEl.textContent = 'Submit failed';
-            const errEl = card.querySelector('.result-error');
-            if (errEl) {
-              errEl.hidden = false;
-              errEl.textContent = detail;
-            }
-          }
+          const detail = createFailureDetail(data, status, i);
+          failures.push(detail);
+          showSubmitFailure(url, i, detail);
           continue;
         }
         const job = {
@@ -612,7 +657,12 @@
         saveBatch();
         updateCardFromStatus(job, data);
       }
-      if (!started.length) throw new Error('No jobs started');
+      if (!started.length) {
+        throw new Error(failures[0] || 'No jobs started — worker did not return a jobId.');
+      }
+      if (failures.length) {
+        setError(`${failures.length} URL(s) failed to create. First: ${failures[0]}`);
+      }
       setStatus(
         `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}`,
         account
