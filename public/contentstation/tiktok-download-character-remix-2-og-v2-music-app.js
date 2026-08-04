@@ -144,6 +144,7 @@
       <p class="result-url muted-line"></p>
       <p class="result-status status">Queued…</p>
       <p class="muted-line result-jobid"></p>
+      <div class="result-character" hidden></div>
       <div class="result-frames" hidden></div>
       <div class="result-outputs" hidden></div>
       <p class="error result-error" hidden></p>
@@ -205,6 +206,24 @@
         }
       } else {
         errEl.hidden = true;
+      }
+    }
+
+    const charUrl =
+      data?.characterUrl ||
+      data?.character_url ||
+      (data?.derivedCharacter && data.derivedCharacter.url) ||
+      job?.characterUrl ||
+      '';
+    const charWrap = card.querySelector('.result-character');
+    if (charWrap) {
+      if (charUrl) {
+        if (job && !job.characterUrl) job.characterUrl = charUrl;
+        charWrap.hidden = false;
+        charWrap.innerHTML = `<figure><figcaption>Character</figcaption><img src="${charUrl}" alt="Character" class="character-preview result-character-thumb"></figure>`;
+      } else {
+        charWrap.hidden = true;
+        charWrap.innerHTML = '';
       }
     }
 
