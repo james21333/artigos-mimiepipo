@@ -68,6 +68,24 @@
         <input id="tiktok-url" type="url" autocomplete="off" spellcheck="false"
           placeholder="https://www.tiktok.com/@user/video/…">
 
+        <section class="account-picker" id="account-picker">
+          <label for="account-select">Ready For Upload account</label>
+          <p class="muted-line">Optional. Finished MP4 is auto-tagged for this account. None = untagged (FaceFusion remixes library).</p>
+          <div class="row account-select-row">
+            <select id="account-select" class="account-select">
+              <option value="">— No account (untagged / recent) —</option>
+            </select>
+          </div>
+          <form id="create-account-form" class="account-create-row">
+            <label for="new-account-name">Create account</label>
+            <div class="row">
+              <input id="new-account-name" type="text" maxlength="80" placeholder="e.g. 1 - GLP" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+        </section>
+
         <fieldset class="options">
           <legend>Options</legend>
           <label class="check">
@@ -82,7 +100,14 @@
             <input type="checkbox" id="opt-enhance" checked>
             <span>Enhance swapped face (FaceFusion face_enhancer)</span>
           </label>
+          <label class="check">
+            <input type="checkbox" id="opt-duplicate-override">
+            <span>Override duplicates</span>
+          </label>
         </fieldset>
+        <p id="duplicate-hint" class="muted-line">
+          TikToks already cleaned/used are blocked unless Override duplicates is checked.
+        </p>
 
         <p id="ff-config" class="muted-line" hidden></p>
 
@@ -96,8 +121,11 @@
         <p id="ff-error" class="error" hidden></p>
 
         <p class="muted-line">
-          <a class="btn-link" href="./facefusion-remixes.html">FaceFusion remixes →</a>
-          Keep this tab open until jobs finish. You can submit another URL while one is running (queues on the GPU). Finished MP4s land in the library.
+          Finished untagged →
+          <a class="btn-link" href="./facefusion-remixes.html">FaceFusion remixes</a>.
+          Tagged →
+          <a class="btn-link" href="./ready.html">Ready For Upload</a>.
+          Keep this tab open until jobs finish. You can submit another URL while one is running (queues on the GPU).
         </p>
 
         <div id="results" class="download-results" hidden></div>
@@ -113,6 +141,6 @@
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./tiktok-download-facefusion-remix-app.js?v=cost1"></script>
+  <script src="./tiktok-download-facefusion-remix-app.js?v=acct1"></script>
 </body>
 </html>

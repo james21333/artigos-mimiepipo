@@ -294,7 +294,7 @@ export function roleMayAccessPage(role, pageId) {
 /**
  * Media key/prefix access by role.
  * download → tiktok/ read
- * ready → cleaned/ + Remix 2 finals read
+ * ready → cleaned/ + Remix 2 finals + FaceFusion remixes read
  * admin → all
  */
 export function mediaKeyAllowed(role, key) {
@@ -306,6 +306,7 @@ export function mediaKeyAllowed(role, key) {
       key.startsWith('cleaned/') ||
       key.startsWith('characters/') ||
       key.startsWith('account-characters/') ||
+      key.startsWith('facefusion-remix/') ||
       /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
     );
   }
@@ -325,7 +326,9 @@ export function mediaPrefixAllowed(role, prefix) {
       p === 'account-characters/' ||
       p.startsWith('account-characters/') ||
       p === 'character-remix-2-og/' ||
-      p.startsWith('character-remix-2-og/')
+      p.startsWith('character-remix-2-og/') ||
+      p === 'facefusion-remix/' ||
+      p.startsWith('facefusion-remix/')
     );
   }
   return false;

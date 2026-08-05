@@ -26,7 +26,7 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  *
  * GET  ?action=list              → accounts + counts (+ character defaults)
  * GET  ?action=tags              → full key→account map
- * GET  ?action=videos&account=   → tagged keys for account (cleaned + Remix 2 finals)
+ * GET  ?action=videos&account=   → tagged keys for account (cleaned + Remix 2 + FaceFusion)
  * GET  ?action=tag&key=          → tag for one key
  * GET  ?action=info&key=         → original TikTok post info for a cleaned video
  * GET  ?action=character&account= → default character + history for one account

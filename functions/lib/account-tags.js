@@ -12,7 +12,7 @@
  *     }
  *   }
  *
- * Tagable keys: cleaned/* and character-remix-2-og/{jobId}/final.mp4
+ * Tagable keys: cleaned/*, character-remix-2-og/{jobId}/final.mp4, facefusion-remix/*
  * Character images: account-characters/{slug}/… (and legacy characters/)
  */
 
@@ -37,11 +37,12 @@ export function sanitizeAccountName(raw) {
   return name;
 }
 
-/** Keys that may be tagged for an account (cleaned + Remix 2 finals). */
+/** Keys that may be tagged for an account (cleaned + Remix 2 + FaceFusion). */
 export function isTaggableMediaKey(keyRaw) {
   const key = String(keyRaw || '').trim();
   if (!key || key.includes('..')) return false;
   if (key.startsWith('cleaned/')) return true;
+  if (key.startsWith('facefusion-remix/')) return true;
   return REMIX2_FINAL_RE.test(key);
 }
 
@@ -358,7 +359,7 @@ export async function setVideoAccount(env, keyRaw, accountRaw) {
   if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
   const key = String(keyRaw || '').trim();
   if (!isTaggableMediaKey(key)) {
-    return { ok: false, error: 'Invalid video key (cleaned or Remix 2 final only).' };
+    return { ok: false, error: 'Invalid video key (cleaned, Remix 2 final, or FaceFusion only).' };
   }
 
   const clear = accountRaw == null || String(accountRaw).trim() === '';
@@ -444,7 +445,7 @@ export async function setVideoPosted(env, keyRaw, posted) {
   if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
   const key = String(keyRaw || '').trim();
   if (!isTaggableMediaKey(key)) {
-    return { ok: false, error: 'Invalid video key (cleaned or Remix 2 final only).' };
+    return { ok: false, error: 'Invalid video key (cleaned, Remix 2 final, or FaceFusion only).' };
   }
 
   const map = await readPostedMap(env);

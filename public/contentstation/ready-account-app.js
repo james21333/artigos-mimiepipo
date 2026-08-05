@@ -109,6 +109,11 @@
             : 'Remix 2';
       return `${kind} · ${short}`;
     }
+    if (String(key || '').startsWith('facefusion-remix/')) {
+      const base = String(key).split('/').pop() || key;
+      const short = base.replace(/\.mp4$/i, '');
+      return `FaceFusion · ${short.length > 28 ? `${short.slice(0, 26)}…` : short}`;
+    }
     const base = String(key || '').split('/').pop() || key;
     return base.replace(/\.mp4$/i, '');
   }
@@ -262,7 +267,9 @@
       unt.value = '';
       unt.textContent = String(obj.key || '').startsWith('character-remix-2-og/')
         ? '— Untagged (Remix 2 ready) —'
-        : '— Untagged (Cleaned videos) —';
+        : String(obj.key || '').startsWith('facefusion-remix/')
+          ? '— Untagged (FaceFusion remixes) —'
+          : '— Untagged (Cleaned videos) —';
       select.appendChild(unt);
       const names = new Set(accountsCache);
       if (accountName) names.add(accountName);

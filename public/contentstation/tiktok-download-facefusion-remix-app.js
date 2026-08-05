@@ -26,6 +26,11 @@
   const smallerNoHd = document.getElementById('opt-smaller-no-hd');
   const deepAiRemake = document.getElementById('opt-deep-ai-remake');
   const enhanceOpt = document.getElementById('opt-enhance');
+  const duplicateOverride = document.getElementById('opt-duplicate-override');
+  const accountSelect = document.getElementById('account-select');
+  const createAccountForm = document.getElementById('create-account-form');
+  const newAccountName = document.getElementById('new-account-name');
+  const accountError = document.getElementById('account-error');
   const ffConfig = document.getElementById('ff-config');
   const runBtn = document.getElementById('run-btn');
   const stopBtn = document.getElementById('stop-btn');
@@ -46,6 +51,8 @@
   /** Session totals for finished FaceFusion jobs. */
   let sessionSpendUsd = 0;
   let sessionFinishedCount = 0;
+  /** @type {any[]} */
+  let accountsCache = [];
   /** @type {Map<string, { status: string, delayMs: number|null, execMs: number|null, startedAt: number, progressAt: number|null, card: HTMLElement|null }>} */
   const liveJobs = new Map();
   /** Last time we saw a worker actively processing (IN_PROGRESS). Survives refresh via sessionStorage. */
@@ -191,6 +198,70 @@
     if (sessionMeta) sessionMeta.textContent = 'Signed in';
     refreshFleetStatus();
     void loadConfig();
+    void loadAccounts().catch(() => {});
+  }
+
+  function selectedAccount() {
+    return (accountSelect && accountSelect.value ? accountSelect.value : '').trim();
+  }
+
+  function setAccountError(msg) {
+    if (!accountError) return;
+    if (msg) {
+      accountError.hidden = false;
+      accountError.textContent = msg;
+    } else {
+      accountError.hidden = true;
+      accountError.textContent = '';
+    }
+  }
+
+  function compareAccountNames(a, b) {
+    const sa = String(a || '');
+    const sb = String(b || '');
+    const ma = sa.match(/^(\d+)/);
+    const mb = sb.match(/^(\d+)/);
+    if (ma && mb) {
+      const na = Number(ma[1]);
+      const nb = Number(mb[1]);
+      if (na !== nb) return na - nb;
+    } else if (ma && !mb) return -1;
+    else if (!ma && mb) return 1;
+    return sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
+  }
+
+  function fillAccountSelect(accounts, prefer) {
+    if (!accountSelect) return;
+    const current = prefer != null ? prefer : accountSelect.value;
+    const names = (accounts || [])
+      .map((a) => (typeof a === 'string' ? a : a && a.name))
+      .filter(Boolean)
+      .sort(compareAccountNames);
+    accountSelect.innerHTML = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '— No account (untagged / recent) —';
+    accountSelect.appendChild(none);
+    for (const name of names) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      accountSelect.appendChild(opt);
+    }
+    if (current && names.includes(current)) accountSelect.value = current;
+    else accountSelect.value = '';
+  }
+
+  async function loadAccounts(prefer) {
+    const { ok, data } = await api('/api/contentstation/accounts?action=list');
+    if (!ok) {
+      setAccountError((data && (data.message || data.error)) || 'Could not load accounts.');
+      return [];
+    }
+    accountsCache = data.accounts || [];
+    fillAccountSelect(accountsCache, prefer);
+    setAccountError('');
+    return accountsCache;
   }
 
   function setError(msg) {
@@ -590,7 +661,7 @@
     }
   }
 
-  function fillCardSuccess(card, { downloadPath, key, estimatedCostUsd }) {
+  function fillCardSuccess(card, { downloadPath, key, estimatedCostUsd, account }) {
     setCardError(card, '');
     const preview = card.querySelector('.result-preview');
     const actions = card.querySelector('.result-actions');
@@ -601,20 +672,48 @@
       actions.hidden = false;
       dl.href = downloadPath;
       dl.setAttribute('download', (key || 'facefusion.mp4').split('/').pop());
+      const lib = actions.querySelector('a[href="./facefusion-remixes.html"], a.result-library');
+      if (lib) {
+        if (account) {
+          lib.href = `./ready-account.html?account=${encodeURIComponent(account)}`;
+          lib.textContent = `Ready · ${account}`;
+          lib.classList.add('result-library');
+        } else {
+          lib.href = './facefusion-remixes.html';
+          lib.textContent = 'Open library';
+        }
+      }
     }
     const cost = estimatedCostUsd != null && Number.isFinite(Number(estimatedCostUsd))
       ? Number(estimatedCostUsd)
       : null;
-    setCardStatus(card, cost != null ? `Saved · est. ${formatUsd(cost)}` : 'Saved');
+    const costBit = cost != null ? ` · est. ${formatUsd(cost)}` : '';
+    setCardStatus(
+      card,
+      account ? `Saved · Ready For Upload (${account})${costBit}` : `Saved${costBit}`,
+    );
   }
 
-  async function downloadTikTok(url, smallerFile) {
-    const { ok, data } = await api('/api/contentstation/tiktok-download', {
+  async function downloadTikTok(url, smallerFile, allowDuplicate) {
+    const { ok, data, status } = await api('/api/contentstation/tiktok-download', {
       method: 'POST',
-      // Remix may re-use a library URL; skip the download-page duplicate block.
-      body: JSON.stringify({ url, smallerFile, allowDuplicate: true }),
+      body: JSON.stringify({
+        url,
+        smallerFile,
+        allowDuplicate: Boolean(allowDuplicate),
+      }),
     });
     if (!ok) {
+      if (data?.error === 'already_downloaded' || status === 409) {
+        const err = new Error(
+          data?.message ||
+            'This TikTok was already cleaned/used. Check Override duplicates to re-process it.',
+        );
+        err.code = 'already_downloaded';
+        err.downloadPath = data?.downloadPath || null;
+        err.key = data?.key || null;
+        throw err;
+      }
       throw new Error(
         (data?.message || data?.error || 'TikTok download failed') +
           (data?.detail ? ` (${data.detail})` : ''),
@@ -623,7 +722,7 @@
     return data;
   }
 
-  async function runDeepAiRemake(sourceKey) {
+  async function runDeepAiRemake(sourceKey, account) {
     const { ok, data } = await api('/api/contentstation/clean', {
       method: 'POST',
       body: JSON.stringify({
@@ -638,6 +737,7 @@
           remix: false,
           deepAiRemake: true,
           mirror: false,
+          account: account || null,
         },
       }),
     });
@@ -672,7 +772,7 @@
         }
         const arch = await api('/api/contentstation/clean', {
           method: 'POST',
-          body: JSON.stringify({ action: 'archive', workId, sourceKey }),
+          body: JSON.stringify({ action: 'archive', workId, sourceKey, account: account || null }),
         });
         if (arch.ok && (arch.data?.key || arch.data?.cleanedKey)) {
           return arch.data.key || arch.data.cleanedKey;
@@ -688,6 +788,30 @@
       }
     }
     throw new Error('Stopped');
+  }
+
+  async function finalizeOutput(finalKey, meta) {
+    if (!finalKey) return { account: null, tagged: false };
+    const account = (meta?.account || '').trim() || '';
+    const { ok, data } = await api('/api/contentstation/facefusion-remix', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'finalize',
+        key: finalKey,
+        sourceKey: meta?.videoKey || meta?.sourceKey || '',
+        tiktokUrl: meta?.tiktokUrl || '',
+        account,
+      }),
+    });
+    if (!ok) {
+      // Best-effort — don't fail the whole job if tag/mark fails after a good MP4.
+      console.warn('FaceFusion finalize failed', data);
+      return { account: account || null, tagged: false };
+    }
+    return {
+      account: data?.account || account || null,
+      tagged: Boolean(data?.tagged),
+    };
   }
 
   async function pollFacefusion(jobId, meta, card) {
@@ -801,6 +925,9 @@
       return;
     }
 
+    const account = selectedAccount() || '';
+    const allowDuplicate = Boolean(duplicateOverride && duplicateOverride.checked);
+
     stopRequested = false;
     activeRuns += 1;
     setRunUiBusy();
@@ -814,9 +941,17 @@
         if (faceMeta) faceMeta.textContent = `Uploaded · ${uploadedFaceKey}`;
       }
 
-      setStatus('Downloading TikTok…');
+      setStatus(
+        'Downloading TikTok…',
+        [
+          allowDuplicate ? 'duplicate override on' : null,
+          account ? `→ ${account}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined,
+      );
       setCardStatus(card, 'Downloading TikTok…');
-      const dl = await downloadTikTok(url, Boolean(smallerNoHd && smallerNoHd.checked));
+      const dl = await downloadTikTok(url, Boolean(smallerNoHd && smallerNoHd.checked), allowDuplicate);
       const videoKey = dl.key;
       if (!videoKey) throw new Error('Download returned no key');
 
@@ -843,6 +978,7 @@
         videoKey,
         tiktokUrl: url,
         deepAiRemake: Boolean(deepAiRemake && deepAiRemake.checked),
+        account,
         startedAt: Date.now(),
       });
 
@@ -853,6 +989,7 @@
         videoKey,
         tiktokUrl: url,
         deepAiRemake: Boolean(deepAiRemake && deepAiRemake.checked),
+        account,
       }, card);
 
       const cost = noteFinishedCost(final.estimatedCostUsd, final.executionTime);
@@ -860,22 +997,29 @@
         downloadPath: final.downloadPath,
         key: final.key,
         estimatedCostUsd: cost,
+        account: final.account || account || null,
       });
       statusOverride = null;
       refreshFleetStatus();
       void refreshBalance();
+      void loadAccounts(account || undefined).catch(() => {});
       if (!liveJobs.size) {
         setStatus(
           'Done',
-          cost != null ? `${formatUsd(cost)} this video · ${formatUsd(sessionSpendUsd)} session` : data.jobId,
+          [
+            cost != null ? `${formatUsd(cost)} this video · ${formatUsd(sessionSpendUsd)} session` : data.jobId,
+            final.account || account ? `Ready · ${final.account || account}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
         );
       }
     } catch (err) {
       const msg = String(err?.message || err);
       setCardError(card, msg);
-      setCardStatus(card, 'Failed');
+      setCardStatus(card, err?.code === 'already_downloaded' ? 'Skipped · duplicate' : 'Failed');
       setError(msg);
-      setStatus('Failed', msg);
+      setStatus(err?.code === 'already_downloaded' ? 'Duplicate skipped' : 'Failed', msg);
     } finally {
       activeRuns = Math.max(0, activeRuns - 1);
       setRunUiBusy();
@@ -885,10 +1029,11 @@
   async function finishFacefusionJob(jobId, meta, card) {
     setCardStatus(card, 'Queued for GPU…');
     let final = await pollFacefusion(jobId, meta, card);
+    const account = (meta.account || '').trim() || '';
     if (meta.deepAiRemake && final.key && !stopRequested) {
       setStatus('Deep AI remake (after FaceFusion)…');
       setCardStatus(card, 'Deep AI remake…');
-      const cleanedKey = await runDeepAiRemake(final.key);
+      const cleanedKey = await runDeepAiRemake(final.key, account);
       final = {
         key: cleanedKey,
         downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(cleanedKey)}`,
@@ -897,6 +1042,12 @@
         executionTime: final.executionTime,
       };
     }
+    const fin = await finalizeOutput(final.key, {
+      videoKey: meta.videoKey,
+      tiktokUrl: meta.tiktokUrl,
+      account,
+    });
+    final.account = fin.account || account || null;
     removeActiveJob(jobId);
     return final;
   }
@@ -927,6 +1078,7 @@
               videoKey: job.videoKey,
               tiktokUrl: job.tiktokUrl,
               deepAiRemake: Boolean(job.deepAiRemake),
+              account: job.account || '',
             },
             card,
           );
@@ -935,6 +1087,7 @@
             downloadPath: final.downloadPath,
             key: final.key,
             estimatedCostUsd: cost,
+            account: final.account || job.account || null,
           });
           statusOverride = null;
           refreshFleetStatus();
@@ -977,6 +1130,33 @@
 
   runBtn?.addEventListener('click', () => {
     void runPipeline();
+  });
+
+  createAccountForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setAccountError('');
+    const name = (newAccountName?.value || '').trim();
+    if (!name) {
+      setAccountError('Enter an account name.');
+      return;
+    }
+    const submitBtn = createAccountForm.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', name }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not create account.');
+      }
+      if (newAccountName) newAccountName.value = '';
+      await loadAccounts(data.name || name);
+    } catch (err) {
+      setAccountError(err && err.message ? err.message : String(err));
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
   });
 
   stopBtn?.addEventListener('click', async () => {

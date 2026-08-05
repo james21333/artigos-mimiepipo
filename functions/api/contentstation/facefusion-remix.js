@@ -5,14 +5,16 @@
  * GET  ?action=status&jobId=…
  * GET  ?action=list[&limit=][&cursor=]
  * POST { action: "run", faceKey, videoKey, options? }
- * POST { action: "save", videoUrl?, videoBase64?, sourceKey?, faceKey?, filename?, runpodJobId?, tiktokUrl? }
+ * POST { action: "save", videoUrl?, videoBase64?, sourceKey?, faceKey?, filename?, runpodJobId?, tiktokUrl?, account? }
+ * POST { action: "finalize", key, sourceKey?, tiktokUrl?, account? }  // mark used + optional Ready tag
  * POST { action: "cancel", jobId }
  *
  * Client pipeline:
  *   1) Upload face → faces/
- *   2) TikTok download → tiktok/
+ *   2) TikTok download → tiktok/ (duplicates blocked unless allowDuplicate)
  *   3) This API → RunPod FaceFusion worker → save facefusion-remix/
  *   4) Optional GhostCut deepAiRemake on the swapped MP4 (client-driven)
+ *   5) finalize → mark TikTok used + tag Ready For Upload account
  */
 
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
@@ -33,6 +35,78 @@ import {
   publicMediaUrl,
   runpodFetch,
 } from '../../lib/facefusion-remix.js';
+import { setVideoAccount, sanitizeAccountName } from '../../lib/account-tags.js';
+import { extractTikTokVideoId, markTikTokSeen } from '../../lib/tiktok-download-seen.js';
+
+async function markFacefusionUsed(env, { key, sourceKey, tiktokUrl, account } = {}) {
+  const bucket = env.MEDIA_BUCKET;
+  if (!bucket || !key) return { ok: false, error: 'missing_key' };
+  try {
+    let url = typeof tiktokUrl === 'string' ? tiktokUrl.trim() : '';
+    let tiktokId = extractTikTokVideoId(url);
+    let author = '';
+    let title = '';
+    if ((!tiktokId || !url) && sourceKey) {
+      try {
+        const head = await bucket.head(sourceKey);
+        const cm = head?.customMetadata || {};
+        url = url || cm.tiktokUrl || cm.tiktokurl || '';
+        tiktokId =
+          tiktokId || String(cm.tiktokId || cm.tiktokid || '').replace(/[^\d]/g, '');
+        author = cm.author || '';
+        title = cm.title || '';
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!tiktokId) tiktokId = extractTikTokVideoId(url);
+    if (!tiktokId) return { ok: false, error: 'missing_tiktok_id' };
+    return markTikTokSeen(bucket, {
+      tiktokId,
+      tiktokUrl: url,
+      key,
+      cleanedKey: key,
+      author,
+      title,
+      account: account || '',
+      source: 'facefusion-remix',
+    });
+  } catch (err) {
+    return { ok: false, error: 'mark_failed', detail: String(err?.message || err) };
+  }
+}
+
+async function finalizeFacefusionOutput(env, { key, sourceKey, tiktokUrl, account } = {}) {
+  const mediaKey = String(key || '').trim();
+  if (!mediaKey) return { ok: false, error: 'missing_key' };
+  const accountName = sanitizeAccountName(account) || null;
+  const seen = await markFacefusionUsed(env, {
+    key: mediaKey,
+    sourceKey,
+    tiktokUrl,
+    account: accountName,
+  });
+  let tag = null;
+  if (accountName) {
+    tag = await setVideoAccount(env, mediaKey, accountName);
+    if (!tag.ok) {
+      return {
+        ok: false,
+        error: tag.error || 'tag_failed',
+        key: mediaKey,
+        account: accountName,
+        seen,
+      };
+    }
+  }
+  return {
+    ok: true,
+    key: mediaKey,
+    account: accountName,
+    tagged: Boolean(accountName && tag?.ok),
+    seen: Boolean(seen?.ok),
+  };
+}
 
 async function resolveKeyUrl(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -296,8 +370,9 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'save') {
+    let archived;
     if (body.videoBase64) {
-      const archived = await archiveFacefusionVideoFromBase64(env, {
+      archived = await archiveFacefusionVideoFromBase64(env, {
         base64: body.videoBase64,
         mime: body.mime,
         filename: body.filename,
@@ -307,19 +382,54 @@ export async function onRequestPost(context) {
         tiktokUrl: body.tiktokUrl,
         key: body.key,
       });
-      if (!archived.ok) return json(archived, 502);
-      return json({ status: 'ok', ...archived });
+    } else {
+      archived = await archiveFacefusionVideo(env, {
+        sourceUrl: body.videoUrl,
+        filename: body.filename,
+        sourceKey: body.sourceKey || body.videoKey,
+        faceKey: body.faceKey,
+        runpodJobId: body.runpodJobId || body.jobId,
+        tiktokUrl: body.tiktokUrl,
+      });
     }
-    const archived = await archiveFacefusionVideo(env, {
-      sourceUrl: body.videoUrl,
-      filename: body.filename,
-      sourceKey: body.sourceKey || body.videoKey,
-      faceKey: body.faceKey,
-      runpodJobId: body.runpodJobId || body.jobId,
-      tiktokUrl: body.tiktokUrl,
-    });
     if (!archived.ok) return json(archived, 502);
-    return json({ status: 'ok', ...archived });
+    const account = sanitizeAccountName(body.account) || null;
+    const fin = await finalizeFacefusionOutput(env, {
+      key: archived.key,
+      sourceKey: body.sourceKey || body.videoKey,
+      tiktokUrl: body.tiktokUrl,
+      account,
+    });
+    return json({
+      status: 'ok',
+      ...archived,
+      account: fin.account || null,
+      tagged: Boolean(fin.tagged),
+      seen: Boolean(fin.seen),
+    });
+  }
+
+  if (action === 'finalize') {
+    const key = String(body.key || '').trim();
+    if (!key) return json({ error: 'missing_key' }, 400);
+    const fin = await finalizeFacefusionOutput(env, {
+      key,
+      sourceKey: body.sourceKey || body.videoKey,
+      tiktokUrl: body.tiktokUrl,
+      account: body.account,
+    });
+    if (!fin.ok) {
+      return json(
+        {
+          error: fin.error || 'finalize_failed',
+          message: fin.error || 'Could not tag / mark used',
+          key: fin.key,
+          account: fin.account,
+        },
+        400,
+      );
+    }
+    return json({ status: 'ok', ...fin });
   }
 
   if (action === 'run') {
