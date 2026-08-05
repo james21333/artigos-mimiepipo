@@ -94,8 +94,8 @@
     outWrap.hidden = false;
     const readyHref = job?.account
       ? `./ready-account.html?account=${encodeURIComponent(job.account)}`
-      : './remix2-ready.html';
-    const readyLabel = job?.account ? `Ready · ${job.account}` : 'Remix 2 ready';
+      : './character-remixes.html';
+    const readyLabel = job?.account ? `Ready · ${job.account}` : 'Recent remixes';
     outWrap.innerHTML = `<figure class="result-final">
         <figcaption>Final</figcaption>
         <video src="${finalUrl}" controls playsinline preload="metadata" class="result-preview"></video>
