@@ -100,3 +100,30 @@ export async function getSourceForCleaned(env, cleanedKeyRaw) {
   }
   return null;
 }
+
+/**
+ * Remove map entries that point at a deleted cleaned/ object.
+ */
+export async function removeCleanedFromSourceMap(env, cleanedKeyRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const cleaned = String(cleanedKeyRaw || '')
+    .trim()
+    .replace(/^\/+/, '');
+  if (!cleaned.startsWith('cleaned/') || cleaned.includes('..')) {
+    return { ok: false, error: 'Invalid cleaned key.' };
+  }
+
+  const map = await readCleanSourceMap(env);
+  const removed = [];
+  for (const [sourceKey, entry] of Object.entries(map || {})) {
+    if (entry && entry.cleanedKey === cleaned) {
+      delete map[sourceKey];
+      removed.push(sourceKey);
+    }
+  }
+  if (removed.length) {
+    await writeJson(bucket, MAP_KEY, map);
+  }
+  return { ok: true, cleanedKey: cleaned, removed };
+}

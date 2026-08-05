@@ -462,3 +462,33 @@ export async function setVideoPosted(env, keyRaw, posted) {
     postedAt: want ? map[key].postedAt : null,
   };
 }
+
+/**
+ * Drop account tag + posted flag for a media key (best-effort).
+ * Used when an admin deletes the underlying R2 object.
+ */
+export async function clearMediaListMetadata(env, keyRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const key = String(keyRaw || '').trim();
+  if (!key || key.includes('..')) return { ok: false, error: 'Invalid key.' };
+
+  let clearedTag = false;
+  let clearedPosted = false;
+
+  const tags = await readTagsMap(env);
+  if (Object.prototype.hasOwnProperty.call(tags, key)) {
+    delete tags[key];
+    await writeJson(bucket, TAGS_KEY, tags);
+    clearedTag = true;
+  }
+
+  const posted = await readPostedMap(env);
+  if (Object.prototype.hasOwnProperty.call(posted, key)) {
+    delete posted[key];
+    await writeJson(bucket, POSTED_KEY, posted);
+    clearedPosted = true;
+  }
+
+  return { ok: true, key, clearedTag, clearedPosted };
+}

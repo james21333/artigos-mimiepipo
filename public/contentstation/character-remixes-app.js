@@ -11,6 +11,7 @@
   const filterBtns = [...document.querySelectorAll('.filter-btn[data-variant]')];
 
   let accountsCache = [];
+  let sessionRole = null;
   const params = new URLSearchParams(window.location.search);
   const initialVariant = String(params.get('variant') || 'music-only')
     .trim()
@@ -19,6 +20,54 @@
   let currentVariant = ['music-only', 'talking-heads', 'all', 'character'].includes(initialVariant)
     ? initialVariant
     : 'music-only';
+
+  function isAdmin() {
+    return sessionRole === 'admin';
+  }
+
+  function afterCardRemoved(taggable) {
+    if (!galleryGrid.children.length) {
+      galleryGrid.hidden = true;
+      galleryEmpty.hidden = false;
+      galleryStatus.textContent = 'Library empty';
+    } else if (taggable) {
+      galleryStatus.textContent = `${galleryGrid.children.length} untagged video${
+        galleryGrid.children.length === 1 ? '' : 's'
+      }`;
+    } else {
+      galleryStatus.textContent = `${galleryGrid.children.length} video${
+        galleryGrid.children.length === 1 ? '' : 's'
+      }`;
+    }
+  }
+
+  async function deleteVideo(obj, card, btn, taggable) {
+    const key = obj && obj.key;
+    if (!key || !isAdmin()) return;
+    const label = displayName(obj);
+    if (
+      !confirm(
+        `Delete this remix permanently?\n\n${label}\n\nThis removes it from R2 and Ready tags. Cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/media', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', key }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not delete video.');
+      }
+      card.remove();
+      afterCardRemoved(taggable);
+    } catch (err) {
+      setError(err && err.message ? err.message : String(err));
+      btn.disabled = false;
+    }
+  }
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -232,15 +281,7 @@
               throw new Error((data && (data.message || data.error)) || 'Could not tag video.');
             }
             card.remove();
-            if (!galleryGrid.children.length) {
-              galleryGrid.hidden = true;
-              galleryEmpty.hidden = false;
-              galleryStatus.textContent = 'Library empty';
-            } else {
-              galleryStatus.textContent = `${galleryGrid.children.length} untagged video${
-                galleryGrid.children.length === 1 ? '' : 's'
-              }`;
-            }
+            afterCardRemoved(true);
           } catch (err) {
             setError(err && err.message ? err.message : String(err));
             select.value = '';
@@ -289,6 +330,17 @@
         source.textContent = 'Source TikTok';
         actions.appendChild(document.createTextNode(' '));
         actions.appendChild(source);
+      }
+
+      if (isAdmin()) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ghost danger media-del';
+        del.textContent = 'Delete';
+        del.addEventListener('click', () => {
+          deleteVideo(obj, card, del, taggable).catch(() => {});
+        });
+        actions.appendChild(del);
       }
 
       meta.appendChild(actions);
@@ -362,9 +414,13 @@
     if (ok && data && data.authenticated) {
       if (window.CSAuth && !window.CSAuth.gatePage(data, 'character-remixes')) return false;
       if (window.CSAuth) window.CSAuth.applyNav(data.role);
+      sessionRole = data.role || 'admin';
+      window.__csSession = data;
       showApp();
       return true;
     }
+    sessionRole = null;
+    window.__csSession = null;
     showGate();
     return false;
   }

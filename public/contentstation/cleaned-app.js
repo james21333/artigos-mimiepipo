@@ -9,6 +9,47 @@
   const galleryEmpty = document.getElementById('gallery-empty');
   const refreshBtn = document.getElementById('refresh-btn');
   let accountsCache = [];
+  let sessionRole = null;
+
+  function isAdmin() {
+    return sessionRole === 'admin';
+  }
+
+  function afterCardRemoved() {
+    if (!galleryGrid.children.length) {
+      galleryGrid.hidden = true;
+      galleryEmpty.hidden = false;
+      galleryStatus.textContent = 'Library empty';
+    } else {
+      galleryStatus.textContent = `${galleryGrid.children.length} untagged video${
+        galleryGrid.children.length === 1 ? '' : 's'
+      }`;
+    }
+  }
+
+  async function deleteVideo(obj, card, btn) {
+    const key = obj && obj.key;
+    if (!key || !isAdmin()) return;
+    const label = displayName(key);
+    if (!confirm(`Delete this cleaned video permanently?\n\n${label}\n\nThis removes it from R2 and Ready tags. Cannot be undone.`)) {
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const { ok, data } = await api('/api/contentstation/media', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', key }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not delete video.');
+      }
+      card.remove();
+      afterCardRemoved();
+    } catch (err) {
+      setError(err && err.message ? err.message : String(err));
+      btn.disabled = false;
+    }
+  }
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -189,15 +230,7 @@
             throw new Error((data && (data.message || data.error)) || 'Could not tag video.');
           }
           card.remove();
-          if (!galleryGrid.children.length) {
-            galleryGrid.hidden = true;
-            galleryEmpty.hidden = false;
-            galleryStatus.textContent = 'Library empty';
-          } else {
-            galleryStatus.textContent = `${galleryGrid.children.length} untagged video${
-              galleryGrid.children.length === 1 ? '' : 's'
-            }`;
-          }
+          afterCardRemoved();
         } catch (err) {
           setError(err && err.message ? err.message : String(err));
           select.value = '';
@@ -221,6 +254,17 @@
       readyLink.href = './ready.html';
       readyLink.textContent = 'Ready For Upload';
       actions.appendChild(readyLink);
+
+      if (isAdmin()) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ghost danger media-del';
+        del.textContent = 'Delete';
+        del.addEventListener('click', () => {
+          deleteVideo(obj, card, del).catch(() => {});
+        });
+        actions.appendChild(del);
+      }
 
       meta.appendChild(title);
       if (bits.length) meta.appendChild(info);
@@ -276,10 +320,12 @@
     if (ok && data && data.authenticated) {
       if (window.CSAuth && !window.CSAuth.gatePage(data, 'cleaned')) return false;
       if (window.CSAuth) window.CSAuth.applyNav(data.role);
+      sessionRole = data.role || 'admin';
       window.__csSession = data;
       showApp(data);
       return true;
     }
+    sessionRole = null;
     window.__csSession = null;
     showGate();
     return false;

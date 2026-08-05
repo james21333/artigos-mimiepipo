@@ -330,6 +330,15 @@ button.ghost {
   color: var(--accent);
 }
 
+button.ghost.danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, var(--rule));
+}
+
+button.ghost.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -562,6 +571,12 @@ a { color: var(--accent); }
 
 .gallery-actions .btn-link {
   margin-top: 0;
+  font-size: 0.92rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.gallery-actions button.ghost {
+  margin: 0;
   font-size: 0.92rem;
   padding: 0.4rem 0.8rem;
 }

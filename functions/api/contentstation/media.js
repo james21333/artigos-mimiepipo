@@ -7,7 +7,8 @@ import {
   mediaWriteAllowed,
 } from '../../lib/contentstation-auth.js';
 import { createR2PresignedPut, createR2PresignedGet } from '../../lib/r2-presign.js';
-import { readCleanSourceMap } from '../../lib/clean-source-map.js';
+import { readCleanSourceMap, removeCleanedFromSourceMap } from '../../lib/clean-source-map.js';
+import { clearMediaListMetadata } from '../../lib/account-tags.js';
 
 /**
  * R2 media API (binding: MEDIA_BUCKET → content-station-media).
@@ -154,11 +155,47 @@ async function streamGet(bucket, url) {
   return new Response(obj.body, { status: 200, headers });
 }
 
-async function deleteKey(bucket, key) {
+async function deleteKey(env, bucket, key) {
   const safe = sanitizeKey(key);
   if (!safe) return json({ error: 'invalid_key' }, 400);
   await bucket.delete(safe);
-  return json({ status: 'ok', deleted: safe });
+
+  const extras = [];
+  const remix2 = /^character-remix-2-og\/([^/]+)\/final\.mp4$/i.exec(safe);
+  if (remix2) {
+    const sidecar = `character-remix-2-og/${remix2[1]}/ready.json`;
+    try {
+      await bucket.delete(sidecar);
+      extras.push(sidecar);
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  let tags = null;
+  try {
+    tags = await clearMediaListMetadata(env, safe);
+  } catch {
+    tags = { ok: false };
+  }
+
+  let cleanMap = null;
+  if (safe.startsWith('cleaned/')) {
+    try {
+      cleanMap = await removeCleanedFromSourceMap(env, safe);
+    } catch {
+      cleanMap = { ok: false };
+    }
+  }
+
+  return json({
+    status: 'ok',
+    deleted: safe,
+    alsoDeleted: extras,
+    clearedTag: Boolean(tags && tags.clearedTag),
+    clearedPosted: Boolean(tags && tags.clearedPosted),
+    cleanMapRemoved: (cleanMap && cleanMap.removed) || [],
+  });
 }
 
 async function uploadForm(env, bucket, request) {
@@ -239,7 +276,7 @@ async function handleJson(env, bucket, request) {
   const action = body.action || 'delete';
 
   if (action === 'delete') {
-    return deleteKey(bucket, body.key);
+    return deleteKey(env, bucket, body.key);
   }
 
   if (action === 'sign-put') {
@@ -414,7 +451,7 @@ export async function onRequest(context) {
     if (!mediaWriteAllowed(role)) return forbidMedia(role);
 
     if (method === 'DELETE') {
-      return deleteKey(bucket, url.searchParams.get('key'));
+      return deleteKey(env, bucket, url.searchParams.get('key'));
     }
 
     if (method === 'PUT' && action === 'multipart-part') {
