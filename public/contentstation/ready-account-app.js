@@ -358,53 +358,48 @@
       dl.setAttribute('download', '');
       actions.appendChild(dl);
 
-      const isRemix2 = String(obj.key || '').startsWith('character-remix-2-og/');
       const infoBtn = document.createElement('button');
       infoBtn.type = 'button';
       infoBtn.className = 'ghost btn-info';
       infoBtn.textContent = 'Info';
-      if (!isRemix2) {
-        actions.appendChild(infoBtn);
-      }
+      actions.appendChild(infoBtn);
 
       const postInfo = document.createElement('div');
       postInfo.className = 'post-info-panel';
       postInfo.hidden = true;
 
-      if (!isRemix2) {
-        infoBtn.addEventListener('click', async () => {
-          if (!postInfo.hidden) {
-            postInfo.hidden = true;
-            infoBtn.setAttribute('aria-expanded', 'false');
-            return;
+      infoBtn.addEventListener('click', async () => {
+        if (!postInfo.hidden) {
+          postInfo.hidden = true;
+          infoBtn.setAttribute('aria-expanded', 'false');
+          return;
+        }
+        infoBtn.disabled = true;
+        infoBtn.textContent = 'Info…';
+        try {
+          const { ok, data } = await api(
+            `/api/contentstation/accounts?action=info&key=${encodeURIComponent(obj.key)}`,
+          );
+          if (!ok) {
+            throw new Error((data && (data.message || data.error)) || 'Could not load info.');
           }
-          infoBtn.disabled = true;
-          infoBtn.textContent = 'Info…';
-          try {
-            const { ok, data } = await api(
-              `/api/contentstation/accounts?action=info&key=${encodeURIComponent(obj.key)}`,
-            );
-            if (!ok) {
-              throw new Error((data && (data.message || data.error)) || 'Could not load info.');
-            }
-            renderPostInfo(postInfo, data.info || {});
-            postInfo.hidden = false;
-            infoBtn.setAttribute('aria-expanded', 'true');
-          } catch (err) {
-            setError(err && err.message ? err.message : String(err));
-          } finally {
-            infoBtn.disabled = false;
-            infoBtn.textContent = 'Info';
-          }
-        });
-      }
+          renderPostInfo(postInfo, data.info || {});
+          postInfo.hidden = false;
+          infoBtn.setAttribute('aria-expanded', 'true');
+        } catch (err) {
+          setError(err && err.message ? err.message : String(err));
+        } finally {
+          infoBtn.disabled = false;
+          infoBtn.textContent = 'Info';
+        }
+      });
 
       meta.appendChild(title);
       if (info.textContent) meta.appendChild(info);
       meta.appendChild(postedRow);
       meta.appendChild(tagRow);
       meta.appendChild(actions);
-      if (!isRemix2) meta.appendChild(postInfo);
+      meta.appendChild(postInfo);
 
       card.appendChild(media);
       card.appendChild(meta);

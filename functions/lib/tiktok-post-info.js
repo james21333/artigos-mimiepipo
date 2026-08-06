@@ -305,6 +305,36 @@ export async function resolvePostInfoForKey(env, cleanedKeyRaw) {
     cleanedMeta = null;
   }
 
+  // Remix 2 finals: merge ready.json sidecar (R2 user-metadata is often stripped).
+  const remix2 = /^character-remix-2-og\/([^/]+)\/final\.mp4$/i.exec(cleanedKey);
+  if (remix2 && bucket) {
+    try {
+      const sidecar = await bucket.get(`character-remix-2-og/${remix2[1]}/ready.json`);
+      if (sidecar) {
+        const text = await sidecar.text();
+        const json = text ? JSON.parse(text) : null;
+        if (json && typeof json === 'object') {
+          cleanedMeta = { ...(cleanedMeta || {}) };
+          const assign = (camel, value) => {
+            if (value == null || value === '') return;
+            cleanedMeta[camel] = String(value);
+          };
+          assign('tiktokUrl', json.tiktokUrl);
+          assign('tiktokId', json.tiktokId);
+          assign('author', json.author);
+          assign('title', json.title);
+          assign('sourceKey', json.sourceKey);
+          assign('musicId', json.musicId);
+          assign('musicTitle', json.musicTitle);
+          assign('musicAuthor', json.musicAuthor);
+          assign('musicOriginal', json.musicOriginal);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   let info = postInfoFromCustomMetadata(cleanedMeta);
 
   let sourceKey =

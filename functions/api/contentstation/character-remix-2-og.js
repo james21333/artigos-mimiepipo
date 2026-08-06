@@ -41,6 +41,7 @@ import {
   remix2R2Payload,
 } from '../../lib/character-remix-2-og.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
+import { flattenPostMetaForStorage } from '../../lib/tiktok-post-info.js';
 import { getTagForKey } from '../../lib/account-tags.js';
 
 async function resolveKey(env, key) {
@@ -325,6 +326,7 @@ export async function onRequest(context) {
       );
     }
     const sourceKey = dl.key;
+    const postFlat = flattenPostMetaForStorage(dl.meta || {}, tiktokUrl);
 
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
@@ -345,6 +347,7 @@ export async function onRequest(context) {
         setKey: body.setKey || null,
         title:
           body.title ||
+          postFlat.title ||
           (writeFromScratch
             ? 'Viral Video Builder — Write From Scratch'
             : musicLock
@@ -353,6 +356,13 @@ export async function onRequest(context) {
                 ? 'TikTok remake (talking heads)'
                 : 'TikTok remake'),
         sourceKey,
+        tiktokUrl: postFlat.tiktokUrl || tiktokUrl,
+        tiktokId: postFlat.tiktokId || '',
+        author: postFlat.author || '',
+        musicId: postFlat.musicId || '',
+        musicTitle: postFlat.musicTitle || '',
+        musicAuthor: postFlat.musicAuthor || '',
+        musicOriginal: postFlat.musicOriginal || '',
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         scenes: [],
         // Viral builder never auto-runs generate; worker kicks analyze-only prepare.
@@ -474,6 +484,62 @@ export async function onRequest(context) {
       );
     }
 
+    // Prefer explicit body music/url; else copy from tiktok/ source object meta (same as cleaned).
+    let postFlat = flattenPostMetaForStorage(
+      {
+        id: body.tiktokId,
+        author: body.author,
+        title: body.title,
+        tiktokUrl: body.tiktokUrl,
+        musicId: body.musicId,
+        musicTitle: body.musicTitle,
+        musicAuthor: body.musicAuthor,
+        musicOriginal:
+          body.musicOriginal === true || body.musicOriginal === '1'
+            ? true
+            : body.musicOriginal === false || body.musicOriginal === '0'
+              ? false
+              : undefined,
+      },
+      body.tiktokUrl,
+    );
+    if (body.sourceKey && (!postFlat.musicId || !postFlat.tiktokUrl)) {
+      try {
+        const srcHead = await env.MEDIA_BUCKET?.head(body.sourceKey);
+        const sm = srcHead?.customMetadata || {};
+        const fromSrc = flattenPostMetaForStorage(
+          {
+            id: sm.tiktokId || sm.tiktokid || sm.id,
+            author: sm.author,
+            title: sm.title || sm.desc,
+            tiktokUrl: sm.tiktokUrl || sm.tiktokurl,
+            musicId: sm.musicId || sm.musicid,
+            musicTitle: sm.musicTitle || sm.musictitle,
+            musicAuthor: sm.musicAuthor || sm.musicauthor,
+            musicOriginal:
+              sm.musicOriginal === '1' || sm.musicoriginal === '1'
+                ? true
+                : sm.musicOriginal === '0' || sm.musicoriginal === '0'
+                  ? false
+                  : undefined,
+          },
+          sm.tiktokUrl || sm.tiktokurl || body.tiktokUrl,
+        );
+        postFlat = {
+          tiktokUrl: postFlat.tiktokUrl || fromSrc.tiktokUrl,
+          tiktokId: postFlat.tiktokId || fromSrc.tiktokId,
+          author: postFlat.author || fromSrc.author,
+          title: postFlat.title || fromSrc.title,
+          musicId: postFlat.musicId || fromSrc.musicId,
+          musicTitle: postFlat.musicTitle || fromSrc.musicTitle,
+          musicAuthor: postFlat.musicAuthor || fromSrc.musicAuthor,
+          musicOriginal: postFlat.musicOriginal || fromSrc.musicOriginal,
+        };
+      } catch {
+        /* ignore */
+      }
+    }
+
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
       body: {
@@ -497,6 +563,13 @@ export async function onRequest(context) {
               : 'Remix 2 OG'),
         scenes,
         sourceKey: body.sourceKey || null,
+        tiktokUrl: postFlat.tiktokUrl || body.tiktokUrl || '',
+        tiktokId: postFlat.tiktokId || '',
+        author: postFlat.author || '',
+        musicId: postFlat.musicId || '',
+        musicTitle: postFlat.musicTitle || '',
+        musicAuthor: postFlat.musicAuthor || '',
+        musicOriginal: postFlat.musicOriginal || '',
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         autoRun: Boolean(body.autoRun),
         r2,

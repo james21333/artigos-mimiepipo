@@ -72,6 +72,13 @@ async function enrichKeys(env, keys) {
             if (json.musicLock != null) customMetadata.musicLock = json.musicLock ? 'true' : 'false';
             if (json.remixVariant) customMetadata.remixVariant = String(json.remixVariant);
             if (json.tiktokUrl) customMetadata.tiktokUrl = String(json.tiktokUrl);
+            if (json.sourceKey) customMetadata.sourceKey = String(json.sourceKey);
+            if (json.musicId) customMetadata.musicId = String(json.musicId);
+            if (json.musicTitle) customMetadata.musicTitle = String(json.musicTitle);
+            if (json.musicAuthor) customMetadata.musicAuthor = String(json.musicAuthor);
+            if (json.musicOriginal != null && json.musicOriginal !== '') {
+              customMetadata.musicOriginal = String(json.musicOriginal);
+            }
             if (json.uploadedAt) {
               const t = Date.parse(json.uploadedAt);
               if (Number.isFinite(t)) uploaded = new Date(t).toISOString();

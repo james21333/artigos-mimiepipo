@@ -289,6 +289,13 @@ export async function listRemix2Finals(env, opts = {}) {
             if (json.tiktokUrl) meta.tiktokUrl = String(json.tiktokUrl);
             if (json.title) meta.title = String(json.title);
             if (json.audioMode) meta.audioMode = String(json.audioMode);
+            if (json.sourceKey) meta.sourceKey = String(json.sourceKey);
+            if (json.musicId) meta.musicId = String(json.musicId);
+            if (json.musicTitle) meta.musicTitle = String(json.musicTitle);
+            if (json.musicAuthor) meta.musicAuthor = String(json.musicAuthor);
+            if (json.musicOriginal != null && json.musicOriginal !== '') {
+              meta.musicOriginal = String(json.musicOriginal);
+            }
             if (json.uploadedAt) {
               const t = Date.parse(json.uploadedAt);
               if (Number.isFinite(t)) uploadedAt = new Date(t).toISOString();
