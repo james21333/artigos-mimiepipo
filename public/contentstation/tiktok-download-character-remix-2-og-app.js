@@ -233,12 +233,29 @@
             : 'Provider';
       const hours = data?.providerWaitEstimateHours;
       const est = hours != null && hours !== '' ? `~${hours}h` : 'a few hours';
+      const cadence =
+        data?.providerProbeCadence ||
+        (data?.providerProbePhase === 'slow'
+          ? 'checking every 12h'
+          : data?.providerProbePhase === 'gave_up'
+            ? 'auto-check stopped'
+            : 'checking hourly (~25h)');
       setStatus(
-        `${who} cooling down ${est} — checking hourly, auto-resume`,
+        `${who} cooling down ${est} — ${cadence}, auto-resume`,
         data?.message || data?.detail || '',
       );
       setError('');
       if (runBtn) runBtn.disabled = true;
+    } else if (stage === 'provider_give_up') {
+      const who =
+        data?.provider === 'grok'
+          ? 'Grok/xAI'
+          : data?.provider === 'codex' || data?.provider === 'openai'
+            ? 'OpenAI/Codex'
+            : 'Provider';
+      setStatus(`${who} auto-check stopped — re-run to retry`, data?.message || '');
+      setError(data?.message || '');
+      if (runBtn) runBtn.disabled = false;
     } else if (stage === 'error') {
       setError(data?.message || 'Job error');
       if (runBtn) runBtn.disabled = false;

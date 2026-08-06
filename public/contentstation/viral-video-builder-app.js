@@ -187,13 +187,26 @@
       const who =
         provider === 'grok' ? 'Grok/xAI' : provider === 'codex' || provider === 'openai' ? 'OpenAI/Codex' : 'Provider';
       const est = hours != null && hours !== '' ? `~${hours}h` : 'a few hours';
-      return `${who} cooling down ${est} — checking hourly`;
+      const cadence =
+        data?.providerProbeCadence ||
+        (data?.providerProbePhase === 'slow'
+          ? 'checking every 12h'
+          : data?.providerProbePhase === 'gave_up'
+            ? 'auto-check stopped'
+            : 'checking hourly (~25h)');
+      return `${who} cooling down ${est} — ${cadence}`;
+    }
+    if (stage === 'provider_give_up') {
+      const provider = data?.provider || '';
+      const who =
+        provider === 'grok' ? 'Grok/xAI' : provider === 'codex' || provider === 'openai' ? 'OpenAI/Codex' : 'Provider';
+      return `${who} auto-check stopped — re-run to retry`;
     }
     return map[stage] || stage || '…';
   }
 
   function isTerminalStage(stage) {
-    return stage === 'stitched' || stage === 'error';
+    return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
   }
 
   function isTerminalJob(job) {
@@ -526,7 +539,13 @@
     }
     const errEl = card.querySelector('.result-error');
     if (errEl) {
-      if ((stage === 'error' || stage === 'waiting_provider' || stage === 'provider_cooldown') && data?.message) {
+      if (
+        (stage === 'error' ||
+          stage === 'waiting_provider' ||
+          stage === 'provider_cooldown' ||
+          stage === 'provider_give_up') &&
+        data?.message
+      ) {
         errEl.hidden = false;
         errEl.textContent = data.message;
         if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
