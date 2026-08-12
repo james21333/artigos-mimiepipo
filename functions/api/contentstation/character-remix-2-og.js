@@ -42,7 +42,16 @@ import {
 } from '../../lib/character-remix-2-og.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
 import { flattenPostMetaForStorage } from '../../lib/tiktok-post-info.js';
-import { getTagForKey } from '../../lib/account-tags.js';
+import { getTagForKey, sanitizeAccountName } from '../../lib/account-tags.js';
+import {
+  alreadyRemixedResult,
+  ensureRemixUsedIndex,
+  extractTikTokVideoId,
+  getRemixUsedRecord,
+  markRemixUsed,
+} from '../../lib/remix2-account-used.js';
+import { listRemixSourcePools } from '../../lib/remix2-source-pool.js';
+import { addUrlsToList, DEFAULT_LIST_ID } from '../../lib/tiktok-url-lists.js';
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -107,6 +116,20 @@ export async function onRequest(context) {
         },
         result.ok ? 200 : result.status || 502,
       );
+    }
+    if (action === 'source-pool') {
+      const listId = url.searchParams.get('listId') || DEFAULT_LIST_ID;
+      const result = await listRemixSourcePools(env, listId);
+      if (!result.ok) {
+        return json({ error: result.error || 'pool_failed', accounts: [] }, 503);
+      }
+      return json({
+        ok: true,
+        listId: result.listId,
+        listName: result.listName,
+        listCount: result.listCount,
+        accounts: result.accounts,
+      }, 200);
     }
     if (action === 'status') {
       const jobId = url.searchParams.get('jobId');
@@ -284,6 +307,28 @@ export async function onRequest(context) {
     if (!tiktokUrl || !looksLikeTikTokUrl(tiktokUrl)) {
       return json({ error: 'invalid_tiktok_url', message: 'Provide a valid TikTok URL.' }, 400);
     }
+    try {
+      await addUrlsToList(env, body.listId || DEFAULT_LIST_ID, [tiktokUrl], {
+        addedFrom: remixVariant || 'remix2',
+      });
+    } catch {
+      /* list write must not block remix */
+    }
+    const remixAccount = sanitizeAccountName(body.account) || null;
+    if (remixAccount) {
+      await ensureRemixUsedIndex(env, remixAccount);
+      const idFromUrl = extractTikTokVideoId(tiktokUrl);
+      if (idFromUrl) {
+        const seen = await getRemixUsedRecord(env, {
+          tiktokId: idFromUrl,
+          tiktokUrl,
+          account: remixAccount,
+        });
+        if (seen) {
+          return json(alreadyRemixedResult(seen, remixAccount), 409);
+        }
+      }
+    }
     if (identityLock || !autoSimilar) {
       if (!characterKey) {
         return json(
@@ -327,6 +372,22 @@ export async function onRequest(context) {
     }
     const sourceKey = dl.key;
     const postFlat = flattenPostMetaForStorage(dl.meta || {}, tiktokUrl);
+
+    if (remixAccount) {
+      const resolvedId =
+        String(postFlat.tiktokId || '').replace(/[^\d]/g, '') ||
+        extractTikTokVideoId(postFlat.tiktokUrl || tiktokUrl);
+      if (resolvedId) {
+        const seen = await getRemixUsedRecord(env, {
+          tiktokId: resolvedId,
+          tiktokUrl: postFlat.tiktokUrl || tiktokUrl,
+          account: remixAccount,
+        });
+        if (seen) {
+          return json(alreadyRemixedResult(seen, remixAccount), 409);
+        }
+      }
+    }
 
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
@@ -388,11 +449,22 @@ export async function onRequest(context) {
         result.status || 502,
       );
     }
+    const created = result.data || {};
+    if (remixAccount && created.jobId) {
+      await markRemixUsed(env, {
+        tiktokId: postFlat.tiktokId,
+        tiktokUrl: postFlat.tiktokUrl || tiktokUrl,
+        account: remixAccount,
+        jobId: created.jobId,
+        variant: remixVariant || '',
+      });
+    }
     return json(
       {
-        ...(result.data || {}),
+        ...created,
         sourceKey,
         tiktokMeta: dl?.meta || null,
+        account: remixAccount || null,
       },
       200,
     );

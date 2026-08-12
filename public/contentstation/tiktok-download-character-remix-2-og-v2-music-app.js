@@ -14,10 +14,16 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const errorEl = document.getElementById('remix2-v2-error');
+  const dupBanner = document.getElementById('remix-dup-banner');
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
   const restoreOverlaysEl = document.getElementById('restore-overlays');
+  const autogenRandomEl = document.getElementById('autogen-random');
+  const autogenListEl = document.getElementById('autogen-account-list');
+  const autogenEmptyEl = document.getElementById('autogen-empty');
+  const autogenSummaryEl = document.getElementById('autogen-summary');
+  const autogenBtn = document.getElementById('autogen-btn');
   const runBtn = document.getElementById('run-btn');
   const clearFinishedBtn = document.getElementById('clear-finished-btn');
   const batchActions = document.getElementById('batch-actions');
@@ -61,7 +67,32 @@
       onError: (msg) => {
         if (msg) setError(msg);
       },
+      onAccountChange: (account) => {
+        if (account) autogenChecked.add(account);
+        renderAutogen();
+      },
     });
+
+  const listsUi =
+    window.CSTikTokLists &&
+    window.CSTikTokLists.createController({
+      api,
+      onChange: () => {
+        loadSourcePool().catch(() => {});
+      },
+    });
+
+  function selectedListId() {
+    return listsUi?.selected?.() || 'glp-1';
+  }
+
+  const FEATURED_ACCOUNT_RE = /^(1|2|3|6|7|8|10)(\D|$)/;
+  /** @type {any[]} */
+  let sourcePool = [];
+  /** @type {Set<string>} */
+  const autogenChecked = new Set();
+  /** @type {Set<string>} leftover url keys `${account}\t${url}` */
+  const leftoverChecked = new Set();
 
   function mediaFinalPath(jobId) {
     const key = `character-remix-2-og/${jobId}/final.mp4`;
@@ -181,6 +212,218 @@
     }
     errorEl.hidden = false;
     errorEl.textContent = msg;
+  }
+
+  function leftoverKey(account, url) {
+    return `${account}\t${url}`;
+  }
+
+  function accountNum(name) {
+    const m = String(name || '').match(/^(\d+)/);
+    return m ? Number(m[1]) : 999;
+  }
+
+  function isFeaturedAccount(name) {
+    return FEATURED_ACCOUNT_RE.test(String(name || '').trim());
+  }
+
+  function poolFor(account) {
+    return sourcePool.find((p) => p.account === account) || null;
+  }
+
+  function selectedAutogenAccounts() {
+    return sourcePool.filter((p) => autogenChecked.has(p.account));
+  }
+
+  function plannedAutogenJobs() {
+    const random = Boolean(autogenRandomEl?.checked);
+    const jobs = [];
+    const blocked = [];
+    for (const p of selectedAutogenAccounts()) {
+      if (!p.characterKey) {
+        blocked.push(`${p.account} — no character image`);
+        continue;
+      }
+      if (random) {
+        if (!p.leftover?.length) {
+          blocked.push(`${p.account} — no leftovers`);
+          continue;
+        }
+        jobs.push({ account: p.account, characterKey: p.characterKey, pick: 'random', leftover: p.leftover });
+        continue;
+      }
+      const picked = (p.leftover || []).filter((item) => leftoverChecked.has(leftoverKey(p.account, item.url)));
+      if (!picked.length) {
+        blocked.push(`${p.account} — pick at least one leftover URL`);
+        continue;
+      }
+      for (const item of picked) {
+        jobs.push({
+          account: p.account,
+          characterKey: p.characterKey,
+          url: item.url,
+        });
+      }
+    }
+    return { jobs, blocked, random };
+  }
+
+  function renderAutogen() {
+    if (!autogenListEl) return;
+    autogenListEl.innerHTML = '';
+    const random = Boolean(autogenRandomEl?.checked);
+    if (autogenEmptyEl) autogenEmptyEl.hidden = sourcePool.length > 0;
+    const featured = sourcePool.filter((p) => isFeaturedAccount(p.account));
+    const rest = sourcePool.filter((p) => !isFeaturedAccount(p.account));
+    const groups = [
+      { label: 'Accounts 1, 2, 3, 6, 7, 8, 10', rows: featured },
+      { label: 'Other accounts', rows: rest },
+    ];
+    for (const group of groups) {
+      if (!group.rows.length) continue;
+      const heading = document.createElement('li');
+      heading.className = 'autogen-group-label';
+      heading.style.listStyle = 'none';
+      heading.textContent = group.label;
+      autogenListEl.appendChild(heading);
+      for (const p of group.rows) {
+        const li = document.createElement('li');
+        const blocked = !p.characterKey;
+        li.className = 'autogen-account-row' + (blocked ? ' is-blocked' : '');
+        const id = `autogen-acc-${accountNum(p.account)}-${encodeURIComponent(p.account).slice(0, 40)}`;
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.id = id;
+        check.checked = autogenChecked.has(p.account);
+        check.disabled = blocked || (!random && !(p.leftover || []).length && !p.characterKey);
+        if (!p.leftover?.length) check.disabled = true;
+        if (blocked) check.disabled = true;
+        check.addEventListener('change', () => {
+          if (check.checked) autogenChecked.add(p.account);
+          else autogenChecked.delete(p.account);
+          renderAutogen();
+        });
+        let thumb;
+        if (p.characterUrl) {
+          thumb = document.createElement('img');
+          thumb.className = 'autogen-thumb';
+          thumb.alt = '';
+          thumb.src = p.characterUrl;
+        } else {
+          thumb = document.createElement('div');
+          thumb.className = 'autogen-thumb is-empty';
+          thumb.textContent = 'No img';
+        }
+        const meta = document.createElement('div');
+        meta.className = 'autogen-account-meta';
+        const nameEl = document.createElement('strong');
+        nameEl.textContent = p.account;
+        const sub = document.createElement('span');
+        sub.textContent = blocked
+          ? 'Save a character for this account before autogenerate'
+          : `${p.leftoverCount} leftover · ${p.remixedCount} already remixed · ${p.poolCount} on list`;
+        meta.appendChild(nameEl);
+        meta.appendChild(sub);
+        const count = document.createElement('span');
+        count.className = 'autogen-count' + (p.leftoverCount ? '' : ' is-zero');
+        count.textContent = p.leftoverCount ? `${p.leftoverCount} left` : '0 left';
+        li.appendChild(check);
+        li.appendChild(thumb);
+        li.appendChild(meta);
+        li.appendChild(count);
+        if (!random && check.checked && p.leftover?.length && p.characterKey) {
+          const wrap = document.createElement('div');
+          wrap.className = 'autogen-leftovers';
+          for (const item of p.leftover) {
+            const lab = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = leftoverChecked.has(leftoverKey(p.account, item.url));
+            cb.addEventListener('change', () => {
+              const k = leftoverKey(p.account, item.url);
+              if (cb.checked) leftoverChecked.add(k);
+              else leftoverChecked.delete(k);
+              updateAutogenSummary();
+            });
+            const u = document.createElement('span');
+            u.textContent = item.url;
+            lab.appendChild(cb);
+            lab.appendChild(u);
+            wrap.appendChild(lab);
+          }
+          li.appendChild(wrap);
+        }
+        autogenListEl.appendChild(li);
+      }
+    }
+    updateAutogenSummary();
+  }
+
+  function updateAutogenSummary() {
+    const { jobs, blocked, random } = plannedAutogenJobs();
+    const accounts = new Set(jobs.map((j) => j.account)).size;
+    let text = '';
+    if (jobs.length) {
+      text = random
+        ? `Will queue ${jobs.length} random leftover${jobs.length === 1 ? '' : 's'} · ${accounts} account${accounts === 1 ? '' : 's'}`
+        : `Will queue ${jobs.length} selected leftover${jobs.length === 1 ? '' : 's'} · ${accounts} account${accounts === 1 ? '' : 's'}`;
+    } else if (selectedAutogenAccounts().length) {
+      text = blocked[0] || 'Nothing to queue — check leftovers and character images.';
+    } else {
+      text = 'Check one or more accounts above.';
+    }
+    if (autogenSummaryEl) autogenSummaryEl.textContent = text;
+    if (autogenBtn) autogenBtn.disabled = submitting || !jobs.length;
+  }
+
+  async function loadSourcePool() {
+    const listId = encodeURIComponent(selectedListId());
+    const { ok, data } = await api(
+      `/api/contentstation/character-remix-2-og?action=source-pool&listId=${listId}`,
+    );
+    sourcePool = ok && Array.isArray(data?.accounts) ? data.accounts : [];
+    const titleEl = document.getElementById('autogen-title');
+    if (titleEl && data?.listName) {
+      titleEl.textContent = `Autogenerate from ${data.listName}`;
+    }
+    renderAutogen();
+  }
+
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function setDupBanner(skipped, account) {
+    if (!dupBanner) return;
+    if (!skipped.length) {
+      dupBanner.hidden = true;
+      dupBanner.innerHTML = '';
+      return;
+    }
+    const title = document.createElement('p');
+    title.className = 'duplicate-skip-title';
+    title.textContent =
+      skipped.length === 1
+        ? 'Already remixed for this account — skipped.'
+        : `${skipped.length} URLs already remixed for this account — skipped.`;
+    const sub = document.createElement('p');
+    sub.style.margin = '0 0 0.35rem';
+    sub.style.fontWeight = '700';
+    sub.textContent = account
+      ? `Account: ${account}. Other accounts can still remix these URLs.`
+      : 'Pick an account to track per-account duplicates.';
+    const list = document.createElement('ul');
+    list.className = 'duplicate-skip-list';
+    for (const url of skipped) {
+      const li = document.createElement('li');
+      li.textContent = url;
+      list.appendChild(li);
+    }
+    dupBanner.innerHTML = '';
+    dupBanner.appendChild(title);
+    dupBanner.appendChild(sub);
+    dupBanner.appendChild(list);
+    dupBanner.hidden = false;
   }
 
   function setStatus(main, detail) {
@@ -386,10 +629,10 @@
       const cadence =
         data?.providerProbeCadence ||
         (data?.providerProbePhase === 'slow'
-          ? 'checking every 12h'
+          ? 'checking every 6h'
           : data?.providerProbePhase === 'gave_up'
             ? 'auto-check stopped'
-            : 'checking hourly (~25h)');
+            : 'checking hourly (~168h)');
       label = `${who} cooling down ${est} — ${cadence}, auto-resume`;
     } else if (stage === 'provider_give_up') {
       const provider = data?.provider || '';
@@ -595,9 +838,114 @@
   if (outputGallery) outputGallery.hidden = true;
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
+  autogenRandomEl?.addEventListener('change', () => renderAutogen());
 
   clearFinishedBtn?.addEventListener('click', () => {
     clearFinishedFromList().catch((err) => setError(err?.message || String(err)));
+  });
+
+  autogenBtn?.addEventListener('click', async () => {
+    setError('');
+    const plan = plannedAutogenJobs();
+    if (!plan.jobs.length) {
+      setError(plan.blocked[0] || 'Check accounts that have a character and leftovers.');
+      return;
+    }
+    const work = [];
+    for (const job of plan.jobs) {
+      if (job.url) {
+        work.push(job);
+        continue;
+      }
+      const item = pickRandom(job.leftover || []);
+      if (item?.url) {
+        work.push({ account: job.account, characterKey: job.characterKey, url: item.url });
+      }
+    }
+    if (!work.length) {
+      setError('No leftover URLs to autogenerate.');
+      return;
+    }
+    submitting = true;
+    if (autogenBtn) autogenBtn.disabled = true;
+    if (runBtn) runBtn.disabled = true;
+    try {
+      const baseTitle = titleInput?.value || 'TikTok remake (music-only)';
+      const started = [];
+      const failures = [];
+      const skipped = [];
+      setDupBanner([]);
+      for (let i = 0; i < work.length; i++) {
+        const item = work[i];
+        setStatus(`Autogenerate ${i + 1} / ${work.length}`, `${item.account} · ${item.url}`);
+        const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'from-tiktok',
+            tiktokUrl: item.url,
+            characterKey: item.characterKey,
+            account: item.account,
+            characterMode: 'upload',
+            version: 'v2',
+            identityLock: true,
+            musicLock: true,
+            audioMode: 'source',
+            remixVariant: 'music-only',
+            restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
+            deriveCharacterFromSource: false,
+            listId: selectedListId(),
+            title: work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
+            autoRun: true,
+          }),
+        });
+        if (data?.error === 'already_remixed_for_account') {
+          skipped.push(item.url);
+          setDupBanner(skipped, item.account);
+          continue;
+        }
+        if (!ok || !data?.jobId) {
+          const detail = createFailureDetail(data, status, i);
+          failures.push(`${item.account}: ${detail}`);
+          showSubmitFailure(item.url, i, `${item.account}: ${detail}`);
+          continue;
+        }
+        const job = {
+          jobId: data.jobId,
+          tiktokUrl: item.url,
+          title: data.title || baseTitle,
+          account: item.account,
+          characterKey: item.characterKey,
+          tagged: false,
+        };
+        started.push(job);
+        batchJobs.push(job);
+        saveBatch();
+        updateCardFromStatus(job, data);
+      }
+      await loadSourcePool();
+      if (listsUi) await listsUi.load().catch(() => {});
+      if (!started.length) {
+        if (skipped.length && !failures.length) {
+          setStatus('All skipped', 'Those leftovers were already remixed for the selected accounts.');
+          return;
+        }
+        throw new Error(failures[0] || 'Autogenerate did not start any jobs.');
+      }
+      if (failures.length) setError(failures.join('\n'));
+      setStatus(
+        `Autogenerated ${started.length} job(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}`,
+        'Each job uses that account’s character. Pipelines queue on Fast Panda.',
+      );
+      startPoll();
+      accountsUi?.refresh?.().catch(() => {});
+    } catch (err) {
+      setError(err?.message || String(err));
+      setStatus('Failed');
+    } finally {
+      submitting = false;
+      updateAutogenSummary();
+      if (runBtn) runBtn.disabled = false;
+    }
   });
 
   runBtn?.addEventListener('click', async () => {
@@ -635,6 +983,8 @@
       const baseTitle = titleInput?.value || 'TikTok remake (music-only)';
       const started = [];
       const failures = [];
+      const skipped = [];
+      setDupBanner([]);
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         setStatus(`Submitting ${i + 1} / ${urls.length}`, url);
@@ -644,6 +994,7 @@
             action: 'from-tiktok',
             tiktokUrl: url,
             characterKey,
+            account: account || undefined,
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
@@ -652,10 +1003,16 @@
             remixVariant: 'music-only',
             restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
             deriveCharacterFromSource: false,
+            listId: selectedListId(),
             title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
             autoRun: true,
           }),
         });
+        if (data?.error === 'already_remixed_for_account') {
+          skipped.push(url);
+          setDupBanner(skipped, account);
+          continue;
+        }
         if (!ok || !data?.jobId) {
           const detail = createFailureDetail(data, status, i);
           failures.push(detail);
@@ -676,19 +1033,30 @@
         updateCardFromStatus(job, data);
       }
       if (!started.length) {
+        if (skipped.length && !failures.length) {
+          setStatus(
+            'All skipped',
+            `${skipped.length} already remixed for ${account || 'this account'}`,
+          );
+          return;
+        }
         throw new Error(failures[0] || 'No jobs started — worker did not return a jobId.');
       }
       if (failures.length) {
         setError(`${failures.length} URL(s) failed to create. First: ${failures[0]}`);
       }
       setStatus(
-        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}`,
+        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}${
+          skipped.length ? ` · ${skipped.length} skipped` : ''
+        }`,
         account
           ? 'Pipelines queue on Fast Panda. Finished MP4s auto-tag to Ready For Upload.'
           : 'Pipelines queue on Fast Panda — one remake at a time. Tag later on the job card or Remix 2 ready.',
       );
       startPoll();
       accountsUi?.refresh?.().catch(() => {});
+      loadSourcePool().catch(() => {});
+      listsUi?.load?.().catch(() => {});
     } catch (err) {
       setError(err?.message || String(err));
       setStatus('Failed');
@@ -739,6 +1107,8 @@
     if (accountsUi) {
       accountsCache = (await accountsUi.loadAccounts()) || [];
     }
+    if (listsUi) await listsUi.load().catch(() => {});
+    await loadSourcePool();
     updateUrlCount();
     loadBatch();
     if (batchJobs.length) {

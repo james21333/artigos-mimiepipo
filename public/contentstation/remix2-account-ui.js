@@ -70,6 +70,8 @@
       historyWrap: document.getElementById('character-history-wrap'),
       historySelect: document.getElementById('character-history-select'),
       setDefaultBtn: document.getElementById('set-character-default-btn'),
+      saveBtn: document.getElementById('save-character-btn'),
+      saveStatus: document.getElementById('save-character-status'),
       characterPreview: document.getElementById('character-preview'),
       characterPreviewWrap: document.getElementById('character-preview-wrap'),
       characterFile: document.getElementById('character-file'),
@@ -111,20 +113,37 @@
       els.characterPreviewWrap.hidden = false;
     }
 
-    function updateCharacterHint() {
-      if (!els.characterHint) return;
-      if (!selectedAccount) {
-        els.characterHint.textContent =
-          'Optional: pick a Ready For Upload account to use its saved character and auto-tag the final.';
-        return;
-      }
-      if (selectedCharacterKey) {
-        els.characterHint.textContent = fileOverride
-          ? `Using a new upload for ${selectedAccount} (will become that account’s default).`
-          : `Using ${selectedAccount}’s saved character. Upload a new image to replace the default.`;
+    function setSaveStatus(msg) {
+      if (!els.saveStatus) return;
+      if (msg) {
+        els.saveStatus.hidden = false;
+        els.saveStatus.textContent = msg;
       } else {
-        els.characterHint.textContent = `${selectedAccount} has no saved character yet — upload one (it becomes the default).`;
+        els.saveStatus.hidden = true;
+        els.saveStatus.textContent = '';
       }
+    }
+
+    function syncSaveButton() {
+      if (!els.saveBtn) return;
+      const hasFile = Boolean(els.characterFile?.files?.[0]);
+      els.saveBtn.disabled = !selectedAccount || (!hasFile && !selectedCharacterKey);
+    }
+
+    function updateCharacterHint() {
+      if (els.characterHint) {
+        if (!selectedAccount) {
+          els.characterHint.textContent =
+            'Pick a Ready For Upload account, choose an image, then Save character to this account — no remix needed.';
+        } else if (els.characterFile?.files?.[0]) {
+          els.characterHint.textContent = `New image selected for ${selectedAccount}. Click Save character to this account (does not start a remix).`;
+        } else if (selectedCharacterKey) {
+          els.characterHint.textContent = `${selectedAccount} already has a saved character. Upload a new image and Save to replace it.`;
+        } else {
+          els.characterHint.textContent = `${selectedAccount} has no saved character yet — choose an image and click Save character to this account.`;
+        }
+      }
+      syncSaveButton();
     }
 
     function fillHistorySelect() {
@@ -164,6 +183,7 @@
         (selectedCharacterKey ? mediaUrl(selectedCharacterKey, getPublicBaseUrl()) : '');
       showCharacterPreview(url);
       fillHistorySelect();
+      setSaveStatus('');
       updateCharacterHint();
       renderRail();
       if (els.select && els.select.value !== selectedAccount) {
@@ -334,11 +354,55 @@
       charactersByAccount[selectedAccount] = data;
       selectedCharacterKey = data.defaultKey || key;
       fileOverride = false;
+      if (els.characterFile) els.characterFile.value = '';
+      const url = data.publicUrl || data.downloadPath || mediaUrl(selectedCharacterKey, getPublicBaseUrl());
+      showCharacterPreview(url);
       fillHistorySelect();
       renderRail();
       updateCharacterHint();
       setAccountError('');
+      setSaveStatus(`Saved character for ${selectedAccount}.`);
       return data;
+    }
+
+    async function uploadCharacterFile(file) {
+      const prefix = selectedAccount
+        ? `account-characters/${accountSlug(selectedAccount)}/`
+        : 'characters/';
+      const form = new FormData();
+      form.append('file', file, file.name || 'image.png');
+      form.append('prefix', prefix);
+      const { ok, data } = await api('/api/contentstation/media', { method: 'POST', body: form });
+      if (!ok || !data?.object?.key) {
+        throw new Error(data?.message || data?.error || 'Character upload failed.');
+      }
+      return data.object.key;
+    }
+
+    async function saveCharacterToAccount() {
+      if (!selectedAccount) {
+        setAccountError('Pick an account first.');
+        return null;
+      }
+      const file = els.characterFile?.files?.[0];
+      let key = selectedCharacterKey;
+      if (els.saveBtn) els.saveBtn.disabled = true;
+      setSaveStatus(file ? 'Uploading character…' : 'Saving character…');
+      try {
+        if (file) key = await uploadCharacterFile(file);
+        if (!key) {
+          setAccountError('Choose a character image to save.');
+          setSaveStatus('');
+          return null;
+        }
+        return await persistCharacterDefault(key);
+      } catch (err) {
+        setAccountError(err?.message || String(err));
+        setSaveStatus('');
+        return null;
+      } finally {
+        syncSaveButton();
+      }
     }
 
     /**
@@ -386,11 +450,14 @@
       });
       els.characterFile?.addEventListener('change', () => {
         const f = els.characterFile.files?.[0];
-        if (!f) return;
+        if (!f) {
+          updateCharacterHint();
+          return;
+        }
         fileOverride = true;
-        selectedCharacterKey = '';
         showCharacterPreview(URL.createObjectURL(f));
         updateCharacterHint();
+        setSaveStatus('');
         if (els.historySelect) els.historySelect.value = '';
       });
       els.historySelect?.addEventListener('change', () => {
@@ -407,6 +474,11 @@
         if (!selectedCharacterKey) return;
         await persistCharacterDefault(selectedCharacterKey);
       });
+      els.saveBtn?.addEventListener('click', () => {
+        saveCharacterToAccount().catch((err) => {
+          setAccountError(err?.message || String(err));
+        });
+      });
     }
 
     bind();
@@ -418,6 +490,7 @@
       hasCharacter,
       resolveCharacterKeyForCreate,
       persistCharacterDefault,
+      saveCharacterToAccount,
       tagFinalForAccount,
       finalKey,
       mediaUrl: (key) => mediaUrl(key, getPublicBaseUrl()),

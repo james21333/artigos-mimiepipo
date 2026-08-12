@@ -32,6 +32,7 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const errorEl = document.getElementById('remix2-v2-error');
+  const dupBanner = document.getElementById('remix-dup-banner');
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
@@ -113,6 +114,39 @@
     errorEl.textContent = msg;
   }
 
+  function setDupBanner(skipped, account) {
+    if (!dupBanner) return;
+    if (!skipped.length) {
+      dupBanner.hidden = true;
+      dupBanner.innerHTML = '';
+      return;
+    }
+    const title = document.createElement('p');
+    title.className = 'duplicate-skip-title';
+    title.textContent =
+      skipped.length === 1
+        ? 'Already remixed for this account — skipped.'
+        : `${skipped.length} URLs already remixed for this account — skipped.`;
+    const sub = document.createElement('p');
+    sub.style.margin = '0 0 0.35rem';
+    sub.style.fontWeight = '700';
+    sub.textContent = account
+      ? `Account: ${account}. Other accounts can still remix these URLs.`
+      : 'Pick an account to track per-account duplicates.';
+    const list = document.createElement('ul');
+    list.className = 'duplicate-skip-list';
+    for (const url of skipped) {
+      const li = document.createElement('li');
+      li.textContent = url;
+      list.appendChild(li);
+    }
+    dupBanner.innerHTML = '';
+    dupBanner.appendChild(title);
+    dupBanner.appendChild(sub);
+    dupBanner.appendChild(list);
+    dupBanner.hidden = false;
+  }
+
   function setStatus(main, detail) {
     if (statusLine) statusLine.textContent = main || '';
     if (statusDetail) {
@@ -190,10 +224,10 @@
       const cadence =
         data?.providerProbeCadence ||
         (data?.providerProbePhase === 'slow'
-          ? 'checking every 12h'
+          ? 'checking every 6h'
           : data?.providerProbePhase === 'gave_up'
             ? 'auto-check stopped'
-            : 'checking hourly (~25h)');
+            : 'checking hourly (~168h)');
       return `${who} cooling down ${est} — ${cadence}`;
     }
     if (stage === 'provider_give_up') {
@@ -853,6 +887,9 @@
       const account = accountsUi.selected() || '';
       const baseTitle = titleInput?.value || 'Viral Video Builder — Write From Scratch';
       const failures = [];
+      const skipped = [];
+      let started = 0;
+      setDupBanner([]);
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         setStatus(`Analyzing ${i + 1} / ${urls.length}`, url);
@@ -862,6 +899,7 @@
             action: 'from-tiktok',
             tiktokUrl: url,
             characterKey,
+            account: account || undefined,
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
@@ -874,12 +912,18 @@
             autoRun: false,
           }),
         });
+        if (data?.error === 'already_remixed_for_account') {
+          skipped.push(url);
+          setDupBanner(skipped, account);
+          continue;
+        }
         if (!ok || !data?.jobId) {
           const detail = createFailureDetail(data, status, i);
           failures.push(detail);
           showSubmitFailure(url, i, detail);
           continue;
         }
+        started += 1;
         const job = {
           jobId: data.jobId,
           tiktokUrl: url,
@@ -896,11 +940,18 @@
       }
       saveBatch();
       if (failures.length) setError(failures.join('\n'));
-      startPoll();
+      if (started) startPoll();
       setStatus(
-        failures.length
-          ? `Started with ${failures.length} failure(s)`
-          : 'Analyze running — write prompts when scenes appear.',
+        !started && skipped.length && !failures.length
+          ? 'All skipped'
+          : failures.length
+            ? `Started with ${failures.length} failure(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}`
+            : skipped.length
+              ? `Analyze running · ${skipped.length} skipped`
+              : 'Analyze running — write prompts when scenes appear.',
+        !started && skipped.length
+          ? `${skipped.length} already remixed for ${account || 'this account'}`
+          : undefined,
       );
       accountsUi?.refresh?.().catch(() => {});
     } catch (err) {

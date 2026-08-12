@@ -14,6 +14,7 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const errorEl = document.getElementById('remix2-v2-error');
+  const dupBanner = document.getElementById('remix-dup-banner');
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
@@ -61,6 +62,16 @@
         if (msg) setError(msg);
       },
     });
+
+  const listsUi =
+    window.CSTikTokLists &&
+    window.CSTikTokLists.createController({
+      api,
+    });
+
+  function selectedListId() {
+    return listsUi?.selected?.() || 'glp-1';
+  }
 
   function mediaFinalPath(jobId) {
     const key = `character-remix-2-og/${jobId}/final.mp4`;
@@ -180,6 +191,39 @@
     }
     errorEl.hidden = false;
     errorEl.textContent = msg;
+  }
+
+  function setDupBanner(skipped, account) {
+    if (!dupBanner) return;
+    if (!skipped.length) {
+      dupBanner.hidden = true;
+      dupBanner.innerHTML = '';
+      return;
+    }
+    const title = document.createElement('p');
+    title.className = 'duplicate-skip-title';
+    title.textContent =
+      skipped.length === 1
+        ? 'Already remixed for this account — skipped.'
+        : `${skipped.length} URLs already remixed for this account — skipped.`;
+    const sub = document.createElement('p');
+    sub.style.margin = '0 0 0.35rem';
+    sub.style.fontWeight = '700';
+    sub.textContent = account
+      ? `Account: ${account}. Other accounts can still remix these URLs.`
+      : 'Pick an account to track per-account duplicates.';
+    const list = document.createElement('ul');
+    list.className = 'duplicate-skip-list';
+    for (const url of skipped) {
+      const li = document.createElement('li');
+      li.textContent = url;
+      list.appendChild(li);
+    }
+    dupBanner.innerHTML = '';
+    dupBanner.appendChild(title);
+    dupBanner.appendChild(sub);
+    dupBanner.appendChild(list);
+    dupBanner.hidden = false;
   }
 
   function setStatus(main, detail) {
@@ -380,10 +424,10 @@
       const cadence =
         data?.providerProbeCadence ||
         (data?.providerProbePhase === 'slow'
-          ? 'checking every 12h'
+          ? 'checking every 6h'
           : data?.providerProbePhase === 'gave_up'
             ? 'auto-check stopped'
-            : 'checking hourly (~25h)');
+            : 'checking hourly (~168h)');
       label = `${who} cooling down ${est} — ${cadence}, auto-resume`;
     } else if (stage === 'provider_give_up') {
       const provider = data?.provider || '';
@@ -625,6 +669,8 @@
       const baseTitle = titleInput?.value || 'TikTok remake (talking heads)';
       const started = [];
       const failures = [];
+      const skipped = [];
+      setDupBanner([]);
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         setStatus(`Submitting ${i + 1} / ${urls.length}`, url);
@@ -634,6 +680,7 @@
             action: 'from-tiktok',
             tiktokUrl: url,
             characterKey,
+            account: account || undefined,
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
@@ -641,10 +688,16 @@
             audioMode: 'grok',
             remixVariant: 'talking-heads',
             deriveCharacterFromSource: false,
+            listId: selectedListId(),
             title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
             autoRun: true,
           }),
         });
+        if (data?.error === 'already_remixed_for_account') {
+          skipped.push(url);
+          setDupBanner(skipped, account);
+          continue;
+        }
         if (!ok || !data?.jobId) {
           const detail = createFailureDetail(data, status, i);
           failures.push(detail);
@@ -665,13 +718,22 @@
         updateCardFromStatus(job, data);
       }
       if (!started.length) {
+        if (skipped.length && !failures.length) {
+          setStatus(
+            'All skipped',
+            `${skipped.length} already remixed for ${account || 'this account'}`,
+          );
+          return;
+        }
         throw new Error(failures[0] || 'No jobs started — worker did not return a jobId.');
       }
       if (failures.length) {
         setError(`${failures.length} URL(s) failed to create. First: ${failures[0]}`);
       }
       setStatus(
-        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}`,
+        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}${
+          skipped.length ? ` · ${skipped.length} skipped` : ''
+        }`,
         account
           ? 'Pipelines queue on Fast Panda. Finished MP4s auto-tag to Ready For Upload.'
           : 'Pipelines queue on Fast Panda — one remake at a time. Tag later on the job card or Remix 2 ready.',
@@ -728,6 +790,7 @@
     if (accountsUi) {
       accountsCache = (await accountsUi.loadAccounts()) || [];
     }
+    if (listsUi) await listsUi.load().catch(() => {});
     updateUrlCount();
     loadBatch();
     if (batchJobs.length) {

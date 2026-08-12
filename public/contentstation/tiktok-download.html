@@ -6,7 +6,7 @@
   <title>Content Station | TikTok download</title>
   <meta name="robots" content="noindex,nofollow">
   <meta name="description" content="Download public TikTok videos without watermark when available.">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=urllists1">
 </head>
 <body>
   <main class="download-main">
@@ -84,6 +84,26 @@ https://www.tiktok.com/@user/video/…
           <p id="account-error" class="error" hidden></p>
         </section>
 
+        <section class="url-list-picker" id="url-list-picker">
+          <label for="url-list-select">Add used TikToks to list</label>
+          <p class="muted-line">
+            Every TikTok URL used here is added to the selected list (default: GLP-1 List),
+            including ones skipped as already cleaned. Duplicate skip for download stays global.
+          </p>
+          <div class="row account-select-row">
+            <select id="url-list-select" class="account-select"></select>
+          </div>
+          <form id="create-url-list-form" class="account-create-row">
+            <label for="new-url-list-name">Create list</label>
+            <div class="row">
+              <input id="new-url-list-name" type="text" maxlength="80" placeholder="e.g. GLP-1 List" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="url-list-meta" class="muted-line"></p>
+          <p id="url-list-error" class="error" hidden></p>
+        </section>
+
         <fieldset class="options">
           <legend>Options</legend>
           <label class="check">
@@ -128,6 +148,7 @@ https://www.tiktok.com/@user/video/…
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./tiktok-download-app.js?v=readycounts1"></script>
+  <script src="./tiktok-lists-ui.js?v=1"></script>
+  <script src="./tiktok-download-app.js?v=urllists1"></script>
 </body>
 </html>

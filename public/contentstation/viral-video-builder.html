@@ -62,7 +62,7 @@
 
         <section class="account-picker" id="account-picker">
           <label for="account-select">Ready For Upload account</label>
-          <p class="muted-line">Uses that account’s saved character (if any) and auto-tags the finished MP4.</p>
+          <p class="muted-line">Uses that account’s saved character (if any) and auto-tags the finished MP4. Same TikTok URL is skipped only if this account already remixed it.</p>
           <div class="row account-select-row">
             <select id="account-select" class="account-select">
               <option value="">— No account (tag later) —</option>
@@ -82,6 +82,7 @@
         <textarea id="tiktok-urls" rows="4" autocomplete="off" spellcheck="false"
           placeholder="https://www.tiktok.com/@user/video/…"></textarea>
         <p id="url-count" class="muted-line">0 / 5 links</p>
+        <div id="remix-dup-banner" class="duplicate-skip-banner" hidden role="alert"></div>
 
         <label for="character-file">Character image</label>
         <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
@@ -89,8 +90,12 @@
           <img id="character-preview" alt="Character preview" class="character-preview">
         </div>
         <p id="character-account-hint" class="muted-line">
-          Optional: pick a Ready For Upload account to use its saved character and auto-tag the final.
+          Pick a Ready For Upload account, choose an image, then Save character to this account — no remix needed.
         </p>
+        <div class="row">
+          <button type="button" id="save-character-btn" disabled>Save character to this account</button>
+        </div>
+        <p id="save-character-status" class="muted-line" hidden></p>
         <div id="character-history-wrap" class="character-history-wrap" hidden>
           <label for="character-history-select">Previously used for this account</label>
           <div class="row">
@@ -158,7 +163,7 @@
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./remix2-account-ui.js?v=1"></script>
-  <script src="./viral-video-builder-app.js?v=1"></script>
+  <script src="./remix2-account-ui.js?v=savechar1"></script>
+  <script src="./viral-video-builder-app.js?v=2"></script>
 </body>
 </html>

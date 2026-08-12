@@ -236,10 +236,10 @@
       const cadence =
         data?.providerProbeCadence ||
         (data?.providerProbePhase === 'slow'
-          ? 'checking every 12h'
+          ? 'checking every 6h'
           : data?.providerProbePhase === 'gave_up'
             ? 'auto-check stopped'
-            : 'checking hourly (~25h)');
+            : 'checking hourly (~168h)');
       setStatus(
         `${who} cooling down ${est} — ${cadence}, auto-resume`,
         data?.message || data?.detail || '',

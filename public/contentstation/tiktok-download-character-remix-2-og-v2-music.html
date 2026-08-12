@@ -6,7 +6,7 @@
   <title>Content Station | V2 Music-Only Remix</title>
   <meta name="robots" content="noindex,nofollow">
   <meta name="description" content="V2 Music-Only Remix: identity-lock remake with exact EDL timing and original TikTok audio remuxed.">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=urllists1">
 </head>
 <body>
   <main class="download-main">
@@ -68,7 +68,7 @@
 
         <section class="account-picker" id="account-picker">
           <label for="account-select">Ready For Upload account</label>
-          <p class="muted-line">Uses that account’s saved character (if any) and auto-tags the finished MP4.</p>
+          <p class="muted-line">Uses that account’s saved character (if any) and auto-tags the finished MP4. Same TikTok URL is skipped only if this account already remixed it.</p>
           <div class="row account-select-row">
             <select id="account-select" class="account-select">
               <option value="">— No account (tag later) —</option>
@@ -84,12 +84,55 @@
           <p id="account-error" class="error" hidden></p>
         </section>
 
-        <label for="tiktok-urls">TikTok URLs (max 20)</label>
+        <section class="url-list-picker" id="url-list-picker">
+          <label for="url-list-select">URL list</label>
+          <p class="muted-line">
+            Every TikTok URL used here is added to this list. Autogenerate leftovers =
+            the list minus videos <strong>this account</strong> already remixed. All accounts share the same list.
+          </p>
+          <div class="row account-select-row">
+            <select id="url-list-select" class="account-select"></select>
+          </div>
+          <form id="create-url-list-form" class="account-create-row">
+            <label for="new-url-list-name">Create list</label>
+            <div class="row">
+              <input id="new-url-list-name" type="text" maxlength="80" placeholder="e.g. GLP-1 List" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="url-list-meta" class="muted-line"></p>
+          <p id="url-list-error" class="error" hidden></p>
+        </section>
+
+        <section class="autogen-panel" id="autogen-panel" aria-labelledby="autogen-title">
+          <h2 id="autogen-title">Autogenerate from GLP-1 List</h2>
+          <p class="muted-line">
+            Shared pool for every account. A URL is blocked for an account only after
+            <strong>that account</strong> already remixed it. Each account uses
+            <strong>its own saved character</strong>. Accounts without a character can’t run.
+          </p>
+          <label class="check" for="autogen-random">
+            <input id="autogen-random" type="checkbox" checked>
+            <span>Random leftover
+              <em class="muted-line">— default. One unused original per selected account. Uncheck to pick specific URLs.</em>
+            </span>
+          </label>
+          <p class="autogen-group-label">Accounts to run</p>
+          <ul id="autogen-account-list" class="autogen-account-list"></ul>
+          <p id="autogen-empty" class="muted-line" hidden>No accounts loaded yet.</p>
+          <p id="autogen-summary" class="autogen-summary" aria-live="polite"></p>
+          <div class="row">
+            <button type="button" id="autogen-btn">Autogenerate leftover remakes</button>
+          </div>
+        </section>
+
+        <label for="tiktok-urls">Or paste TikTok URLs yourself (max 20)</label>
         <textarea id="tiktok-urls" rows="8" autocomplete="off" spellcheck="false"
           placeholder="https://www.tiktok.com/@user/video/…
 https://www.tiktok.com/@user/video/…
 (up to 20 links)"></textarea>
         <p id="url-count" class="muted-line">0 / 20 links</p>
+        <div id="remix-dup-banner" class="duplicate-skip-banner" hidden role="alert"></div>
 
         <label for="character-file">Character image</label>
         <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
@@ -97,8 +140,12 @@ https://www.tiktok.com/@user/video/…
           <img id="character-preview" alt="Character preview" class="character-preview">
         </div>
         <p id="character-account-hint" class="muted-line">
-          Optional: pick a Ready For Upload account to use its saved character and auto-tag the final.
+          Pick a Ready For Upload account, choose an image, then Save character to this account — no remix needed.
         </p>
+        <div class="row">
+          <button type="button" id="save-character-btn" disabled>Save character to this account</button>
+        </div>
+        <p id="save-character-status" class="muted-line" hidden></p>
         <div id="character-history-wrap" class="character-history-wrap" hidden>
           <label for="character-history-select">Previously used for this account</label>
           <div class="row">
@@ -162,7 +209,8 @@ https://www.tiktok.com/@user/video/…
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./remix2-account-ui.js?v=1"></script>
-  <script src="./tiktok-download-character-remix-2-og-v2-music-app.js?v=v2music6"></script>
+  <script src="./remix2-account-ui.js?v=savechar1"></script>
+  <script src="./tiktok-lists-ui.js?v=1"></script>
+  <script src="./tiktok-download-character-remix-2-og-v2-music-app.js?v=v2music9"></script>
 </body>
 </html>
