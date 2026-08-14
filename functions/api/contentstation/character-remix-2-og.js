@@ -42,7 +42,7 @@ import {
 } from '../../lib/character-remix-2-og.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
 import { flattenPostMetaForStorage } from '../../lib/tiktok-post-info.js';
-import { getTagForKey, sanitizeAccountName } from '../../lib/account-tags.js';
+import { getTagForKey, sanitizeAccountName, setVideoAccount } from '../../lib/account-tags.js';
 import {
   alreadyRemixedResult,
   ensureRemixUsedIndex,
@@ -67,12 +67,32 @@ async function resolveKey(env, key) {
 }
 
 export async function onRequest(context) {
-  const auth = await requireRole(context, [ROLES.ADMIN]);
-  if (!auth.ok) return auth.response;
-
   const { request, env } = context;
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
+
+  // Worker callback: auto-tag video after upload — authenticated via shared secret, not session cookie.
+  if (method === 'POST') {
+    let body;
+    try { body = await request.clone().json(); } catch { body = null; }
+    if (body && body.action === 'complete-tag') {
+      const secret = String(env.REMIX2_WORKER_SECRET || '').trim();
+      const provided = String(body.secret || '').trim();
+      if (!secret || !provided || provided !== secret) {
+        return json({ ok: false, error: 'unauthorized' }, 401);
+      }
+      const key = String(body.key || '').trim();
+      const account = sanitizeAccountName(body.account);
+      if (!key || !account) {
+        return json({ ok: false, error: 'missing key or account' }, 400);
+      }
+      const result = await setVideoAccount(env, key, account);
+      return json(result, result.ok ? 200 : 400);
+    }
+  }
+
+  const auth = await requireRole(context, [ROLES.ADMIN]);
+  if (!auth.ok) return auth.response;
 
   if (method === 'OPTIONS') {
     return new Response(null, {
@@ -428,6 +448,8 @@ export async function onRequest(context) {
         scenes: [],
         // Viral builder never auto-runs generate; worker kicks analyze-only prepare.
         autoRun: writeFromScratch ? false : body.autoRun !== false,
+        account: remixAccount || null,
+        callbackUrl: new URL(request.url).origin + '/api/contentstation/character-remix-2-og',
         r2,
       },
     });
