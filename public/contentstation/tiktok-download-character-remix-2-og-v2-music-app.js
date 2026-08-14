@@ -719,18 +719,41 @@
     maybeAutoTag(job, stage).catch(() => {});
   }
 
+  function isPlaceholderJobId(jobId) {
+    const id = String(jobId || '');
+    return id.startsWith('submit-failed-') || id.startsWith('fail-');
+  }
+
+  function jobNeedsPoll(job) {
+    return Boolean(job?.jobId) && !isPlaceholderJobId(job.jobId) && !isTerminalStage(job.stage);
+  }
+
+  function stopPoll() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
   async function pollBatch() {
+    if (document.hidden) return;
     if (!batchJobs.length) {
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
+      stopPoll();
       return;
     }
     let active = 0;
     let done = 0;
     let failed = 0;
     for (const job of batchJobs) {
+      if (isPlaceholderJobId(job.jobId)) {
+        failed += 1;
+        continue;
+      }
+      if (isTerminalStage(job.stage)) {
+        if (job.stage === 'error') failed += 1;
+        else done += 1;
+        continue;
+      }
       const { ok, data } = await api(
         `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
       );
@@ -738,18 +761,8 @@
         ensureBatchCard(job);
         const card = batchList?.querySelector(`[data-job-id="${job.jobId}"]`);
         const statusEl = card?.querySelector('.result-status');
-        const fallbackUrl = job.outputUrl || publicFinalUrl(job.jobId) || mediaFinalPath(job.jobId);
-        if (fallbackUrl && card) {
-          if (!job.outputUrl) job.outputUrl = fallbackUrl;
-          job.stage = 'stitched';
-          if (statusEl && (!statusEl.textContent || statusEl.textContent === 'Status error' || statusEl.textContent === 'Queued…')) {
-            statusEl.textContent = 'Done (from R2)';
-          }
-          renderFinalOutput(card.querySelector('.result-outputs'), fallbackUrl, job);
-          await maybeAutoTag(job, 'stitched');
-        } else if (statusEl) {
-          statusEl.textContent = 'Status error';
-        }
+        if (statusEl) statusEl.textContent = 'Worker unreachable — retrying';
+        active += 1;
         continue;
       }
       updateCardFromStatus(job, data);
@@ -764,19 +777,25 @@
     );
     saveBatch();
     if (active === 0 && !submitting) {
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
+      stopPoll();
       if (runBtn) runBtn.disabled = false;
     }
   }
 
   function startPoll() {
+    if (!batchJobs.some(jobNeedsPoll)) {
+      stopPoll();
+      return;
+    }
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(pollBatch, POLL_MS);
-    pollBatch();
+    if (!document.hidden) pollBatch();
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopPoll();
+    else if (batchJobs.some(jobNeedsPoll)) startPoll();
+  });
 
   async function refreshMissingStages() {
     await Promise.all(
@@ -791,8 +810,6 @@
             const finalUrl = resolveFinalUrl(job, data);
             if (finalUrl) job.outputUrl = finalUrl;
           }
-        } else if (job.outputUrl) {
-          job.stage = 'stitched';
         }
       }),
     );

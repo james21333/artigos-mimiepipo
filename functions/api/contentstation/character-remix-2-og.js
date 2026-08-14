@@ -154,7 +154,9 @@ export async function onRequest(context) {
     if (action === 'status') {
       const jobId = url.searchParams.get('jobId');
       if (!jobId) return json({ error: 'missing_jobId' }, 400);
-      const result = await workerFetch(env, `/jobs/${encodeURIComponent(jobId)}`);
+      const result = await workerFetch(env, `/jobs/${encodeURIComponent(jobId)}`, {
+        timeoutMs: 8000,
+      });
       return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
     }
     if (action === 'list') {
@@ -175,13 +177,15 @@ export async function onRequest(context) {
 
       const needEnrich = (result.objects || []).filter((o) => o.musicLock == null);
       if (needEnrich.length && remix2WorkerConfigured(env)) {
-        const concurrency = 6;
+        const concurrency = 2;
         for (let i = 0; i < needEnrich.length; i += concurrency) {
           const batch = needEnrich.slice(i, i + concurrency);
           await Promise.all(
             batch.map(async (obj) => {
               try {
-                const st = await workerFetch(env, `/jobs/${encodeURIComponent(obj.jobId)}`);
+                const st = await workerFetch(env, `/jobs/${encodeURIComponent(obj.jobId)}`, {
+                  timeoutMs: 5000,
+                });
                 if (!st.ok || !st.data) return;
                 if (st.data.musicLock === true) obj.musicLock = true;
                 else if (st.data.musicLock === false) obj.musicLock = false;
