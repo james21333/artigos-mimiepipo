@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 20;
-  const POLL_MS = 4000;
+  const POLL_MS = 180000;
   const ACTIVE_STORAGE_KEY = 'cs_remix2_v2_music_only_batch_v1';
 
   const gate = document.getElementById('gate');

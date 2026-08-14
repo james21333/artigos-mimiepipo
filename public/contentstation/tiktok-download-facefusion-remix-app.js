@@ -1,5 +1,5 @@
 (function () {
-  const POLL_MS = 4000;
+  const POLL_MS = 180000;
   const MAX_POLL_MS = 45 * 60 * 1000;
   const MAX_CLEAN_POLL_MS = 25 * 60 * 1000;
   /** Soft-retry network blips before failing a poll loop. */

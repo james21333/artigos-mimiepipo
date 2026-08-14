@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 10;
-  const POLL_MS = 4000;
+  const POLL_MS = 180000;
   const MAX_POLL_ERRORS = 10;
   /** Hard stop so cards cannot sit on "Processing…" forever. */
   const MAX_REMIX_POLL_MS = 45 * 60 * 1000;

@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 10;
-  const POLL_MS = 4000;
+  const POLL_MS = 180000;
   const MAX_POLL_ERRORS = 8;
   /** Cap concurrent GhostCut cleans to avoid vendor throttle / credit spikes. */
   const MAX_CLEAN_IN_FLIGHT = 3;

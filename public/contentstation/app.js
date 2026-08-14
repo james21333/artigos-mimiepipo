@@ -17,7 +17,7 @@
   const jobCheckBtn = document.getElementById('job-check-btn');
 
   const DIRECT_MAX = 90 * 1024 * 1024;
-  const POLL_MS = 8000;
+  const POLL_MS = 180000;
   const STORAGE_KEY = 'cs_clean_work_id';
   const CREDITS_LAST_KEY = 'cs_credits_last';
   const CREDITS_SNAP_KEY = 'cs_credits_snap';

@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 5;
-  const POLL_MS = 3500;
+  const POLL_MS = 180000;
   const ACTIVE_STORAGE_KEY = 'cs_remix2_viral_builder_batch_v1';
 
   const DEFAULT_LABELS = [
