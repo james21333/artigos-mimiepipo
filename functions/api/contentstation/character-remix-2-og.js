@@ -175,39 +175,9 @@ export async function onRequest(context) {
       });
       if (!result.ok) return json({ error: result.error || 'list_failed' }, 503);
 
-      const needEnrich = (result.objects || []).filter((o) => o.musicLock == null);
-      if (needEnrich.length && remix2WorkerConfigured(env)) {
-        const concurrency = 2;
-        for (let i = 0; i < needEnrich.length; i += concurrency) {
-          const batch = needEnrich.slice(i, i + concurrency);
-          await Promise.all(
-            batch.map(async (obj) => {
-              try {
-                const st = await workerFetch(env, `/jobs/${encodeURIComponent(obj.jobId)}`, {
-                  timeoutMs: 5000,
-                });
-                if (!st.ok || !st.data) return;
-                if (st.data.musicLock === true) obj.musicLock = true;
-                else if (st.data.musicLock === false) obj.musicLock = false;
-                else if (String(st.data.audioMode || '').toLowerCase() === 'source') {
-                  obj.musicLock = true;
-                }
-                const rv = String(st.data.remixVariant || '')
-                  .trim()
-                  .toLowerCase()
-                  .replace(/_/g, '-');
-                if (rv) obj.remixVariant = rv;
-                else if (obj.musicLock === true) obj.remixVariant = 'music-only';
-                else if (obj.musicLock === false) obj.remixVariant = 'talking-heads';
-                if (!obj.tiktokUrl && st.data.tiktokUrl) obj.tiktokUrl = st.data.tiktokUrl;
-                if (!obj.title && st.data.title) obj.title = st.data.title;
-              } catch {
-                /* keep unknown */
-              }
-            }),
-          );
-        }
-      }
+      // Do not GET /jobs here. Status used to auto-resume (and --force Grok)
+      // which burned quota whenever Recent remixes was open. Classification
+      // comes from R2 metadata / ready.json sidecar.
 
       let objects = [];
       for (const obj of result.objects || []) {
