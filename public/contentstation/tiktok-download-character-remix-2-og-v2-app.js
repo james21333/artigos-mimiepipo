@@ -88,8 +88,7 @@
     const fromStatus = data?.output_url || data?.outputUrl || '';
     if (fromStatus) return fromStatus;
     if (job?.outputUrl) return job.outputUrl;
-    const stage = data?.stage || data?.status || '';
-    if (stage === 'stitched' || data?.outputUploaded) {
+    if (data?.outputUploaded) {
       return publicFinalUrl(job?.jobId) || mediaFinalPath(job?.jobId);
     }
     return '';
@@ -387,8 +386,9 @@
     return card;
   }
 
-  async function maybeAutoTag(job, stage) {
-    if (stage !== 'stitched' || !job?.account || job.tagged) return;
+  async function maybeAutoTag(job, stage, data) {
+    const uploaded = Boolean(data?.outputUploaded || data?.output_url || data?.outputUrl);
+    if (stage !== 'stitched' || !uploaded || !job?.account || job.tagged) return;
     const result = await accountsUi?.tagFinalForAccount(job.jobId, job.account);
     if (result?.ok) {
       job.tagged = true;
@@ -507,7 +507,7 @@
     const finalUrl = resolveFinalUrl(job, data);
     if (finalUrl && job) job.outputUrl = finalUrl;
     renderFinalOutput(outWrap, finalUrl, job);
-    maybeAutoTag(job, stage).catch(() => {});
+    maybeAutoTag(job, stage, data).catch(() => {});
   }
 
   function isPlaceholderJobId(jobId) {

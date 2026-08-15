@@ -62,6 +62,11 @@ async function enrichKeys(env, keys) {
       }
     }
     const remix2 = /^character-remix-2-og\/([^/]+)\/final\.mp4$/i.exec(key);
+    // Tagged before R2 upload (or upload failed) → no object. Skip so Ready
+    // does not show a black/unplayable 404 card.
+    if (remix2 && (size == null || size === 0)) {
+      continue;
+    }
     if (remix2 && bucket) {
       try {
         const sidecar = await bucket.get(`character-remix-2-og/${remix2[1]}/ready.json`);
