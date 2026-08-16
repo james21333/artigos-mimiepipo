@@ -398,6 +398,7 @@
     const err = String(data?.error || '');
     return (
       err === 'file_too_large' ||
+      err === 'source_is_speech' ||
       err === 'resolve_rejected' ||
       err === 'resolve_rate_limited' ||
       err === 'tiktok_download_failed'
@@ -412,6 +413,9 @@
     const err = String(data?.error || '');
     if (err === 'file_too_large') {
       return detail ? `Too large (${detail})` : 'Too large (over 40MB)';
+    }
+    if (err === 'source_is_speech') {
+      return 'Spoken dialogue — not Music-Only';
     }
     if (detail) return detail;
     if (err) return err;

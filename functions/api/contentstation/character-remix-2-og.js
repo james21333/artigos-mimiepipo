@@ -373,6 +373,31 @@ export async function onRequest(context) {
     const sourceKey = dl.key;
     const postFlat = flattenPostMetaForStorage(dl.meta || {}, tiktokUrl);
 
+    # Music-Only: cheap ASR + grok-4.3 MUSIC|SPEECH before creating a job.
+    # SPEECH → replaceable Autogenerate failure (same pattern as file_too_large).
+    if (musicLock && !writeFromScratch && audioMode !== 'mix') {
+      const gate = await workerFetch(env, '/classify-source-audio', {
+        method: 'POST',
+        body: { sourceKey, r2 },
+        timeoutMs: 90000,
+      });
+      const label = String(gate?.data?.label || '').toUpperCase();
+      if (gate.ok && label === 'SPEECH') {
+        return json(
+          {
+            error: 'source_is_speech',
+            message:
+              'Source has spoken dialogue — skipped for Music-Only. Autogenerate will try another leftover.',
+            label: 'SPEECH',
+            model: gate.data?.model || 'grok-4.3',
+            sourceKey,
+          },
+          422,
+        );
+      }
+      // label MUSIC / unknown / gate error → fail-open and create
+    }
+
     if (remixAccount) {
       const resolvedId =
         String(postFlat.tiktokId || '').replace(/[^\d]/g, '') ||
