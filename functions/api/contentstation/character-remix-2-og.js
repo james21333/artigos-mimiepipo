@@ -291,6 +291,12 @@ export async function onRequest(context) {
       : musicLock
         ? body.restoreOverlays !== false
         : body.restoreOverlays === true;
+    // Music-Only: subtle rewrite default ON when restoring overlays (unless explicitly false).
+    const subtleRewriteOverlays =
+      restoreOverlays &&
+      (musicLock || writeFromScratch
+        ? body.subtleRewriteOverlays !== false
+        : body.subtleRewriteOverlays === true);
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -395,6 +401,7 @@ export async function onRequest(context) {
         audioMode,
         remixVariant,
         restoreOverlays,
+        subtleRewriteOverlays,
         writeFromScratch,
         grokDialogue: writeFromScratch ? body.grokDialogue !== false : undefined,
         musicOnly: writeFromScratch ? body.musicOnly === true : undefined,
@@ -508,6 +515,11 @@ export async function onRequest(context) {
     const restoreOverlays = musicLock
       ? body.restoreOverlays !== false
       : body.restoreOverlays === true;
+    const subtleRewriteOverlays =
+      restoreOverlays &&
+      (musicLock
+        ? body.subtleRewriteOverlays !== false
+        : body.subtleRewriteOverlays === true);
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -620,6 +632,7 @@ export async function onRequest(context) {
         audioMode,
         remixVariant,
         restoreOverlays,
+        subtleRewriteOverlays,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
         title:

@@ -19,6 +19,7 @@
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
   const restoreOverlaysEl = document.getElementById('restore-overlays');
+  const subtleRewriteOverlaysEl = document.getElementById('subtle-rewrite-overlays');
   const autogenRandomEl = document.getElementById('autogen-random');
   const autogenListEl = document.getElementById('autogen-account-list');
   const autogenEmptyEl = document.getElementById('autogen-empty');
@@ -909,6 +910,9 @@
             audioMode: 'source',
             remixVariant: 'music-only',
             restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
+            subtleRewriteOverlays: subtleRewriteOverlaysEl
+              ? subtleRewriteOverlaysEl.checked
+              : true,
             deriveCharacterFromSource: false,
             listId: selectedListId(),
             title: work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
@@ -965,6 +969,20 @@
     }
   });
 
+  restoreOverlaysEl?.addEventListener('change', () => {
+    if (!subtleRewriteOverlaysEl) return;
+    if (!restoreOverlaysEl.checked) {
+      subtleRewriteOverlaysEl.checked = false;
+      subtleRewriteOverlaysEl.disabled = true;
+    } else {
+      subtleRewriteOverlaysEl.disabled = false;
+    }
+  });
+  if (restoreOverlaysEl && subtleRewriteOverlaysEl && !restoreOverlaysEl.checked) {
+    subtleRewriteOverlaysEl.checked = false;
+    subtleRewriteOverlaysEl.disabled = true;
+  }
+
   runBtn?.addEventListener('click', async () => {
     setError('');
     const urls = parseUrls(tiktokUrls?.value);
@@ -1019,6 +1037,9 @@
             audioMode: 'source',
             remixVariant: 'music-only',
             restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
+            subtleRewriteOverlays: subtleRewriteOverlaysEl
+              ? subtleRewriteOverlaysEl.checked
+              : true,
             deriveCharacterFromSource: false,
             listId: selectedListId(),
             title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
