@@ -373,8 +373,8 @@ export async function onRequest(context) {
     const sourceKey = dl.key;
     const postFlat = flattenPostMetaForStorage(dl.meta || {}, tiktokUrl);
 
-    # Music-Only: cheap ASR + grok-4.3 MUSIC|SPEECH before creating a job.
-    # SPEECH → replaceable Autogenerate failure (same pattern as file_too_large).
+    // Music-Only: cheap ASR + grok-4.3 MUSIC|SPEECH before creating a job.
+    // SPEECH → replaceable Autogenerate failure (same pattern as file_too_large).
     if (musicLock && !writeFromScratch && audioMode !== 'mix') {
       const gate = await workerFetch(env, '/classify-source-audio', {
         method: 'POST',
