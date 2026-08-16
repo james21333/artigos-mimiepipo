@@ -393,6 +393,37 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
+  /** Download / resolve failures where another leftover URL can satisfy the same account slot. */
+  function isReplaceableCreateFailure(data) {
+    const err = String(data?.error || '');
+    return (
+      err === 'file_too_large' ||
+      err === 'resolve_rejected' ||
+      err === 'resolve_rate_limited' ||
+      err === 'tiktok_download_failed'
+    );
+  }
+
+  function formatCreateFailure(data, status) {
+    const detail =
+      (typeof data?.detail === 'string' && data.detail.trim()) ||
+      (typeof data?.message === 'string' && data.message.trim()) ||
+      '';
+    const err = String(data?.error || '');
+    if (err === 'file_too_large') {
+      return detail ? `Too large (${detail})` : 'Too large (over 40MB)';
+    }
+    if (detail) return detail;
+    if (err) return err;
+    if (status) return `Create failed (HTTP ${status})`;
+    return 'Create failed';
+  }
+
+  function nextLeftoverUrl(leftover, exclude) {
+    const pool = (leftover || []).filter((item) => item?.url && !exclude.has(item.url));
+    return pickRandom(pool)?.url || null;
+  }
+
   function setDupBanner(skipped, account) {
     if (!dupBanner) return;
     if (!skipped.length) {
@@ -872,13 +903,22 @@
     const work = [];
     for (const job of plan.jobs) {
       if (job.url) {
-        work.push(job);
+        work.push({
+          account: job.account,
+          characterKey: job.characterKey,
+          url: job.url,
+          leftover: poolFor(job.account)?.leftover || job.leftover || [],
+        });
         continue;
       }
-      const item = pickRandom(job.leftover || []);
-      if (item?.url) {
-        work.push({ account: job.account, characterKey: job.characterKey, url: item.url });
-      }
+      const leftovers = job.leftover || [];
+      if (!leftovers.length) continue;
+      work.push({
+        account: job.account,
+        characterKey: job.characterKey,
+        url: null,
+        leftover: leftovers,
+      });
     }
     if (!work.length) {
       setError('No leftover URLs to autogenerate.');
@@ -892,48 +932,86 @@
       const started = [];
       const failures = [];
       const skipped = [];
+      const replaced = [];
       setDupBanner([]);
       for (let i = 0; i < work.length; i++) {
         const item = work[i];
-        setStatus(`Autogenerate ${i + 1} / ${work.length}`, `${item.account} · ${item.url}`);
-        const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'from-tiktok',
-            tiktokUrl: item.url,
-            characterKey: item.characterKey,
-            account: item.account,
-            characterMode: 'upload',
-            version: 'v2',
-            identityLock: true,
-            musicLock: true,
-            audioMode: 'source',
-            remixVariant: 'music-only',
-            restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
-            subtleRewriteOverlays: subtleRewriteOverlaysEl
-              ? subtleRewriteOverlaysEl.checked
-              : true,
-            deriveCharacterFromSource: false,
-            listId: selectedListId(),
-            title: work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
-            autoRun: true,
-          }),
-        });
-        if (data?.error === 'already_remixed_for_account') {
-          skipped.push(item.url);
-          setDupBanner(skipped, item.account);
+        const tried = new Set();
+        const maxAttempts = Math.max(
+          1,
+          Math.min(8, (item.leftover || []).length || (item.url ? 1 : 0)),
+        );
+        let url = item.url || nextLeftoverUrl(item.leftover, tried);
+        let created = null;
+        let lastDetail = '';
+
+        for (let attempt = 0; attempt < maxAttempts && url; attempt++) {
+          tried.add(url);
+          setStatus(
+            `Autogenerate ${i + 1} / ${work.length}`,
+            attempt === 0
+              ? `${item.account} · ${url}`
+              : `${item.account} · replace #${attempt} · ${url}`,
+          );
+          const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'from-tiktok',
+              tiktokUrl: url,
+              characterKey: item.characterKey,
+              account: item.account,
+              characterMode: 'upload',
+              version: 'v2',
+              identityLock: true,
+              musicLock: true,
+              audioMode: 'source',
+              remixVariant: 'music-only',
+              restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
+              subtleRewriteOverlays: subtleRewriteOverlaysEl
+                ? subtleRewriteOverlaysEl.checked
+                : true,
+              deriveCharacterFromSource: false,
+              listId: selectedListId(),
+              title: work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
+              autoRun: true,
+            }),
+          });
+          if (data?.error === 'already_remixed_for_account') {
+            skipped.push(url);
+            setDupBanner(skipped, item.account);
+            url = nextLeftoverUrl(item.leftover, tried);
+            continue;
+          }
+          if (!ok || !data?.jobId) {
+            lastDetail = formatCreateFailure(data, status);
+            if (isReplaceableCreateFailure(data)) {
+              replaced.push(`${item.account}: ${lastDetail} → trying another leftover`);
+              showSubmitFailure(url, i * 10 + attempt, `${item.account}: ${lastDetail} — replacing…`);
+              url = nextLeftoverUrl(item.leftover, tried);
+              continue;
+            }
+            failures.push(`${item.account}: ${lastDetail}`);
+            showSubmitFailure(url, i, `${item.account}: ${lastDetail}`);
+            created = null;
+            break;
+          }
+          created = { data, url };
+          break;
+        }
+
+        if (!created) {
+          if (!failures.some((f) => f.startsWith(`${item.account}:`))) {
+            failures.push(
+              `${item.account}: ${lastDetail || 'No usable leftover after rejects/skips'}`,
+            );
+          }
           continue;
         }
-        if (!ok || !data?.jobId) {
-          const detail = createFailureDetail(data, status, i);
-          failures.push(`${item.account}: ${detail}`);
-          showSubmitFailure(item.url, i, `${item.account}: ${detail}`);
-          continue;
-        }
+
         const job = {
-          jobId: data.jobId,
-          tiktokUrl: item.url,
-          title: data.title || baseTitle,
+          jobId: created.data.jobId,
+          tiktokUrl: created.url,
+          title: created.data.title || baseTitle,
           account: item.account,
           characterKey: item.characterKey,
           tagged: false,
@@ -941,7 +1019,7 @@
         started.push(job);
         batchJobs.push(job);
         saveBatch();
-        updateCardFromStatus(job, data);
+        updateCardFromStatus(job, created.data);
       }
       await loadSourcePool();
       if (listsUi) await listsUi.load().catch(() => {});
@@ -952,9 +1030,13 @@
         }
         throw new Error(failures[0] || 'Autogenerate did not start any jobs.');
       }
-      if (failures.length) setError(failures.join('\n'));
+      if (failures.length || replaced.length) {
+        setError([...replaced, ...failures].filter(Boolean).join('\n'));
+      }
       setStatus(
-        `Autogenerated ${started.length} job(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}`,
+        `Autogenerated ${started.length} job(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}${
+          replaced.length ? ` · ${replaced.length} replaced` : ''
+        }`,
         'Each job uses that account’s character. Pipelines queue on Fast Panda.',
       );
       startPoll();
