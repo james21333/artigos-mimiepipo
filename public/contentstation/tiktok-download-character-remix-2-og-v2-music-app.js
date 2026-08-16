@@ -415,7 +415,7 @@
       return detail ? `Too large (${detail})` : 'Too large (over 40MB)';
     }
     if (err === 'source_is_speech') {
-      return 'Spoken dialogue — not Music-Only';
+      return 'Spoken dialogue — moved to GLP-1 Speech audio list';
     }
     if (detail) return detail;
     if (err) return err;

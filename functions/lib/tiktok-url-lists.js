@@ -11,6 +11,9 @@ import { GLP1_SEED_URLS } from './tiktok-url-list-seed.js';
 const LISTS_KEY = 'meta/tiktok-url-lists.json';
 export const DEFAULT_LIST_ID = 'glp-1';
 export const DEFAULT_LIST_NAME = 'GLP-1 List';
+/** Music-Only speech rejects land here (Talking Heads pool). */
+export const SPEECH_AUDIO_LIST_ID = 'glp-1-speech-audio-list';
+export const SPEECH_AUDIO_LIST_NAME = 'GLP-1 Speech audio list';
 
 function slugifyListName(raw) {
   const s = String(raw || '')
@@ -184,5 +187,87 @@ export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId 
     added,
     count: list.items.length,
     lists: ensured.lists.map(summarizeList),
+  };
+}
+
+export async function ensureSpeechAudioList(env) {
+  const bucket = env?.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'no_bucket' };
+  const ensured = await ensureUrlLists(env);
+  if (!ensured.ok) return ensured;
+  const byId = ensured.lists.find((l) => l.id === SPEECH_AUDIO_LIST_ID);
+  if (byId) {
+    if (!byId.name) byId.name = SPEECH_AUDIO_LIST_NAME;
+    return { ok: true, list: byId, lists: ensured.lists };
+  }
+  const byName = ensured.lists.find(
+    (l) => String(l.name || '').trim().toLowerCase() === SPEECH_AUDIO_LIST_NAME.toLowerCase(),
+  );
+  if (byName) return { ok: true, list: byName, lists: ensured.lists };
+  const list = {
+    id: SPEECH_AUDIO_LIST_ID,
+    name: SPEECH_AUDIO_LIST_NAME,
+    createdAt: new Date().toISOString(),
+    items: [],
+  };
+  const next = { lists: [...ensured.lists, list] };
+  await writeStore(bucket, next);
+  return { ok: true, list, lists: next.lists };
+}
+
+export async function removeUrlsFromList(env, listIdRaw, urls) {
+  const bucket = env?.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'no_bucket' };
+  const ensured = await ensureUrlLists(env);
+  if (!ensured.ok) return ensured;
+  const id = String(listIdRaw || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+  const list = ensured.lists.find((l) => l.id === id);
+  if (!list) return { ok: false, error: 'list_not_found' };
+  if (!Array.isArray(list.items)) list.items = [];
+  const drop = new Set();
+  for (const raw of Array.isArray(urls) ? urls : [urls]) {
+    const item = normalizeItem(raw);
+    if (!item) continue;
+    drop.add(itemKey(item));
+  }
+  if (!drop.size) {
+    return { ok: true, listId: list.id, removed: 0, count: list.items.length };
+  }
+  const before = list.items.length;
+  list.items = list.items.filter((it) => !drop.has(itemKey(it)));
+  const removed = before - list.items.length;
+  if (removed) await writeStore(bucket, { lists: ensured.lists });
+  return {
+    ok: true,
+    listId: list.id,
+    removed,
+    count: list.items.length,
+    lists: ensured.lists.map(summarizeList),
+  };
+}
+
+/**
+ * Move TikTok URL(s) onto the Speech audio list and off a source list (Music leftovers).
+ */
+export async function moveUrlsToSpeechAudioList(env, urls, { fromListId, addedFrom } = {}) {
+  const speech = await ensureSpeechAudioList(env);
+  if (!speech.ok) return speech;
+  const add = await addUrlsToList(env, speech.list.id, urls, {
+    addedFrom: addedFrom || 'music-only-speech-gate',
+  });
+  if (!add.ok) return add;
+  let removed = 0;
+  const fromId = String(fromListId || '').trim();
+  if (fromId && fromId !== speech.list.id) {
+    const rem = await removeUrlsFromList(env, fromId, urls);
+    if (rem.ok) removed = rem.removed || 0;
+  }
+  return {
+    ok: true,
+    speechListId: speech.list.id,
+    speechListName: speech.list.name || SPEECH_AUDIO_LIST_NAME,
+    added: add.added || 0,
+    removed,
+    speechCount: add.count,
   };
 }

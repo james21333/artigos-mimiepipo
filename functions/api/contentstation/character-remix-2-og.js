@@ -51,7 +51,7 @@ import {
   markRemixUsed,
 } from '../../lib/remix2-account-used.js';
 import { listRemixSourcePools } from '../../lib/remix2-source-pool.js';
-import { addUrlsToList, DEFAULT_LIST_ID } from '../../lib/tiktok-url-lists.js';
+import { addUrlsToList, DEFAULT_LIST_ID, moveUrlsToSpeechAudioList } from '../../lib/tiktok-url-lists.js';
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -383,14 +383,27 @@ export async function onRequest(context) {
       });
       const label = String(gate?.data?.label || '').toUpperCase();
       if (gate.ok && label === 'SPEECH') {
+        const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+        let moved = null;
+        try {
+          moved = await moveUrlsToSpeechAudioList(env, [tiktokUrl], {
+            fromListId,
+            addedFrom: 'music-only-speech-gate',
+          });
+        } catch {
+          moved = null;
+        }
         return json(
           {
             error: 'source_is_speech',
             message:
-              'Source has spoken dialogue — skipped for Music-Only. Autogenerate will try another leftover.',
+              'Source has spoken dialogue — moved to GLP-1 Speech audio list. Autogenerate will try another leftover.',
             label: 'SPEECH',
             model: gate.data?.model || 'grok-4.3',
             sourceKey,
+            speechListId: moved?.speechListId || null,
+            speechListName: moved?.speechListName || 'GLP-1 Speech audio list',
+            movedToSpeechList: Boolean(moved?.ok),
           },
           422,
         );
