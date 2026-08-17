@@ -52,6 +52,7 @@ import {
 } from '../../lib/remix2-account-used.js';
 import { listRemixSourcePools } from '../../lib/remix2-source-pool.js';
 import { addUrlsToList, DEFAULT_LIST_ID, moveUrlsToSpeechAudioList, removeUrlsFromList } from '../../lib/tiktok-url-lists.js';
+import { markTikTokSeen } from '../../lib/tiktok-download-seen.js';
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -428,19 +429,50 @@ export async function onRequest(context) {
       if (tooMany) {
         const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
         let removed = null;
+        let deletedSource = false;
+        let blocklisted = false;
         try {
           removed = await removeUrlsFromList(env, fromListId, [tiktokUrl]);
         } catch {
           removed = null;
         }
+        // Drop the downloaded original — no job will use it.
+        try {
+          if (sourceKey) {
+            await bucket.delete(sourceKey);
+            deletedSource = true;
+          }
+        } catch {
+          deletedSource = false;
+        }
+        // Global download block list (tiktok/_used) so it won't reappear as a duplicate.
+        try {
+          const id =
+            String(postFlat.tiktokId || '').replace(/[^\d]/g, '') ||
+            extractTikTokVideoId(postFlat.tiktokUrl || tiktokUrl);
+          const marked = await markTikTokSeen(bucket, {
+            tiktokId: id,
+            tiktokUrl: postFlat.tiktokUrl || tiktokUrl,
+            key: '',
+            author: postFlat.author || '',
+            title: postFlat.title || '',
+            account: remixAccount || '',
+            source: 'music-only-too-many-scenes',
+          });
+          blocklisted = Boolean(marked?.ok);
+        } catch {
+          blocklisted = false;
+        }
         return json(
           {
             error: 'too_many_scenes',
-            message: `Source has ${shotCount} scenes (max ${maxScenes} for Music-Only). Removed from list — Autogenerate will try another leftover.`,
+            message: `Source has ${shotCount} scenes (max ${maxScenes} for Music-Only). Removed from list + R2; kept on URL block list. Autogenerate will try another leftover.`,
             shotCount,
             maxScenes,
             sourceKey,
             removedFromList: Boolean(removed?.ok && (removed.removed || 0) > 0),
+            deletedSource,
+            blocklisted,
             listId: fromListId,
           },
           422,

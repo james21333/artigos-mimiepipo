@@ -421,8 +421,10 @@
     if (err === 'too_many_scenes') {
       const n = Number(data?.shotCount);
       const max = Number(data?.maxScenes) || 6;
-      if (Number.isFinite(n) && n > 0) return `${n} scenes (max ${max}) — skipped`;
-      return `Too many scenes (max ${max}) — skipped`;
+      if (Number.isFinite(n) && n > 0) {
+        return `${n} scenes (max ${max}) — removed + blocklisted`;
+      }
+      return `Too many scenes (max ${max}) — removed + blocklisted`;
     }
     if (detail) return detail;
     if (err) return err;
