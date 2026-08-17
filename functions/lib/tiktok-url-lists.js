@@ -14,6 +14,9 @@ export const DEFAULT_LIST_NAME = 'GLP-1 List';
 /** Music-Only speech rejects land here (Talking Heads pool). */
 export const SPEECH_AUDIO_LIST_ID = 'glp-1-speech-audio-list';
 export const SPEECH_AUDIO_LIST_NAME = 'GLP-1 Speech audio list';
+/** Josh's live list name/id variant from the UI create form. */
+export const SPEECH_AUDIO_LIST_ID_ALT = 'glp-1-list-speech-audio';
+export const SPEECH_AUDIO_LIST_NAME_ALT = 'GLP-1 List SPEECH AUDIO';
 
 function slugifyListName(raw) {
   const s = String(raw || '')
@@ -195,18 +198,22 @@ export async function ensureSpeechAudioList(env) {
   if (!bucket) return { ok: false, error: 'no_bucket' };
   const ensured = await ensureUrlLists(env);
   if (!ensured.ok) return ensured;
-  const byId = ensured.lists.find((l) => l.id === SPEECH_AUDIO_LIST_ID);
+  const names = new Set(
+    [SPEECH_AUDIO_LIST_NAME, SPEECH_AUDIO_LIST_NAME_ALT].map((n) => n.toLowerCase()),
+  );
+  const ids = new Set([SPEECH_AUDIO_LIST_ID, SPEECH_AUDIO_LIST_ID_ALT]);
+  const byId = ensured.lists.find((l) => ids.has(l.id));
   if (byId) {
-    if (!byId.name) byId.name = SPEECH_AUDIO_LIST_NAME;
+    if (!byId.name) byId.name = SPEECH_AUDIO_LIST_NAME_ALT;
     return { ok: true, list: byId, lists: ensured.lists };
   }
-  const byName = ensured.lists.find(
-    (l) => String(l.name || '').trim().toLowerCase() === SPEECH_AUDIO_LIST_NAME.toLowerCase(),
-  );
+  const byName = ensured.lists.find((l) => names.has(String(l.name || '').trim().toLowerCase()));
   if (byName) return { ok: true, list: byName, lists: ensured.lists };
+  const fuzzy = ensured.lists.find((l) => /speech/i.test(String(l.name || '')) && /audio/i.test(String(l.name || '')));
+  if (fuzzy) return { ok: true, list: fuzzy, lists: ensured.lists };
   const list = {
-    id: SPEECH_AUDIO_LIST_ID,
-    name: SPEECH_AUDIO_LIST_NAME,
+    id: SPEECH_AUDIO_LIST_ID_ALT,
+    name: SPEECH_AUDIO_LIST_NAME_ALT,
     createdAt: new Date().toISOString(),
     items: [],
   };
