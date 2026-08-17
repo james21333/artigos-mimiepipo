@@ -399,6 +399,7 @@
     return (
       err === 'file_too_large' ||
       err === 'source_is_speech' ||
+      err === 'too_many_scenes' ||
       err === 'resolve_rejected' ||
       err === 'resolve_rate_limited' ||
       err === 'tiktok_download_failed'
@@ -416,6 +417,12 @@
     }
     if (err === 'source_is_speech') {
       return 'Spoken dialogue — moved to GLP-1 Speech audio list';
+    }
+    if (err === 'too_many_scenes') {
+      const n = Number(data?.shotCount);
+      const max = Number(data?.maxScenes) || 6;
+      if (Number.isFinite(n) && n > 0) return `${n} scenes (max ${max}) — skipped`;
+      return `Too many scenes (max ${max}) — skipped`;
     }
     if (detail) return detail;
     if (err) return err;

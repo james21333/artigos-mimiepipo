@@ -51,7 +51,7 @@ import {
   markRemixUsed,
 } from '../../lib/remix2-account-used.js';
 import { listRemixSourcePools } from '../../lib/remix2-source-pool.js';
-import { addUrlsToList, DEFAULT_LIST_ID, moveUrlsToSpeechAudioList } from '../../lib/tiktok-url-lists.js';
+import { addUrlsToList, DEFAULT_LIST_ID, moveUrlsToSpeechAudioList, removeUrlsFromList } from '../../lib/tiktok-url-lists.js';
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -409,6 +409,44 @@ export async function onRequest(context) {
         );
       }
       // label MUSIC / unknown / gate error → fail-open and create
+    }
+
+    // Music-Only: EDL shot-count before creating a job (avoid >6 scene burn).
+    if (musicLock && !writeFromScratch && audioMode !== 'mix') {
+      const edlGate = await workerFetch(env, '/preview-source-edl', {
+        method: 'POST',
+        body: { sourceKey, r2 },
+        timeoutMs: 120000,
+      });
+      const shotCount = Number(edlGate?.data?.shotCount);
+      const maxScenes = Number(edlGate?.data?.maxScenes) || 6;
+      const tooMany =
+        edlGate.ok &&
+        Number.isFinite(shotCount) &&
+        shotCount > 0 &&
+        (edlGate.data?.tooMany === true || shotCount > maxScenes);
+      if (tooMany) {
+        const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+        let removed = null;
+        try {
+          removed = await removeUrlsFromList(env, fromListId, [tiktokUrl]);
+        } catch {
+          removed = null;
+        }
+        return json(
+          {
+            error: 'too_many_scenes',
+            message: `Source has ${shotCount} scenes (max ${maxScenes} for Music-Only). Removed from list — Autogenerate will try another leftover.`,
+            shotCount,
+            maxScenes,
+            sourceKey,
+            removedFromList: Boolean(removed?.ok && (removed.removed || 0) > 0),
+            listId: fromListId,
+          },
+          422,
+        );
+      }
+      // preview error / missing shotCount → fail-open; worker analyze enforces max
     }
 
     if (remixAccount) {
