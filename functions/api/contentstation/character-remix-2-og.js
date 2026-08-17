@@ -420,7 +420,7 @@ export async function onRequest(context) {
         timeoutMs: 120000,
       });
       const shotCount = Number(edlGate?.data?.shotCount);
-      const maxScenes = Number(edlGate?.data?.maxScenes) || 6;
+      const maxScenes = Number(edlGate?.data?.maxScenes) || 10;
       const tooMany =
         edlGate.ok &&
         Number.isFinite(shotCount) &&

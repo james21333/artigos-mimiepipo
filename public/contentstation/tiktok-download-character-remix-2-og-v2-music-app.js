@@ -420,7 +420,7 @@
     }
     if (err === 'too_many_scenes') {
       const n = Number(data?.shotCount);
-      const max = Number(data?.maxScenes) || 6;
+      const max = Number(data?.maxScenes) || 10;
       if (Number.isFinite(n) && n > 0) {
         return `${n} scenes (max ${max}) — removed + blocklisted`;
       }
