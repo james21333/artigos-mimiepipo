@@ -298,6 +298,10 @@ export async function onRequest(context) {
       (musicLock || writeFromScratch
         ? body.subtleRewriteOverlays !== false
         : body.subtleRewriteOverlays === true);
+    const viralSceneChat =
+      musicLock && !writeFromScratch
+        ? body.viralSceneChat !== false
+        : body.viralSceneChat === true;
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -510,6 +514,7 @@ export async function onRequest(context) {
         remixVariant,
         restoreOverlays,
         subtleRewriteOverlays,
+        viralSceneChat,
         writeFromScratch,
         grokDialogue: writeFromScratch ? body.grokDialogue !== false : undefined,
         musicOnly: writeFromScratch ? body.musicOnly === true : undefined,
@@ -628,6 +633,9 @@ export async function onRequest(context) {
       (musicLock
         ? body.subtleRewriteOverlays !== false
         : body.subtleRewriteOverlays === true);
+    const viralSceneChat = musicLock
+      ? body.viralSceneChat !== false
+      : body.viralSceneChat === true;
     const characterMode = identityLock
       ? 'upload'
       : body.deriveCharacterFromSource
@@ -741,6 +749,7 @@ export async function onRequest(context) {
         remixVariant,
         restoreOverlays,
         subtleRewriteOverlays,
+        viralSceneChat,
         productKey: body.productKey || null,
         setKey: body.setKey || null,
         title:

@@ -242,12 +242,20 @@
     return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
   }
 
+  /** Clear finished: only Done/Failed/give-up (never queued / in-flight). */
+  function isClearableFinishedJob(job) {
+    if (!job) return false;
+    const id = String(job.jobId || '');
+    if (id.startsWith('fail-') || id.startsWith('submit-failed-')) return true;
+    const stage = String(job.stage || '');
+    return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
+  }
+
   function isTerminalJob(job) {
     if (!job) return false;
     if (String(job.jobId || '').startsWith('fail-')) return true;
     if (String(job.jobId || '').startsWith('submit-failed-')) return true;
     if (isTerminalStage(job.stage)) return true;
-    if (!job.stage && job.outputUrl) return true;
     return false;
   }
 
@@ -561,8 +569,10 @@
   function updateCardFromStatus(job, data) {
     const card = ensureBatchCard(job);
     if (!card) return;
-    const stage = data?.stage || data?.status || 'unknown';
-    if (job) job.stage = stage;
+    // Never use data.status as stage (Pages often returns status:"ok").
+    const stage =
+      typeof data?.stage === 'string' && data.stage ? data.stage : job?.stage || 'unknown';
+    if (job && typeof data?.stage === 'string' && data.stage) job.stage = data.stage;
     const statusEl = card.querySelector('.result-status');
     if (statusEl) {
       let label = stageLabel(stage, data);
@@ -752,7 +762,7 @@
 
   async function clearFinishedFromList() {
     setError('');
-    const finished = batchJobs.filter(isTerminalJob);
+    const finished = batchJobs.filter(isClearableFinishedJob);
     const orphanFailCards = batchList
       ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) => {
           const id = String(card.dataset.jobId || '');
@@ -763,19 +773,23 @@
       setStatus('No finished jobs to clear.', 'In-flight and awaiting-prompt jobs stay.');
       return;
     }
+    const keepPreview = batchJobs.filter((job) => !isClearableFinishedJob(job));
     const ok = confirm(
-      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\nAwaiting-prompt and in-flight jobs stay. Does not delete R2 files.`,
+      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\n` +
+        `${keepPreview.length} queued/in-flight/awaiting-prompt job(s) will stay.\n` +
+        `Does not delete R2 files.`,
     );
     if (!ok) return;
     const keep = [];
     for (const job of batchJobs) {
-      if (isTerminalJob(job)) removeJobCard(job.jobId);
+      if (isClearableFinishedJob(job)) removeJobCard(job.jobId);
       else keep.push(job);
     }
     batchJobs = keep;
     for (const card of orphanFailCards) card.remove();
     saveBatch();
     syncBatchActionsVisibility();
+    if (keep.some((job) => !isTerminalJob(job))) startPoll();
     setStatus(
       keep.length ? `Cleared finished · ${keep.length} still on list` : 'Cleared finished jobs.',
       'R2 finals unchanged.',
