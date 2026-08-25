@@ -165,41 +165,43 @@
       'CRITICAL FRAMING: character must be SMALL in frame — about half the usual close-up size, roughly 40% of frame height. ' +
       'Medium-wide / pull-back: full head, shoulders, and pointing arm fully visible with large empty margins on left/right and above the head. ' +
       'Do NOT tight-crop the face. Do NOT fill the frame. Nothing cut off at edges. ' +
-      'Character faces camera. Right or left index finger pointing UP toward the top of frame (calling out a stitch above) — whole hand and arm in frame. ' +
+      'Character faces camera. Right or left index finger pointing STRAIGHT UP toward the top of frame (calling out a stitch above) — whole hand and arm in frame. ' +
+      'The upward point is the hero pose: arm raised and finger up in the still (Grok must hold this for almost the whole clip). ' +
       'Big expressive reaction faces — amused, shocked, skeptical. Silent — no talking, mouth mostly closed, not lip-sync. Single person only. No on-screen text. ' +
       'Background must be vivid, detailed, and eye-catching — fill the space behind the character; keep the character sharp and readable in front.';
     // Scene ids MUST be scene_NN — Codex prompt parser only accepts ## scene_* headings.
+    const holdPoint =
+      'KEEP pointing straight UP the whole time — arm stays raised; never drop the point. Only tiny jab pulses while still pointing up.';
     const beats = [
       {
         id: 'scene_01',
         title: 'Point up — hold',
         duration: 8,
-        beat:
-          'Firm upward point beside the face, raised eyebrows, slight smirk — hold the stitch-callout pose.',
+        beat: `Firm upward point beside the face, raised eyebrows, slight smirk. ${holdPoint}`,
       },
       {
         id: 'scene_02',
         title: 'Reaction faces',
         duration: 8,
-        beat:
-          'Still pointing up; stronger reaction faces — disbelief then laughter-adjacent expression, small head tilts.',
+        beat: `Stronger reaction faces — disbelief then laughter-adjacent expression, small head tilts — while STILL pointing up. ${holdPoint}`,
       },
       {
         id: 'scene_03',
         title: 'Lean + jab',
         duration: 7,
-        beat:
-          'Lean slightly toward camera, jab the upward point again, wide eyes / playful judgment face.',
+        beat: `Lean slightly toward camera, jab the upward point again (finger stays up), wide eyes / playful judgment face. ${holdPoint}`,
       },
       {
         id: 'scene_04',
         title: 'Final beat',
         duration: 7,
-        beat:
-          'Final emphatic upward point + biggest reaction beat; hold for a CapCut stitch cut.',
+        beat: `Biggest reaction beat with emphatic upward point held for CapCut stitch. ${holdPoint}`,
       },
     ];
     const backgrounds = pickDiverseBackgrounds(beats.length);
+    const continuousPointMotion =
+      'CRITICAL: keep index finger pointing straight UP for nearly the entire clip. ' +
+      'Do not lower the arm after the opening. Face reacts; point stays up.';
     let t = 0;
     return beats.map((b, i) => {
       const startMs = t;
@@ -220,6 +222,7 @@
         endMs,
         silent: true,
         motion_type: 'b-roll',
+        motion: continuousPointMotion,
         dialogue: '',
         image_prompt,
         subject: 'uploaded character',
