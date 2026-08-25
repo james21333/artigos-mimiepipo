@@ -87,10 +87,12 @@
       const jobId = obj.jobId || String(key || '').split('/')[1] || '';
       const href = obj.downloadPath || mediaGet(key);
       const card = document.createElement('article');
-      card.className = 'gallery-card';
+      card.className = 'gallery-card stitch-video-card';
       card.innerHTML = `
-        <video controls playsinline preload="metadata" src="${href}"></video>
-        <div class="gallery-card-meta">
+        <div class="stitch-video-thumb">
+          <video controls playsinline preload="metadata" src="${href}"></video>
+        </div>
+        <div class="gallery-card-meta stitch-video-meta">
           <p class="gallery-card-title">Stitch · ${jobId.slice(0, 10)}</p>
           <p class="muted-line">${formatWhen(obj.uploaded)} · ${formatBytes(obj.size)}</p>
           <p class="row" style="gap:0.75rem;flex-wrap:wrap;">
