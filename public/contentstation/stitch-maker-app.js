@@ -198,21 +198,26 @@
         beat: `Biggest reaction beat with emphatic upward point held for CapCut stitch. ${holdPoint}`,
       },
     ];
-    const backgrounds = pickDiverseBackgrounds(beats.length);
+    const backgrounds = pickDiverseBackgrounds(1);
+    const sharedBg = backgrounds[0];
     const continuousPointMotion =
       'CRITICAL: keep index finger pointing straight UP for nearly the entire clip. ' +
-      'Do not lower the arm after the opening. Face reacts; point stays up.';
+      'Do not lower the arm after the opening. Face reacts; point stays up. ' +
+      'Same continuous background/set for the whole video — do not change location.';
+    const continuityLock =
+      `ONE CONTINUOUS VIDEO — same background for every beat: ${sharedBg} ` +
+      'Keep this EXACT same environment, lighting, camera distance, and set dressing in every still. ' +
+      'Only the character pose / facial reaction changes. Not a new location per beat.';
     let t = 0;
     return beats.map((b, i) => {
       const startMs = t;
       const durationMs = b.duration * 1000;
       const endMs = startMs + durationMs;
       t = endMs;
-      const bg = backgrounds[i];
       const image_prompt =
-        `${framing} BACKGROUND (unique for this beat — do not reuse a plain void/halo): ${bg} ` +
-        `Beat: ${b.beat}${noteBit} ` +
-        `Reaction energy inspired by CapCut stitch reactors (see ${REF_URL}) — invent a fresh setting, do not copy that clip's exact halo look.`;
+        `${framing} ${continuityLock} ` +
+        `Beat ${i + 1}/${beats.length}: ${b.beat}${noteBit} ` +
+        `Reaction energy inspired by CapCut stitch reactors (see ${REF_URL}) — invent a fresh setting once, then hold it.`;
       return {
         id: b.id,
         title: b.title,
@@ -226,7 +231,7 @@
         dialogue: '',
         image_prompt,
         subject: 'uploaded character',
-        backgroundIdea: bg,
+        backgroundIdea: sharedBg,
       };
     });
   }
