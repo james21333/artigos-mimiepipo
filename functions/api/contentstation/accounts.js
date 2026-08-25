@@ -131,7 +131,7 @@ function forbidden(role) {
 }
 
 export async function onRequestGet(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
@@ -210,7 +210,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;

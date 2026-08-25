@@ -27,7 +27,7 @@ async function rememberDownloadOnList(env, body, url, extra = {}) {
  */
 export async function onRequestPost(context) {
   try {
-    const auth = await requireRole(context, [ROLES.DOWNLOAD]);
+    const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.KENNETH]);
     if (!auth.ok) return auth.response;
 
     const bucket = context.env.MEDIA_BUCKET;
@@ -142,7 +142,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestGet(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const url = new URL(context.request.url);

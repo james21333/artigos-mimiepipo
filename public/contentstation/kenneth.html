@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kenneth's Content Tools</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Kenneth's Content Tools — Music-Only remix, TikTok download, and Stitch Maker.">
+  <link rel="stylesheet" href="./styles.css?v=kenneth1">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Kenneth tools">
+        <a href="./kenneth.html" aria-current="page">Home</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./stitch-maker.html">Stitch Maker with Character</a>
+      </nav>
+      <p class="brand">Kenneth's Content Tools</p>
+      <p class="sub">Your three tools · signed in as Kenneth</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Kenneth's Content Tools — password required.</p>
+      <form id="login-form">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Pick a tool</h1>
+        <p class="lede">You only have access to these three pages.</p>
+        <ul class="kenneth-tool-list">
+          <li>
+            <a class="kenneth-tool-card" href="./tiktok-download-character-remix-2-og-v2-music.html">
+              <strong>V2 Music-Only</strong>
+              <span>Character remake with original TikTok music</span>
+            </a>
+          </li>
+          <li>
+            <a class="kenneth-tool-card" href="./tiktok-download.html">
+              <strong>TikTok download</strong>
+              <span>Save public TikToks (no watermark when available)</span>
+            </a>
+          </li>
+          <li>
+            <a class="kenneth-tool-card" href="./stitch-maker.html">
+              <strong>Stitch Maker with Character</strong>
+              <span>Build stitch videos with your character (new)</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+    </section>
+  </main>
+
+  <style>
+    .kenneth-tool-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.85rem;
+    }
+    .kenneth-tool-card {
+      display: block;
+      padding: 1rem 1.1rem;
+      border: 1px solid var(--rule);
+      background: var(--panel);
+      text-decoration: none;
+      color: inherit;
+      border-radius: 2px;
+    }
+    .kenneth-tool-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .kenneth-tool-card strong {
+      display: block;
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+    .kenneth-tool-card span {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+  </style>
+
+  <script src="./auth-gate.js?v=kenneth1"></script>
+  <script src="./kenneth-app.js?v=1"></script>
+</body>
+</html>

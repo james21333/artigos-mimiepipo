@@ -4,6 +4,7 @@ import {
   ROLES,
   mediaKeyAllowed,
   mediaPrefixAllowed,
+  mediaWriteKeyAllowed,
   mediaWriteAllowed,
 } from '../../lib/contentstation-auth.js';
 import { createR2PresignedPut, createR2PresignedGet } from '../../lib/r2-presign.js';
@@ -198,7 +199,7 @@ async function deleteKey(env, bucket, key) {
   });
 }
 
-async function uploadForm(env, bucket, request) {
+async function uploadForm(env, bucket, request, role = ROLES.ADMIN) {
   const ct = request.headers.get('Content-Type') || '';
   if (!ct.includes('multipart/form-data')) {
     return json(
@@ -244,6 +245,7 @@ async function uploadForm(env, bucket, request) {
     key = sanitizeKey(`${prefix.replace(/\/?$/, '/')}${stamp}_${name}`);
   }
   if (!key) return json({ error: 'invalid_key' }, 400);
+  if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
 
   const contentType = file.type || 'application/octet-stream';
   const put = await bucket.put(key, file.stream(), {
@@ -266,7 +268,7 @@ async function uploadForm(env, bucket, request) {
   });
 }
 
-async function handleJson(env, bucket, request) {
+async function handleJson(env, bucket, request, role = ROLES.ADMIN) {
   let body;
   try {
     body = await request.json();
@@ -276,6 +278,8 @@ async function handleJson(env, bucket, request) {
   const action = body.action || 'delete';
 
   if (action === 'delete') {
+    const key = sanitizeKey(body.key);
+    if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
     return deleteKey(env, bucket, body.key);
   }
 
@@ -291,6 +295,7 @@ async function handleJson(env, bucket, request) {
       key = sanitizeKey(`${prefix.replace(/\/?$/, '/')}${stamp}_${name}`);
     }
     if (!key) return json({ error: 'invalid_key' }, 400);
+    if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
     const signed = await createR2PresignedPut(env, {
       key,
       contentType: body.contentType || 'application/octet-stream',
@@ -388,7 +393,7 @@ function forbidMedia(role) {
 
 export async function onRequest(context) {
   // All authenticated roles may hit media; action/key checks narrow further.
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const bucket = getBucket(context.env);
@@ -447,10 +452,12 @@ export async function onRequest(context) {
       return listObjects(env, bucket, url);
     }
 
-    // Writes (upload / delete / multipart / sign-put) are admin-only.
+    // Writes: admin all; kenneth only character/stitch prefixes.
     if (!mediaWriteAllowed(role)) return forbidMedia(role);
 
     if (method === 'DELETE') {
+      const delKey = sanitizeKey(url.searchParams.get('key'));
+      if (!mediaWriteKeyAllowed(role, delKey)) return forbidMedia(role);
       return deleteKey(env, bucket, url.searchParams.get('key'));
     }
 
@@ -461,9 +468,9 @@ export async function onRequest(context) {
     if (method === 'POST') {
       const ct = request.headers.get('Content-Type') || '';
       if (ct.includes('application/json')) {
-        return handleJson(env, bucket, request);
+        return handleJson(env, bucket, request, role);
       }
-      return uploadForm(env, bucket, request);
+      return uploadForm(env, bucket, request, role);
     }
 
     return json({ error: 'method_not_allowed' }, 405);

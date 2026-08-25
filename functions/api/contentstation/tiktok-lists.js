@@ -15,7 +15,7 @@ import {
  * POST { action: "add", listId, urls: string[] | url: string }
  */
 export async function onRequest(context) {
-  const auth = await requireRole(context, [ROLES.ADMIN, ROLES.DOWNLOAD]);
+  const auth = await requireRole(context, [ROLES.ADMIN, ROLES.DOWNLOAD, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;
