@@ -116,19 +116,58 @@
   }
 
   /**
-   * ~30s silent stitch-reactor beats matching the bottom panel of REF_URL:
-   * point up, expressive faces, dark bg + glowing circular halo behind head.
+   * ~30s silent stitch-reactor beats: point up + reaction faces, character small in
+   * landscape frame. Backgrounds are randomly diverse (space, car, plane, etc.) —
+   * not locked to the halo from REF_URL; that clip is vibe-only.
    */
+  const STITCH_BACKGROUNDS = [
+    'Deep space: swirling stars, colorful nebulae, and planets exploding / cracking apart behind the character — cinematic cosmic chaos, eye-catching.',
+    'Night drive: character in the passenger or driver seat of a sports car, neon city lights streaking past the windows, dashboard glow.',
+    'Private jet cabin: window view of clouds and golden sunset, leather seats, soft cabin lights — glamorous travel vibe.',
+    'Rainy neon Tokyo alley at night: wet reflections, pink/cyan signs, light rain — cyberpunk atmosphere (character still centered, not lost in crowd).',
+    'Volcanic lava field at dusk: glowing magma rivers and sparks in the distance, heat haze, dramatic orange sky.',
+    'Underwater reef: floating bubbles, shafts of light, vivid coral and tropical fish swimming past — crystal clear water.',
+    'Rooftop helipad at night: city skyline bokeh, helicopter lights, wind-blown atmosphere.',
+    'Desert highway mirage: endless dunes, heat shimmer, classic convertible or motorcycle nearby — golden hour.',
+    'Aurora borealis over snowy mountains: green/purple sky ribbons, crisp cold air feel, starfield.',
+    'Concert stage smoke + lasers: purple/blue beams, haze, crowd silhouettes far behind — festival energy.',
+    'Luxury yacht deck at sea: turquoise water, sun flares, chrome railings — vacation flex.',
+    'Retro diner booth: chrome, neon jukebox glow, milkshake colors — playful Americana.',
+    'Stormy ship deck: crashing waves, lightning on the horizon, rain and wind — adventure.',
+    'Floating above Earth from orbit: curved planet edge, ISS-style vibe, intense sunlight.',
+    'Jungle waterfall mist: lush greens, rainbow spray, birds — adventure travel.',
+    'F1 pit lane: blurred race cars, crew lights, tire smoke — high-speed sports energy.',
+    'Balloon festival sky: dozens of colorful hot-air balloons at sunrise — whimsical and bright.',
+    'Haunted carnival at night: tilted ferris wheel lights, fog, candy-colored neon — spooky fun.',
+    'Skatepark golden hour: graffiti walls, long shadows, palm trees — youthful street energy.',
+    'Snowy cabin porch: warm window light, falling snow, pine forest — cozy contrast to reaction energy.',
+  ];
+
+  function pickDiverseBackgrounds(count) {
+    const pool = STITCH_BACKGROUNDS.slice();
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = pool[i];
+      pool[i] = pool[j];
+      pool[j] = tmp;
+    }
+    const out = [];
+    for (let i = 0; i < count; i += 1) {
+      out.push(pool[i % pool.length]);
+    }
+    return out;
+  }
+
   function buildStitchScenes(notes) {
     const noteBit = notes ? ` Extra direction: ${notes}` : '';
-    const look =
+    const framing =
       'Wide landscape 16:9 UGC reaction shot of THIS EXACT uploaded character only (match face + hair + body from the character reference image). ' +
       'CRITICAL FRAMING: character must be SMALL in frame — about half the usual close-up size, roughly 40% of frame height. ' +
-      'Medium-wide / webcam pull-back: full head, shoulders, and pointing arm fully visible with large empty margins on left/right and above the head. ' +
+      'Medium-wide / pull-back: full head, shoulders, and pointing arm fully visible with large empty margins on left/right and above the head. ' +
       'Do NOT tight-crop the face. Do NOT fill the frame. Nothing cut off at edges. ' +
-      'Dark cinematic void background with a bright glowing circular white halo / ring-light behind the head (halo fully visible, not clipped). ' +
       'Character faces camera. Right or left index finger pointing UP toward the top of frame (calling out a stitch above) — whole hand and arm in frame. ' +
-      'Big expressive reaction faces — amused, shocked, skeptical. Silent — no talking, mouth mostly closed, not lip-sync. Single person only. No on-screen text.';
+      'Big expressive reaction faces — amused, shocked, skeptical. Silent — no talking, mouth mostly closed, not lip-sync. Single person only. No on-screen text. ' +
+      'Background must be vivid, detailed, and eye-catching — fill the space behind the character; keep the character sharp and readable in front.';
     // Scene ids MUST be scene_NN — Codex prompt parser only accepts ## scene_* headings.
     const beats = [
       {
@@ -160,15 +199,18 @@
           'Final emphatic upward point + biggest reaction beat; hold for a CapCut stitch cut.',
       },
     ];
+    const backgrounds = pickDiverseBackgrounds(beats.length);
     let t = 0;
-    return beats.map((b) => {
+    return beats.map((b, i) => {
       const startMs = t;
       const durationMs = b.duration * 1000;
       const endMs = startMs + durationMs;
       t = endMs;
+      const bg = backgrounds[i];
       const image_prompt =
-        `${look} Beat: ${b.beat}${noteBit} ` +
-        `Style reference: CapCut stitch bottom-panel reactor (see ${REF_URL}).`;
+        `${framing} BACKGROUND (unique for this beat — do not reuse a plain void/halo): ${bg} ` +
+        `Beat: ${b.beat}${noteBit} ` +
+        `Reaction energy inspired by CapCut stitch reactors (see ${REF_URL}) — invent a fresh setting, do not copy that clip's exact halo look.`;
       return {
         id: b.id,
         title: b.title,
@@ -181,6 +223,7 @@
         dialogue: '',
         image_prompt,
         subject: 'uploaded character',
+        backgroundIdea: bg,
       };
     });
   }
