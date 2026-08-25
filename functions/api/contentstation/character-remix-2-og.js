@@ -770,6 +770,7 @@ export async function onRequest(context) {
         musicOriginal: postFlat.musicOriginal || '',
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         autoRun: Boolean(body.autoRun),
+        account: body.account || null,
         r2,
       },
     });
