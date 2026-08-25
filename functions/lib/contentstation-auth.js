@@ -43,6 +43,7 @@ const ROLE_PAGES = Object.freeze({
     '/viral-video-builder.html',
     '/kenneth.html',
     '/stitch-maker.html',
+    '/stitch-videos.html',
     '/old213223523.html',
   ],
   [ROLES.DOWNLOAD]: ['/tiktok-download.html'],
@@ -52,6 +53,7 @@ const ROLE_PAGES = Object.freeze({
     '/tiktok-download.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
     '/stitch-maker.html',
+    '/stitch-videos.html',
   ],
 });
 
@@ -322,6 +324,7 @@ export function roleMayAccessPage(role, pageId) {
     'viral-video-builder': ['/viral-video-builder.html'],
     kenneth: ['/kenneth.html'],
     'stitch-maker': ['/stitch-maker.html'],
+    'stitch-videos': ['/stitch-videos.html'],
     old: ['/old213223523.html'],
   };
   const targets = map[pageId] || [];

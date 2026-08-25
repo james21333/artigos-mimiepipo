@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kenneth's Content Tools | Stitch videos</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Library of Stitch Maker with Character clips for CapCut.">
+  <link rel="stylesheet" href="./styles.css?v=kenneth1">
+</head>
+<body>
+  <main class="gallery-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Kenneth tools">
+        <a href="./kenneth.html">Home</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./stitch-maker.html">Stitch Maker with Character</a>
+        <a href="./stitch-videos.html" aria-current="page">Stitch videos</a>
+      </nav>
+      <p class="brand">Kenneth's Content Tools</p>
+      <p class="sub">Stitch videos</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Kenneth's Content Tools — password required.</p>
+      <form id="login-form">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Stitch videos</h1>
+        <p class="lede">
+          All finished Stitch Maker clips (~30s CapCut B-roll). Not sent to Ready For Upload.
+          Make more on
+          <a class="btn-link" href="./stitch-maker.html">Stitch Maker with Character</a>.
+        </p>
+
+        <div class="row filter-row">
+          <button type="button" id="refresh-btn">Refresh</button>
+        </div>
+
+        <p id="gallery-status" class="status" aria-live="polite">Loading…</p>
+        <p id="gallery-error" class="error" hidden></p>
+        <div id="gallery-grid" class="gallery-grid" hidden></div>
+        <p id="gallery-empty" class="muted-line" hidden>No stitch videos yet. Generate some on Stitch Maker.</p>
+      </section>
+    </section>
+  </main>
+
+  <script src="./auth-gate.js?v=kenneth2"></script>
+  <script src="./stitch-videos-app.js?v=1"></script>
+</body>
+</html>

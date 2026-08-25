@@ -205,6 +205,14 @@ export async function onRequest(context) {
           if (isMusic || !isTalking) {
             continue;
           }
+        } else if (
+          wantVariant === 'stitch-maker' ||
+          wantVariant === 'stitchmaker' ||
+          wantVariant === 'stitch'
+        ) {
+          if (remixVariant !== 'stitch-maker' && remixVariant !== 'stitchmaker') {
+            continue;
+          }
         }
 
         objects.push({
@@ -625,6 +633,14 @@ export async function onRequest(context) {
     const remixVariant =
       body.remixVariant ||
       (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
+    const isStitchMaker =
+      String(remixVariant || '')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, '-') === 'stitch-maker' ||
+      remixVariantRaw === 'stitch-maker' ||
+      remixVariantRaw === 'stitchmaker' ||
+      remixVariantRaw === 'stitch';
     const restoreOverlays = musicLock
       ? body.restoreOverlays !== false
       : body.restoreOverlays === true;
@@ -770,7 +786,10 @@ export async function onRequest(context) {
         musicOriginal: postFlat.musicOriginal || '',
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         autoRun: Boolean(body.autoRun),
-        account: body.account || null,
+        // Stitch Maker: never Ready For Upload (library only). Character keys may
+        // still live under account-characters/ — worker must not resolve that.
+        account: isStitchMaker ? null : body.account || null,
+        skipReadyTag: isStitchMaker || body.skipReadyTag === true,
         r2,
       },
     });

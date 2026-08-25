@@ -21,6 +21,7 @@
   const NAV_BY_HREF = [
     { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-maker\.html/, roles: ['kenneth', 'admin'] },
+    { match: /stitch-videos\.html/, roles: ['kenneth', 'admin'] },
     { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ['admin', 'kenneth'] },
     { match: /(?:^|\/)(?:index\.html)?$/, roles: ['admin'], label: 'Clean' },
     { match: /cleaned\.html/, roles: ['admin'] },
@@ -56,6 +57,7 @@
     'ready-account': ['admin', 'ready'],
     kenneth: ['admin', 'kenneth'],
     'stitch-maker': ['admin', 'kenneth'],
+    'stitch-videos': ['admin', 'kenneth'],
     old: ['admin'],
   };
 

@@ -272,16 +272,6 @@
     }
   }
 
-  async function maybeAutoTag(job, stage, data) {
-    const uploaded = Boolean(data?.outputUploaded || data?.output_url || data?.outputUrl || job.outputUrl);
-    if (stage !== 'stitched' || !uploaded || !job?.account || job.tagged) return;
-    const result = await accountsUi?.tagFinalForAccount?.(job.jobId, job.account);
-    if (result?.ok) {
-      job.tagged = true;
-      saveBatch();
-    }
-  }
-
   function stopPoll() {
     if (pollTimer) {
       clearInterval(pollTimer);
@@ -307,7 +297,7 @@
       );
       if (!ok) continue;
       updateCardFromStatus(job, data);
-      await maybeAutoTag(job, data?.stage, data);
+      // Intentionally no Ready For Upload tagging for stitch clips.
     }
     saveBatch();
     if (!batchJobs.some(jobNeedsPoll)) stopPoll();
@@ -333,7 +323,8 @@
         viralSceneChat: false,
         writeFromScratch: false,
         autoRun: true,
-        account: account || undefined,
+        // Never Ready-tag stitch clips — library only (stitch-maker + stitch-videos).
+        account: undefined,
         title,
         scenes,
         tiktokUrl: REF_URL,
@@ -406,24 +397,13 @@
       return;
     }
     const accounts = Array.isArray(data?.accounts) ? data.accounts : [];
-    const withChar = accounts.filter((a) => a?.characterKey || a?.defaultCharacterKey || a?.defaultKey);
-    // Prefer characters map if list lacks keys
-    const { ok: okC, data: dataC } = await api('/api/contentstation/accounts?action=characters');
-    const chars = okC && dataC?.characters ? dataC.characters : {};
-    const names = accounts
-      .map((a) => a.name || a)
-      .filter(Boolean)
-      .filter((name) => {
-        const c = chars[name] || chars[String(name)];
-        return Boolean(c?.defaultKey || c?.key || withChar.find((x) => (x.name || x) === name));
-      });
-
-    if (!names.length) {
+    const withChar = accounts.filter((a) => a?.name && a?.characterKey);
+    if (!withChar.length) {
       setError('No accounts with saved characters yet.');
       return;
     }
     const go = confirm(
-      `Generate a ~30s stitch clip for ${names.length} account(s) that have characters?\n\nUses each account’s default character image.`,
+      `Generate a ~30s stitch clip for ${withChar.length} account(s) that have characters?\n\nUses each account’s default character image.`,
     );
     if (!go) return;
 
@@ -432,12 +412,23 @@
     startBtn.disabled = true;
     let done = 0;
     let failed = 0;
-    for (const name of names) {
-      setStatus(`Queuing ${done + failed + 1}/${names.length}…`, name);
+    for (const row of withChar) {
+      const name = row.name;
+      setStatus(`Queuing ${done + failed + 1}/${withChar.length}…`, name);
       try {
-        // Select account so resolveCharacterKeyForCreate picks its default
-        await accountsUi.applyAccountCharacter?.(name);
-        await enqueueOne(name);
+        accountsUi?.applyAccountCharacter?.(name);
+        const created = await createStitchJob({
+          account: name,
+          characterKey: row.characterKey,
+        });
+        const job = {
+          jobId: created.jobId,
+          account: name,
+          characterKey: row.characterKey,
+          stage: created.stage || 'queued',
+        };
+        batchJobs.unshift(job);
+        updateCardFromStatus(job, created);
         done += 1;
       } catch (err) {
         failed += 1;
