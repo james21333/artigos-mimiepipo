@@ -122,9 +122,12 @@
   function buildStitchScenes(notes) {
     const noteBit = notes ? ` Extra direction: ${notes}` : '';
     const look =
-      'Landscape 16:9 UGC webcam / reaction shot of THIS EXACT uploaded character only (match face + hair + body from the character reference image). ' +
-      'Dark cinematic void background with a bright glowing circular white halo / ring-light behind the head (eye-catching high contrast, like a stitch reaction booth). ' +
-      'Character faces camera, framed mid-chest up. Right or left index finger pointing UP toward the top of frame (calling out a stitch above). ' +
+      'Wide landscape 16:9 UGC reaction shot of THIS EXACT uploaded character only (match face + hair + body from the character reference image). ' +
+      'CRITICAL FRAMING: character must be SMALL in frame — about half the usual close-up size, roughly 40% of frame height. ' +
+      'Medium-wide / webcam pull-back: full head, shoulders, and pointing arm fully visible with large empty margins on left/right and above the head. ' +
+      'Do NOT tight-crop the face. Do NOT fill the frame. Nothing cut off at edges. ' +
+      'Dark cinematic void background with a bright glowing circular white halo / ring-light behind the head (halo fully visible, not clipped). ' +
+      'Character faces camera. Right or left index finger pointing UP toward the top of frame (calling out a stitch above) — whole hand and arm in frame. ' +
       'Big expressive reaction faces — amused, shocked, skeptical. Silent — no talking, mouth mostly closed, not lip-sync. Single person only. No on-screen text.';
     // Scene ids MUST be scene_NN — Codex prompt parser only accepts ## scene_* headings.
     const beats = [
