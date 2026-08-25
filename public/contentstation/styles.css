@@ -551,6 +551,48 @@ a { color: var(--accent); }
   background: #0f1713;
 }
 
+/* Stitch videos library — compact square thumbs (16:9 clips letterboxed) */
+.stitch-videos-grid {
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .stitch-videos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+}
+
+.stitch-video-card {
+  max-width: 14rem;
+}
+
+.stitch-video-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  max-width: 14rem;
+  overflow: hidden;
+  background: #0f1713;
+  border: 1px solid rgba(244, 247, 244, 0.12);
+}
+
+.stitch-video-thumb video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0f1713;
+}
+
+.stitch-video-meta {
+  padding: 0.5rem 0 0;
+}
+
+.stitch-video-meta .gallery-card-title {
+  margin: 0 0 0.15rem;
+  font-size: 0.9rem;
+}
+
 .gallery-meta {
   padding: 0.65rem 0 0;
 }
