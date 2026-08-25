@@ -126,30 +126,31 @@
       'Dark cinematic void background with a bright glowing circular white halo / ring-light behind the head (eye-catching high contrast, like a stitch reaction booth). ' +
       'Character faces camera. Right or left index finger pointing UP toward the top of frame (calling out a stitch above). ' +
       'Big expressive reaction faces — amused, shocked, skeptical. Silent — no talking, mouth mostly closed, not lip-sync. Single person only. No on-screen text.';
+    // Scene ids MUST be scene_NN — Codex prompt parser only accepts ## scene_* headings.
     const beats = [
       {
-        id: 'stitch_01',
+        id: 'scene_01',
         title: 'Point up — hold',
         duration: 8,
         beat:
           'Firm upward point beside the face, raised eyebrows, slight smirk — hold the stitch-callout pose.',
       },
       {
-        id: 'stitch_02',
+        id: 'scene_02',
         title: 'Reaction faces',
         duration: 8,
         beat:
           'Still pointing up; stronger reaction faces — disbelief then laughter-adjacent expression, small head tilts.',
       },
       {
-        id: 'stitch_03',
+        id: 'scene_03',
         title: 'Lean + jab',
         duration: 7,
         beat:
           'Lean slightly toward camera, jab the upward point again, wide eyes / playful judgment face.',
       },
       {
-        id: 'stitch_04',
+        id: 'scene_04',
         title: 'Final beat',
         duration: 7,
         beat:
