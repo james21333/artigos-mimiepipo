@@ -34,6 +34,8 @@ const ROLE_PAGES = Object.freeze({
     '/tiktok-download-character-remix-2-og-v1.html',
     '/tiktok-download-character-remix-2-og-v2.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-download-character-remix-2-og-v3.html',
+    '/tiktok-download-character-remix-2-og-talking-johnny.html',
     '/tiktok-url-lists.html',
     '/tiktok-download-facefusion-remix.html',
     '/facefusion-remixes.html',
@@ -313,6 +315,10 @@ export function roleMayAccessPage(role, pageId) {
     'tiktok-download-character-remix-2-og': ['/tiktok-download-character-remix-2-og.html'],
     'tiktok-download-character-remix-2-og-v1': ['/tiktok-download-character-remix-2-og-v1.html'],
     'tiktok-download-character-remix-2-og-v2': ['/tiktok-download-character-remix-2-og-v2.html'],
+    'tiktok-download-character-remix-2-og-v3': ['/tiktok-download-character-remix-2-og-v3.html'],
+    'tiktok-download-character-remix-2-og-talking-johnny': [
+      '/tiktok-download-character-remix-2-og-talking-johnny.html',
+    ],
     'tiktok-download-character-remix-2-og-v2-music': [
       '/tiktok-download-character-remix-2-og-v2-music.html',
     ],

@@ -1,0 +1,341 @@
+(function () {
+  const cfg = window.CSTalkingTest || {};
+  const VARIANT = cfg.variant || 'talking-heads-v3';
+  const PAGE_ID = cfg.pageId || 'tiktok-download-character-remix-2-og-v3';
+  const TITLE_DEFAULT = cfg.title || 'Talking Heads V3';
+  const STORAGE_KEY = cfg.storageKey || 'cs_talking_heads_v3_test_v1';
+  const TEST_URL = cfg.testUrl || 'https://www.tiktok.com/t/ZTDtNMRRM';
+  const TEST_ACCOUNT = cfg.testAccount || '1-GLP- 20.YOUTUBE 1';
+  const POLL_MS = 4000;
+  const SHOW_SCENES = Boolean(cfg.showScenes);
+
+  const gate = document.getElementById('gate');
+  const app = document.getElementById('app');
+  const loginForm = document.getElementById('login-form');
+  const passwordInput = document.getElementById('password');
+  const gateError = document.getElementById('gate-error');
+  const sessionMeta = document.getElementById('session-meta');
+  const logoutBtn = document.getElementById('logout-btn');
+  const statusLine = document.getElementById('status-line');
+  const statusDetail = document.getElementById('status-detail');
+  const errorEl = document.getElementById('talking-test-error');
+  const tiktokUrls = document.getElementById('tiktok-urls');
+  const titleInput = document.getElementById('job-title');
+  const runBtn = document.getElementById('run-btn');
+  const transcriptEl = document.getElementById('transcript-box');
+  const scenesEl = document.getElementById('scenes-box');
+  const outputGallery = document.getElementById('output-gallery');
+  const batchList = document.getElementById('batch-list');
+
+  let publicBaseUrl = '';
+  let accountsCache = [];
+  let batchJobs = [];
+  let pollTimer = null;
+  let submitting = false;
+
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      credentials: 'include',
+      ...opts,
+      headers: {
+        ...(opts.body && !(opts.body instanceof FormData)
+          ? { 'Content-Type': 'application/json' }
+          : {}),
+        ...(opts.headers || {}),
+      },
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  const accountsUi =
+    window.CSRemix2Accounts &&
+    window.CSRemix2Accounts.createController({
+      api,
+      getPublicBaseUrl: () => publicBaseUrl,
+      onError: (msg) => setError(msg),
+    });
+
+  function setError(msg) {
+    if (!errorEl) return;
+    errorEl.hidden = !msg;
+    errorEl.textContent = msg || '';
+  }
+
+  function setStatus(main, detail) {
+    if (statusLine) statusLine.textContent = main || '';
+    if (statusDetail) {
+      statusDetail.hidden = !detail;
+      statusDetail.textContent = detail || '';
+    }
+  }
+
+  function saveBatch() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(batchJobs));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function loadBatch() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      batchJobs = Array.isArray(arr) ? arr.filter((j) => j && j.jobId) : [];
+    } catch {
+      batchJobs = [];
+    }
+  }
+
+  function parseUrls(raw) {
+    return String(raw || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+  }
+
+  function mediaFinalPath(jobId) {
+    const key = `character-remix-2-og/${jobId}/final.mp4`;
+    return `/api/contentstation/media?action=get&key=${encodeURIComponent(key)}`;
+  }
+
+  function resolveFinalUrl(job, data) {
+    return data?.output_url || data?.outputUrl || job?.outputUrl || mediaFinalPath(job?.jobId);
+  }
+
+  function renderTranscript(data) {
+    if (!transcriptEl) return;
+    const text = data?.transcript || '';
+    const scenes = data?.scenes || [];
+    const lines = [];
+    if (text) lines.push(text);
+    for (const s of scenes) {
+      if (s.dialogue) lines.push(`${s.id || s.title || 'scene'}: “${s.dialogue}”`);
+    }
+    transcriptEl.hidden = !lines.length;
+    transcriptEl.textContent = lines.join('\n\n');
+  }
+
+  function renderScenes(data) {
+    if (!scenesEl || !SHOW_SCENES) return;
+    const scenes = data?.scenes || [];
+    scenesEl.innerHTML = '';
+    scenesEl.hidden = !scenes.length;
+    for (const s of scenes) {
+      const card = document.createElement('article');
+      card.className = 'url-list-item talking-scene-card';
+      const vis = s.handsVision || {};
+      const winner = vis.winner || data?.handsVisionWinner || '';
+      card.innerHTML = `
+        <div>
+          <strong>${s.id || s.title || 'scene'}</strong>
+          <p class="muted-line">${s.dialogue ? `Dialogue: ${s.dialogue}` : 'No dialogue yet'}</p>
+          <p class="muted-line">Setting: ${s.setting || '—'}</p>
+          <p class="muted-line">Left hand: ${s.leftHand || '—'} · Right hand: ${s.rightHand || '—'}</p>
+          <p class="muted-line">Products: ${(s.products || []).join(', ') || '—'}</p>
+          <p class="muted-line">Scene read winner: ${winner || 'pending'} (OpenAI vs Grok)</p>
+          ${s.productPrompt ? `<p class="muted-line">Product still prompt: ${s.productPrompt}</p>` : ''}
+          <label>Manual scene note / redo prompt
+            <textarea data-scene-id="${s.id || ''}" rows="2" placeholder="Optional: rewrite this scene or describe the product">${s.userPrompt || ''}</textarea>
+          </label>
+        </div>`;
+      scenesEl.appendChild(card);
+    }
+  }
+
+  function renderFinal(job, data) {
+    if (!outputGallery) return;
+    const url = resolveFinalUrl(job, data);
+    const ready = data?.stage === 'stitched' || data?.outputUploaded || job?.outputUrl;
+    if (!ready || !url) {
+      if (!outputGallery.children.length) outputGallery.hidden = true;
+      return;
+    }
+    outputGallery.hidden = false;
+    outputGallery.innerHTML = `<article class="download-result-card">
+      <h2>Test final</h2>
+      <p class="muted-line">${job.jobId} · ${VARIANT}</p>
+      <video src="${url}" controls playsinline preload="metadata" class="result-preview"></video>
+      <p class="result-actions"><a class="btn-link" href="${url}" target="_blank" rel="noopener">Open MP4</a></p>
+    </article>`;
+  }
+
+  function ensureCard(job) {
+    if (!batchList) return;
+    batchList.hidden = false;
+    let card = batchList.querySelector(`[data-job-id="${job.jobId}"]`);
+    if (card) return card;
+    card = document.createElement('article');
+    card.className = 'download-result-card';
+    card.dataset.jobId = job.jobId;
+    card.innerHTML = `<p class="result-status">Queued</p>
+      <p class="result-jobid">${job.jobId}</p>
+      <p class="result-error error" hidden></p>`;
+    batchList.appendChild(card);
+    return card;
+  }
+
+  function updateCard(job, data) {
+    const card = ensureCard(job);
+    if (!card) return;
+    const stage = data?.stage || job.stage || '';
+    const statusEl = card.querySelector('.result-status');
+    if (statusEl) statusEl.textContent = data?.message || stage || 'Working';
+    if (data?.transcript) renderTranscript(data);
+    if (data?.scenes) renderScenes(data);
+    if (data?.outputUrl) job.outputUrl = data.outputUrl;
+    if (data?.stage) job.stage = data.stage;
+    saveBatch();
+    renderFinal(job, data);
+  }
+
+  function startPoll() {
+    if (pollTimer) return;
+    pollTimer = setInterval(tick, POLL_MS);
+    tick();
+  }
+
+  async function tick() {
+    for (const job of batchJobs) {
+      if (job.stage === 'stitched' || job.stage === 'error') continue;
+      const { ok, data } = await api(
+        `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
+      );
+      if (ok && data) updateCard(job, data);
+    }
+    if (batchJobs.every((j) => j.stage === 'stitched' || j.stage === 'error')) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  runBtn?.addEventListener('click', async () => {
+    setError('');
+    const urls = parseUrls(tiktokUrls?.value);
+    if (!urls.length) {
+      setError('Paste a TikTok URL.');
+      return;
+    }
+    if (!accountsUi?.hasCharacter()) {
+      setError('Pick the Ready account so we use its saved character.');
+      return;
+    }
+    submitting = true;
+    runBtn.disabled = true;
+    try {
+      const characterKey = await accountsUi.resolveCharacterKeyForCreate();
+      const account = accountsUi.selected() || TEST_ACCOUNT;
+      const started = [];
+      for (const url of urls) {
+        setStatus('Submitting…', url);
+        const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'from-tiktok',
+            tiktokUrl: url,
+            characterKey,
+            account,
+            characterMode: 'upload',
+            version: 'v2',
+            identityLock: true,
+            musicLock: false,
+            audioMode: 'grok',
+            remixVariant: VARIANT,
+            viralSceneChat: VARIANT === 'talking-heads-v3',
+            allowDuplicate: true,
+            deriveCharacterFromSource: false,
+            title: titleInput?.value || TITLE_DEFAULT,
+            autoRun: true,
+          }),
+        });
+        if (!ok || !data?.jobId) {
+          throw new Error((data && (data.message || data.error)) || `Create failed (HTTP ${status})`);
+        }
+        const job = {
+          jobId: data.jobId,
+          tiktokUrl: url,
+          account,
+          characterKey,
+          stage: data.stage,
+        };
+        started.push(job);
+        batchJobs.push(job);
+        saveBatch();
+        updateCard(job, data);
+      }
+      setStatus(`Queued ${started.length} test job(s)`, 'Keep this tab open until the video appears below.');
+      startPoll();
+    } catch (err) {
+      setError(err?.message || String(err));
+      setStatus('Failed');
+    } finally {
+      submitting = false;
+      runBtn.disabled = false;
+    }
+  });
+
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { ok, data } = await api('/api/contentstation/login', {
+      method: 'POST',
+      body: JSON.stringify({ password: passwordInput?.value || '' }),
+    });
+    if (!ok || !data?.authenticated) {
+      if (gateError) {
+        gateError.hidden = false;
+        gateError.textContent = data?.error || data?.message || 'Sign-in failed.';
+      }
+      return;
+    }
+    location.reload();
+  });
+
+  logoutBtn?.addEventListener('click', async () => {
+    await api('/api/contentstation/logout', { method: 'POST', body: '{}' });
+    location.reload();
+  });
+
+  async function boot() {
+    const { ok, data } = await api('/api/contentstation/session');
+    if (!ok || !data?.authenticated) {
+      if (gate) gate.hidden = false;
+      if (app) app.hidden = true;
+      return;
+    }
+    if (window.CSAuth && !window.CSAuth.gatePage(data, PAGE_ID)) return;
+    if (window.CSAuth) window.CSAuth.applyNav(data.role || 'admin');
+    if (gate) gate.hidden = true;
+    if (app) app.hidden = false;
+    if (sessionMeta) sessionMeta.textContent = `Signed in · ${data.role || 'admin'}`;
+    const cfgRes = await api('/api/contentstation/character-remix-2-og?action=config');
+    publicBaseUrl = String(cfgRes.data?.r2?.publicBaseUrl || cfgRes.data?.publicBaseUrl || '').trim();
+    if (accountsUi) {
+      accountsCache = (await accountsUi.loadAccounts()) || [];
+      const sel = document.getElementById('account-select');
+      if (sel && !sel.value) {
+        const match = [...(sel.options || [])].find((o) => o.value === TEST_ACCOUNT);
+        if (match) {
+          sel.value = TEST_ACCOUNT;
+          sel.dispatchEvent(new Event('change'));
+        }
+      }
+    }
+    if (tiktokUrls && !tiktokUrls.value.trim()) tiktokUrls.value = TEST_URL;
+    loadBatch();
+    if (batchJobs.length) {
+      for (const job of batchJobs) ensureCard(job);
+      startPoll();
+      setStatus(`Resuming ${batchJobs.length} test job(s)…`);
+    } else {
+      setStatus('Ready — uses the account character + the TikTok URL, then shows the video below.');
+    }
+  }
+
+  boot();
+})();

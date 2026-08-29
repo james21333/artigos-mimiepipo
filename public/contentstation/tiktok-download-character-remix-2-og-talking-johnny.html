@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Talking Johnny</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="stylesheet" href="./styles.css?v=talkv3">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download-character-remix-2-og-v3.html">Talking Heads V3</a>
+        <a href="./tiktok-download-character-remix-2-og-talking-johnny.html" aria-current="page">Talking Johnny</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">Talking Johnny — scene + hands/products + exact dialogue</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Talking Johnny</h1>
+        <p class="lede">
+          Johnny Deyo talking pipeline (exact spoken line + lip-sync). Each scene is read by
+          <strong>OpenAI and Grok</strong>; the better read wins for setting and what’s in each hand.
+          Automatic product still briefs are generated per scene. You can still type a manual redo
+          note on a scene when you want something specific.
+        </p>
+
+        <section class="account-picker" id="account-picker">
+          <label for="account-select">Ready For Upload account</label>
+          <div class="row account-select-row">
+            <select id="account-select" class="account-select">
+              <option value="">— Pick account —</option>
+            </select>
+          </div>
+          <form id="create-account-form" class="account-create-row" hidden>
+            <label for="new-account-name">Create account</label>
+            <div class="row">
+              <input id="new-account-name" type="text" maxlength="80">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+        </section>
+
+        <label for="tiktok-urls">TikTok URL</label>
+        <textarea id="tiktok-urls" rows="3"></textarea>
+        <label for="job-title">Title</label>
+        <input id="job-title" type="text" value="Talking Johnny test">
+        <div class="row">
+          <button type="button" id="run-btn">Generate Johnny test</button>
+        </div>
+        <p id="status-line" class="status">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="talking-test-error" class="error" hidden></p>
+        <h2>Transcript</h2>
+        <pre id="transcript-box" class="transcript-box" hidden></pre>
+        <h2>Scenes (auto + manual notes)</h2>
+        <div id="scenes-box" class="url-list-items" hidden></div>
+        <div id="batch-list" class="download-results" hidden></div>
+        <h2>Finished video</h2>
+        <div id="output-gallery" class="download-results" hidden></div>
+      </section>
+    </section>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./remix2-account-ui.js?v=1"></script>
+  <script>
+    window.CSTalkingTest = {
+      variant: 'talking-johnny',
+      pageId: 'tiktok-download-character-remix-2-og-talking-johnny',
+      title: 'Talking Johnny test',
+      storageKey: 'cs_talking_johnny_test_v1',
+      showScenes: true
+    };
+  </script>
+  <script src="./talking-heads-test-app.js?v=1"></script>
+</body>
+</html>

@@ -92,7 +92,7 @@ export async function onRequest(context) {
     }
   }
 
-  const auth = await requireRole(context, [ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.ADMIN]);
   if (!auth.ok) return auth.response;
 
   if (method === 'OPTIONS') {
@@ -205,14 +205,6 @@ export async function onRequest(context) {
           if (isMusic || !isTalking) {
             continue;
           }
-        } else if (
-          wantVariant === 'stitch-maker' ||
-          wantVariant === 'stitchmaker' ||
-          wantVariant === 'stitch'
-        ) {
-          if (remixVariant !== 'stitch-maker' && remixVariant !== 'stitchmaker') {
-            continue;
-          }
         }
 
         objects.push({
@@ -265,17 +257,28 @@ export async function onRequest(context) {
       remixVariantRaw === 'viralbuilder' ||
       remixVariantRaw === 'write-from-scratch' ||
       remixVariantRaw === 'writefromscratch';
+    const talkingDialogueVariant =
+      remixVariantRaw === 'talking-heads-v3' ||
+      remixVariantRaw === 'talking-v3' ||
+      remixVariantRaw === 'talking-johnny' ||
+      remixVariantRaw === 'talking-heads-johnny' ||
+      remixVariantRaw === 'johnny-talking';
     const identityLock =
-      body.identityLock === true || versionRaw === 'v2' || versionRaw === '2' || writeFromScratch;
+      body.identityLock === true ||
+      versionRaw === 'v2' ||
+      versionRaw === '2' ||
+      writeFromScratch ||
+      talkingDialogueVariant;
     const version = identityLock ? 'v2' : 'v1';
-    const musicLock =
-      body.musicLock === true ||
-      body.musicOnly === true ||
-      String(body.audioMode || '').trim().toLowerCase() === 'source' ||
-      String(body.audioMode || '').trim().toLowerCase() === 'mix' ||
-      remixVariantRaw === 'music-only' ||
-      remixVariantRaw === 'musiconly' ||
-      remixVariantRaw === 'music';
+    const musicLock = talkingDialogueVariant
+      ? false
+      : body.musicLock === true ||
+        body.musicOnly === true ||
+        String(body.audioMode || '').trim().toLowerCase() === 'source' ||
+        String(body.audioMode || '').trim().toLowerCase() === 'mix' ||
+        remixVariantRaw === 'music-only' ||
+        remixVariantRaw === 'musiconly' ||
+        remixVariantRaw === 'music';
     let audioMode = String(body.audioMode || 'grok').trim() || 'grok';
     if (writeFromScratch) {
       const wantGrok = body.grokDialogue !== false;
@@ -283,6 +286,8 @@ export async function onRequest(context) {
       if (wantGrok && wantMusic) audioMode = 'mix';
       else if (wantMusic) audioMode = 'source';
       else audioMode = 'grok';
+    } else if (talkingDialogueVariant) {
+      audioMode = 'grok';
     } else if (musicLock && audioMode !== 'mix') {
       audioMode = 'source';
     }
@@ -306,8 +311,9 @@ export async function onRequest(context) {
       (musicLock || writeFromScratch
         ? body.subtleRewriteOverlays !== false
         : body.subtleRewriteOverlays === true);
-    const viralSceneChat =
-      musicLock && !writeFromScratch
+    const viralSceneChat = talkingDialogueVariant
+      ? body.viralSceneChat !== false
+      : musicLock && !writeFromScratch
         ? body.viralSceneChat !== false
         : body.viralSceneChat === true;
     const characterMode = identityLock
@@ -337,7 +343,7 @@ export async function onRequest(context) {
           tiktokUrl,
           account: remixAccount,
         });
-        if (seen) {
+        if (seen && body.allowDuplicate !== true && !talkingDialogueVariant) {
           return json(alreadyRemixedResult(seen, remixAccount), 409);
         }
       }
@@ -503,7 +509,7 @@ export async function onRequest(context) {
           tiktokUrl: postFlat.tiktokUrl || tiktokUrl,
           account: remixAccount,
         });
-        if (seen) {
+        if (seen && body.allowDuplicate !== true && !talkingDialogueVariant) {
           return json(alreadyRemixedResult(seen, remixAccount), 409);
         }
       }
@@ -633,14 +639,6 @@ export async function onRequest(context) {
     const remixVariant =
       body.remixVariant ||
       (musicLock ? 'music-only' : identityLock ? 'talking-heads' : undefined);
-    const isStitchMaker =
-      String(remixVariant || '')
-        .trim()
-        .toLowerCase()
-        .replace(/_/g, '-') === 'stitch-maker' ||
-      remixVariantRaw === 'stitch-maker' ||
-      remixVariantRaw === 'stitchmaker' ||
-      remixVariantRaw === 'stitch';
     const restoreOverlays = musicLock
       ? body.restoreOverlays !== false
       : body.restoreOverlays === true;
@@ -786,10 +784,6 @@ export async function onRequest(context) {
         musicOriginal: postFlat.musicOriginal || '',
         dialogueCues: Array.isArray(body.dialogueCues) ? body.dialogueCues : [],
         autoRun: Boolean(body.autoRun),
-        // Stitch Maker: never Ready For Upload (library only). Character keys may
-        // still live under account-characters/ — worker must not resolve that.
-        account: isStitchMaker ? null : body.account || null,
-        skipReadyTag: isStitchMaker || body.skipReadyTag === true,
         r2,
       },
     });
