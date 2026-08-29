@@ -328,6 +328,15 @@
     }
     if (tiktokUrls && !tiktokUrls.value.trim()) tiktokUrls.value = TEST_URL;
     loadBatch();
+    if (cfg.resumeJobId && !batchJobs.some((j) => j.jobId === cfg.resumeJobId)) {
+      batchJobs.push({
+        jobId: cfg.resumeJobId,
+        tiktokUrl: TEST_URL,
+        account: TEST_ACCOUNT,
+        stage: 'queued',
+      });
+      saveBatch();
+    }
     if (batchJobs.length) {
       for (const job of batchJobs) ensureCard(job);
       startPoll();
