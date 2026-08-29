@@ -26,6 +26,10 @@
   const autogenEmptyEl = document.getElementById('autogen-empty');
   const autogenSummaryEl = document.getElementById('autogen-summary');
   const autogenBtn = document.getElementById('autogen-btn');
+  const autogenPasteBtn = document.getElementById('autogen-paste-btn');
+  const autogenSelectAllBtn = document.getElementById('autogen-select-all');
+  const autogenSelectNoneBtn = document.getElementById('autogen-select-none');
+  const autogenPasteSummaryEl = document.getElementById('autogen-paste-summary');
   const runBtn = document.getElementById('run-btn');
   const clearFinishedBtn = document.getElementById('clear-finished-btn');
   const batchActions = document.getElementById('batch-actions');
@@ -269,6 +273,45 @@
     return { jobs, blocked, random };
   }
 
+  function plannedPasteJobs() {
+    const urls = parseUrls(tiktokUrls?.value);
+    const jobs = [];
+    const blocked = [];
+    if (!urls.length) {
+      return { jobs, blocked: ['Paste TikTok URLs below'], urls };
+    }
+    if (urls.length > MAX_URLS) {
+      return { jobs, blocked: [`Max ${MAX_URLS} TikTok links`], urls };
+    }
+    const selected = selectedAutogenAccounts();
+    if (!selected.length) {
+      return { jobs, blocked: ['Select one or more accounts above'], urls };
+    }
+    for (const p of selected) {
+      if (!p.characterKey) {
+        blocked.push(`${p.account} — no character image`);
+        continue;
+      }
+      for (const url of urls) {
+        jobs.push({ account: p.account, characterKey: p.characterKey, url });
+      }
+    }
+    return { jobs, blocked, urls };
+  }
+
+  function selectAllAutogenAccounts() {
+    for (const p of sourcePool) {
+      if (p.characterKey) autogenChecked.add(p.account);
+    }
+    renderAutogen();
+  }
+
+  function selectNoneAutogenAccounts() {
+    autogenChecked.clear();
+    leftoverChecked.clear();
+    renderAutogen();
+  }
+
   function renderAutogen() {
     if (!autogenListEl) return;
     autogenListEl.innerHTML = '';
@@ -296,9 +339,7 @@
         check.type = 'checkbox';
         check.id = id;
         check.checked = autogenChecked.has(p.account);
-        check.disabled = blocked || (!random && !(p.leftover || []).length && !p.characterKey);
-        if (!p.leftover?.length) check.disabled = true;
-        if (blocked) check.disabled = true;
+        check.disabled = blocked;
         check.addEventListener('change', () => {
           if (check.checked) autogenChecked.add(p.account);
           else autogenChecked.delete(p.account);
@@ -371,10 +412,18 @@
     } else if (selectedAutogenAccounts().length) {
       text = blocked[0] || 'Nothing to queue — check leftovers and character images.';
     } else {
-      text = 'Check one or more accounts above.';
+      text = 'Check one or more accounts above, or Select all.';
     }
     if (autogenSummaryEl) autogenSummaryEl.textContent = text;
     if (autogenBtn) autogenBtn.disabled = submitting || !jobs.length;
+    const paste = plannedPasteJobs();
+    const pasteAccounts = new Set(paste.jobs.map((j) => j.account)).size;
+    if (autogenPasteSummaryEl) {
+      autogenPasteSummaryEl.textContent = paste.jobs.length
+        ? `Will queue ${paste.jobs.length} remake${paste.jobs.length === 1 ? '' : 's'} · ${paste.urls.length} URL${paste.urls.length === 1 ? '' : 's'} × ${pasteAccounts} account${pasteAccounts === 1 ? '' : 's'}`
+        : paste.blocked[0] || 'Paste URLs and select accounts.';
+    }
+    if (autogenPasteBtn) autogenPasteBtn.disabled = submitting || !paste.jobs.length;
   }
 
   async function loadSourcePool() {
@@ -421,7 +470,7 @@
     }
     if (err === 'too_many_scenes') {
       const n = Number(data?.shotCount);
-      const max = Number(data?.maxScenes) || 10;
+      const max = Number(data?.maxScenes) || 6;
       if (Number.isFinite(n) && n > 0) {
         return `${n} scenes (max ${max}) — removed + blocklisted`;
       }
@@ -494,6 +543,7 @@
       urlCountEl.textContent = `${n} / ${MAX_URLS} links`;
       urlCountEl.classList.toggle('error', n > MAX_URLS);
     }
+    if (typeof updateAutogenSummary === 'function') updateAutogenSummary();
   }
 
   function saveBatch() {
@@ -598,20 +648,12 @@
     return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
   }
 
-  /** Clear finished: only Done/Failed/give-up (never queued / in-flight). */
-  function isClearableFinishedJob(job) {
-    if (!job) return false;
-    const id = String(job.jobId || '');
-    if (id.startsWith('fail-') || id.startsWith('submit-failed-')) return true;
-    const stage = String(job.stage || '');
-    return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
-  }
-
   function isTerminalJob(job) {
     if (!job) return false;
     if (String(job.jobId || '').startsWith('fail-')) return true;
     if (String(job.jobId || '').startsWith('submit-failed-')) return true;
     if (isTerminalStage(job.stage)) return true;
+    if (!job.stage && job.outputUrl) return true;
     return false;
   }
 
@@ -657,10 +699,8 @@
   function updateCardFromStatus(job, data) {
     const card = ensureBatchCard(job);
     if (!card) return;
-    // Never use data.status as stage (Pages often returns status:"ok").
-    const stage =
-      typeof data?.stage === 'string' && data.stage ? data.stage : job?.stage || 'unknown';
-    if (job && typeof data?.stage === 'string' && data.stage) job.stage = data.stage;
+    const stage = data?.stage || data?.status || 'unknown';
+    if (job) job.stage = stage;
     const pos = data?.queuePosition;
     const depth = data?.queueDepth;
     let label = stage;
@@ -860,7 +900,7 @@
         const { ok, data } = await api(
           `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
         );
-        if (ok && typeof data?.stage === 'string' && data.stage) {
+        if (ok && data?.stage) {
           job.stage = data.stage;
           if (data.stage === 'stitched') {
             const finalUrl = resolveFinalUrl(job, data);
@@ -874,7 +914,7 @@
   async function clearFinishedFromList() {
     setError('');
     await refreshMissingStages();
-    const finished = batchJobs.filter(isClearableFinishedJob);
+    const finished = batchJobs.filter(isTerminalJob);
     const orphanFailCards = batchList
       ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) => {
           const id = String(card.dataset.jobId || '');
@@ -885,25 +925,20 @@
       setStatus('No finished jobs to clear.', 'In-flight and queued jobs stay on this list.');
       return;
     }
-    const keepPreview = batchJobs.filter((job) => !isClearableFinishedJob(job));
     const ok = confirm(
-      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\n` +
-        `${keepPreview.length} queued/in-flight job(s) will stay.\n` +
-        `Does not delete R2 files or Ready For Upload tags.`,
+      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\nIn-flight and queued jobs stay. Does not delete R2 files or Ready For Upload tags.`,
     );
     if (!ok) return;
 
     const keep = [];
     for (const job of batchJobs) {
-      if (isClearableFinishedJob(job)) removeJobCard(job.jobId);
+      if (isTerminalJob(job)) removeJobCard(job.jobId);
       else keep.push(job);
     }
     batchJobs = keep;
     for (const card of orphanFailCards) card.remove();
     saveBatch();
     syncBatchActionsVisibility();
-    if (keep.some(jobNeedsPoll)) startPoll();
-    else stopPoll();
     setStatus(
       keep.length
         ? `Cleared finished jobs · ${keep.length} still on list`
@@ -917,6 +952,8 @@
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
   autogenRandomEl?.addEventListener('change', () => renderAutogen());
+  autogenSelectAllBtn?.addEventListener('click', () => selectAllAutogenAccounts());
+  autogenSelectNoneBtn?.addEventListener('click', () => selectNoneAutogenAccounts());
 
   clearFinishedBtn?.addEventListener('click', () => {
     clearFinishedFromList().catch((err) => setError(err?.message || String(err)));
@@ -955,6 +992,7 @@
     }
     submitting = true;
     if (autogenBtn) autogenBtn.disabled = true;
+    if (autogenPasteBtn) autogenPasteBtn.disabled = true;
     if (runBtn) runBtn.disabled = true;
     try {
       const baseTitle = titleInput?.value || 'TikTok remake (music-only)';
@@ -1068,6 +1106,100 @@
           replaced.length ? ` · ${replaced.length} replaced` : ''
         }`,
         'Each job uses that account’s character. Pipelines queue on Fast Panda.',
+      );
+      startPoll();
+      accountsUi?.refresh?.().catch(() => {});
+    } catch (err) {
+      setError(err?.message || String(err));
+      setStatus('Failed');
+    } finally {
+      submitting = false;
+      updateAutogenSummary();
+      if (runBtn) runBtn.disabled = false;
+    }
+  });
+
+  autogenPasteBtn?.addEventListener('click', async () => {
+    setError('');
+    const plan = plannedPasteJobs();
+    if (!plan.jobs.length) {
+      setError(plan.blocked[0] || 'Paste URLs and select accounts.');
+      return;
+    }
+    submitting = true;
+    if (autogenBtn) autogenBtn.disabled = true;
+    if (autogenPasteBtn) autogenPasteBtn.disabled = true;
+    if (runBtn) runBtn.disabled = true;
+    try {
+      const baseTitle = titleInput?.value || 'TikTok remake (music-only)';
+      const started = [];
+      const failures = [];
+      const skipped = [];
+      setDupBanner([]);
+      for (let i = 0; i < plan.jobs.length; i++) {
+        const item = plan.jobs[i];
+        setStatus(`Autogenerate pasted ${i + 1} / ${plan.jobs.length}`, `${item.account} · ${item.url}`);
+        const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'from-tiktok',
+            tiktokUrl: item.url,
+            characterKey: item.characterKey,
+            account: item.account,
+            characterMode: 'upload',
+            version: 'v2',
+            identityLock: true,
+            musicLock: true,
+            audioMode: 'source',
+            remixVariant: 'music-only',
+            restoreOverlays: restoreOverlaysEl ? restoreOverlaysEl.checked : true,
+            subtleRewriteOverlays: subtleRewriteOverlaysEl
+              ? subtleRewriteOverlaysEl.checked
+              : true,
+            viralSceneChat: viralSceneChatEl ? viralSceneChatEl.checked : true,
+            deriveCharacterFromSource: false,
+            listId: selectedListId(),
+            title: `${baseTitle} (${item.account})`,
+            autoRun: true,
+          }),
+        });
+        if (data?.error === 'already_remixed_for_account') {
+          skipped.push(item.url);
+          setDupBanner(skipped, item.account);
+          continue;
+        }
+        if (!ok || !data?.jobId) {
+          const detail = `${item.account}: ${formatCreateFailure(data, status)}`;
+          failures.push(detail);
+          showSubmitFailure(item.url, i, detail);
+          continue;
+        }
+        const job = {
+          jobId: data.jobId,
+          tiktokUrl: item.url,
+          title: data.title || baseTitle,
+          account: item.account,
+          characterKey: item.characterKey,
+          tagged: false,
+        };
+        started.push(job);
+        batchJobs.push(job);
+        saveBatch();
+        updateCardFromStatus(job, data);
+      }
+      await loadSourcePool();
+      if (listsUi) await listsUi.load().catch(() => {});
+      if (!started.length) {
+        if (skipped.length && !failures.length) {
+          setStatus('All skipped', 'Those URLs were already remixed for the selected accounts.');
+          return;
+        }
+        throw new Error(failures[0] || 'Did not start any jobs.');
+      }
+      if (failures.length) setError(failures.join('\n'));
+      setStatus(
+        `Queued ${started.length} pasted remake(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}`,
+        'Each selected account uses its own character. Pipelines queue on Fast Panda.',
       );
       startPoll();
       accountsUi?.refresh?.().catch(() => {});

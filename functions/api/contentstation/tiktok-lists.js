@@ -5,6 +5,7 @@ import {
   DEFAULT_LIST_ID,
   getUrlList,
   listUrlLists,
+  removeUrlsFromList,
 } from '../../lib/tiktok-url-lists.js';
 
 /**
@@ -13,9 +14,10 @@ import {
  * GET  ?action=get&listId=
  * POST { action: "create", name }
  * POST { action: "add", listId, urls: string[] | url: string }
+ * POST { action: "remove", listId, urls: string[] | url: string }
  */
 export async function onRequest(context) {
-  const auth = await requireRole(context, [ROLES.ADMIN, ROLES.DOWNLOAD, ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.ADMIN, ROLES.DOWNLOAD]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;
@@ -78,6 +80,13 @@ export async function onRequest(context) {
       addedFrom: body.addedFrom || 'manual',
       tiktokId: body.tiktokId,
     });
+    if (!result.ok) return json(result, result.error === 'list_not_found' ? 404 : 400);
+    return json(result);
+  }
+
+  if (action === 'remove') {
+    const urls = Array.isArray(body.urls) ? body.urls : body.url ? [body.url] : [];
+    const result = await removeUrlsFromList(env, body.listId || DEFAULT_LIST_ID, urls);
     if (!result.ok) return json(result, result.error === 'list_not_found' ? 404 : 400);
     return json(result);
   }

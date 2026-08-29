@@ -1219,3 +1219,42 @@ a { color: var(--accent); }
 .url-list-picker > label {
   font-weight: 700;
 }
+
+.autogen-select-row {
+  margin: 0.35rem 0 0.55rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.url-list-manage {
+  margin: 1.1rem 0 1.4rem;
+}
+
+.url-list-items {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.url-list-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+}
+
+.url-list-item a {
+  word-break: break-all;
+  font-weight: 600;
+}
+
+.url-list-item-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}

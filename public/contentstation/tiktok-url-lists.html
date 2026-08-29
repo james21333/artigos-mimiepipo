@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | TikTok URL lists</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Add and remove TikTok URLs on named lists. No download or clean — just the URLs.">
+  <link rel="stylesheet" href="./styles.css?v=urllists2">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-url-lists.html" aria-current="page">TikTok URL lists</a>
+        <a href="./viral-video-builder.html">Viral Video Builder</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">TikTok URL lists</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>TikTok URL lists</h1>
+        <p class="lede">
+          Paste up to <strong>20 TikTok URLs</strong> at a time onto a list. Nothing is downloaded or cleaned —
+          the actual URL is stored. Click a URL to open it in a new tab. Check a few, open them, then remove
+          the ones you don’t want.
+        </p>
+
+        <section class="url-list-picker" id="url-list-picker">
+          <label for="url-list-select">List</label>
+          <div class="row account-select-row">
+            <select id="url-list-select" class="account-select"></select>
+          </div>
+          <form id="create-url-list-form" class="account-create-row">
+            <label for="new-url-list-name">Create list</label>
+            <div class="row">
+              <input id="new-url-list-name" type="text" maxlength="80" placeholder="e.g. GLP-1 Speech" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="url-list-meta" class="muted-line"></p>
+          <p id="url-list-error" class="error" hidden></p>
+        </section>
+
+        <label for="tiktok-urls">Add TikTok URLs (max 20)</label>
+        <textarea id="tiktok-urls" rows="8" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…
+https://www.tiktok.com/@user/video/…
+(up to 20 links)"></textarea>
+        <p id="url-count" class="muted-line">0 / 20 links</p>
+        <div class="row">
+          <button type="button" id="add-urls-btn">Add URLs to this list</button>
+        </div>
+
+        <section class="url-list-manage" aria-labelledby="list-items-title">
+          <h2 id="list-items-title">URLs on this list</h2>
+          <div class="row autogen-select-row">
+            <button type="button" id="select-all-items-btn" class="ghost">Select all</button>
+            <button type="button" id="select-none-items-btn" class="ghost">Uncheck all</button>
+            <button type="button" id="open-selected-btn" class="ghost">Open selected in new tabs</button>
+            <button type="button" id="remove-selected-btn">Remove selected</button>
+          </div>
+          <ul id="url-list-items" class="url-list-items"></ul>
+          <p id="url-list-empty" class="muted-line" hidden>No URLs on this list yet.</p>
+        </section>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="lists-error" class="error" hidden></p>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+      ·
+      <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+      ·
+      <a href="./">Clean video</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./tiktok-lists-ui.js?v=1"></script>
+  <script src="./tiktok-url-lists-app.js?v=1"></script>
+</body>
+</html>

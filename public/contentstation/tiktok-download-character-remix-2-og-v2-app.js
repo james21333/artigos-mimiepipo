@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 20;
-  const POLL_MS = 180000;
+  const POLL_MS = 4000;
   const ACTIVE_STORAGE_KEY = 'cs_remix2_v2_talking_heads_batch_v1';
 
   const gate = document.getElementById('gate');
@@ -14,10 +14,19 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const errorEl = document.getElementById('remix2-v2-error');
-  const dupBanner = document.getElementById('remix-dup-banner');
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
+  const dupBanner = document.getElementById('remix-dup-banner');
+  const autogenRandomEl = document.getElementById('autogen-random');
+  const autogenListEl = document.getElementById('autogen-account-list');
+  const autogenEmptyEl = document.getElementById('autogen-empty');
+  const autogenSummaryEl = document.getElementById('autogen-summary');
+  const autogenPasteSummaryEl = document.getElementById('autogen-paste-summary');
+  const autogenBtn = document.getElementById('autogen-btn');
+  const autogenPasteBtn = document.getElementById('autogen-paste-btn');
+  const autogenSelectAllBtn = document.getElementById('autogen-select-all');
+  const autogenSelectNoneBtn = document.getElementById('autogen-select-none');
   const runBtn = document.getElementById('run-btn');
   const clearFinishedBtn = document.getElementById('clear-finished-btn');
   const batchActions = document.getElementById('batch-actions');
@@ -61,17 +70,32 @@
       onError: (msg) => {
         if (msg) setError(msg);
       },
+      onAccountChange: (account) => {
+        if (account) autogenChecked.add(account);
+        renderAutogen();
+      },
     });
 
   const listsUi =
     window.CSTikTokLists &&
     window.CSTikTokLists.createController({
       api,
+      onChange: () => {
+        loadSourcePool().catch(() => {});
+      },
     });
 
   function selectedListId() {
     return listsUi?.selected?.() || 'glp-1';
   }
+
+  const FEATURED_ACCOUNT_RE = /^(1|2|3|6|7|8|10)(\D|$)/;
+  /** @type {any[]} */
+  let sourcePool = [];
+  /** @type {Set<string>} */
+  const autogenChecked = new Set();
+  /** @type {Set<string>} leftover url keys `${account}\t${url}` */
+  const leftoverChecked = new Set();
 
   function mediaFinalPath(jobId) {
     const key = `character-remix-2-og/${jobId}/final.mp4`;
@@ -192,6 +216,288 @@
     errorEl.textContent = msg;
   }
 
+  function leftoverKey(account, url) {
+    return `${account}\t${url}`;
+  }
+
+  function accountNum(name) {
+    const m = String(name || '').match(/^(\d+)/);
+    return m ? Number(m[1]) : 999;
+  }
+
+  function isFeaturedAccount(name) {
+    return FEATURED_ACCOUNT_RE.test(String(name || '').trim());
+  }
+
+  function poolFor(account) {
+    return sourcePool.find((p) => p.account === account) || null;
+  }
+
+  function selectedAutogenAccounts() {
+    return sourcePool.filter((p) => autogenChecked.has(p.account));
+  }
+
+  function talkingHeadsCreateBody(url, characterKey, account, title) {
+    return {
+      action: 'from-tiktok',
+      tiktokUrl: url,
+      characterKey,
+      account: account || undefined,
+      characterMode: 'upload',
+      version: 'v2',
+      identityLock: true,
+      musicLock: false,
+      audioMode: 'grok',
+      remixVariant: 'talking-heads',
+      deriveCharacterFromSource: false,
+      listId: selectedListId(),
+      title,
+      autoRun: true,
+    };
+  }
+
+  function plannedAutogenJobs() {
+    const random = Boolean(autogenRandomEl?.checked);
+    const jobs = [];
+    const blocked = [];
+    for (const p of selectedAutogenAccounts()) {
+      if (!p.characterKey) {
+        blocked.push(`${p.account} — no character image`);
+        continue;
+      }
+      if (random) {
+        if (!p.leftover?.length) {
+          blocked.push(`${p.account} — no leftovers`);
+          continue;
+        }
+        jobs.push({ account: p.account, characterKey: p.characterKey, pick: 'random', leftover: p.leftover });
+        continue;
+      }
+      const picked = (p.leftover || []).filter((item) => leftoverChecked.has(leftoverKey(p.account, item.url)));
+      if (!picked.length) {
+        blocked.push(`${p.account} — pick at least one leftover URL`);
+        continue;
+      }
+      for (const item of picked) {
+        jobs.push({
+          account: p.account,
+          characterKey: p.characterKey,
+          url: item.url,
+        });
+      }
+    }
+    return { jobs, blocked, random };
+  }
+
+  function plannedPasteJobs() {
+    const urls = parseUrls(tiktokUrls?.value);
+    const jobs = [];
+    const blocked = [];
+    if (!urls.length) {
+      return { jobs, blocked: ['Paste TikTok URLs below'], urls };
+    }
+    if (urls.length > MAX_URLS) {
+      return { jobs, blocked: [`Max ${MAX_URLS} TikTok links`], urls };
+    }
+    const selected = selectedAutogenAccounts();
+    if (!selected.length) {
+      return { jobs, blocked: ['Select one or more accounts above'], urls };
+    }
+    for (const p of selected) {
+      if (!p.characterKey) {
+        blocked.push(`${p.account} — no character image`);
+        continue;
+      }
+      for (const url of urls) {
+        jobs.push({ account: p.account, characterKey: p.characterKey, url });
+      }
+    }
+    return { jobs, blocked, urls };
+  }
+
+  function selectAllAutogenAccounts() {
+    for (const p of sourcePool) {
+      if (p.characterKey) autogenChecked.add(p.account);
+    }
+    renderAutogen();
+  }
+
+  function selectNoneAutogenAccounts() {
+    autogenChecked.clear();
+    leftoverChecked.clear();
+    renderAutogen();
+  }
+
+  function renderAutogen() {
+    if (!autogenListEl) return;
+    autogenListEl.innerHTML = '';
+    const random = Boolean(autogenRandomEl?.checked);
+    if (autogenEmptyEl) autogenEmptyEl.hidden = sourcePool.length > 0;
+    const featured = sourcePool.filter((p) => isFeaturedAccount(p.account));
+    const rest = sourcePool.filter((p) => !isFeaturedAccount(p.account));
+    const groups = [
+      { label: 'Accounts 1, 2, 3, 6, 7, 8, 10', rows: featured },
+      { label: 'Other accounts', rows: rest },
+    ];
+    for (const group of groups) {
+      if (!group.rows.length) continue;
+      const heading = document.createElement('li');
+      heading.className = 'autogen-group-label';
+      heading.style.listStyle = 'none';
+      heading.textContent = group.label;
+      autogenListEl.appendChild(heading);
+      for (const p of group.rows) {
+        const li = document.createElement('li');
+        const blocked = !p.characterKey;
+        li.className = 'autogen-account-row' + (blocked ? ' is-blocked' : '');
+        const id = `autogen-acc-${accountNum(p.account)}-${encodeURIComponent(p.account).slice(0, 40)}`;
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.id = id;
+        check.checked = autogenChecked.has(p.account);
+        check.disabled = blocked;
+        check.addEventListener('change', () => {
+          if (check.checked) autogenChecked.add(p.account);
+          else autogenChecked.delete(p.account);
+          renderAutogen();
+        });
+        let thumb;
+        if (p.characterUrl) {
+          thumb = document.createElement('img');
+          thumb.className = 'autogen-thumb';
+          thumb.alt = '';
+          thumb.src = p.characterUrl;
+        } else {
+          thumb = document.createElement('div');
+          thumb.className = 'autogen-thumb is-empty';
+          thumb.textContent = 'No img';
+        }
+        const meta = document.createElement('div');
+        meta.className = 'autogen-account-meta';
+        const nameEl = document.createElement('strong');
+        nameEl.textContent = p.account;
+        const sub = document.createElement('span');
+        sub.textContent = blocked
+          ? 'Save a character for this account before autogenerate'
+          : `${p.leftoverCount} leftover · ${p.remixedCount} already remixed · ${p.poolCount} on list`;
+        meta.appendChild(nameEl);
+        meta.appendChild(sub);
+        const count = document.createElement('span');
+        count.className = 'autogen-count' + (p.leftoverCount ? '' : ' is-zero');
+        count.textContent = p.leftoverCount ? `${p.leftoverCount} left` : '0 left';
+        li.appendChild(check);
+        li.appendChild(thumb);
+        li.appendChild(meta);
+        li.appendChild(count);
+        if (!random && check.checked && p.leftover?.length && p.characterKey) {
+          const wrap = document.createElement('div');
+          wrap.className = 'autogen-leftovers';
+          for (const item of p.leftover) {
+            const lab = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = leftoverChecked.has(leftoverKey(p.account, item.url));
+            cb.addEventListener('change', () => {
+              const k = leftoverKey(p.account, item.url);
+              if (cb.checked) leftoverChecked.add(k);
+              else leftoverChecked.delete(k);
+              updateAutogenSummary();
+            });
+            const u = document.createElement('span');
+            u.textContent = item.url;
+            lab.appendChild(cb);
+            lab.appendChild(u);
+            wrap.appendChild(lab);
+          }
+          li.appendChild(wrap);
+        }
+        autogenListEl.appendChild(li);
+      }
+    }
+    updateAutogenSummary();
+  }
+
+  function updateAutogenSummary() {
+    const { jobs, blocked, random } = plannedAutogenJobs();
+    const accounts = new Set(jobs.map((j) => j.account)).size;
+    let text = '';
+    if (jobs.length) {
+      text = random
+        ? `Will queue ${jobs.length} random leftover${jobs.length === 1 ? '' : 's'} · ${accounts} account${accounts === 1 ? '' : 's'}`
+        : `Will queue ${jobs.length} selected leftover${jobs.length === 1 ? '' : 's'} · ${accounts} account${accounts === 1 ? '' : 's'}`;
+    } else if (selectedAutogenAccounts().length) {
+      text = blocked[0] || 'Nothing to queue — check leftovers and character images.';
+    } else {
+      text = 'Check one or more accounts above, or Select all.';
+    }
+    if (autogenSummaryEl) autogenSummaryEl.textContent = text;
+    if (autogenBtn) autogenBtn.disabled = submitting || !jobs.length;
+    const paste = plannedPasteJobs();
+    const pasteAccounts = new Set(paste.jobs.map((j) => j.account)).size;
+    if (autogenPasteSummaryEl) {
+      autogenPasteSummaryEl.textContent = paste.jobs.length
+        ? `Will queue ${paste.jobs.length} remake${paste.jobs.length === 1 ? '' : 's'} · ${paste.urls.length} URL${paste.urls.length === 1 ? '' : 's'} × ${pasteAccounts} account${pasteAccounts === 1 ? '' : 's'}`
+        : paste.blocked[0] || 'Paste URLs and select accounts.';
+    }
+    if (autogenPasteBtn) autogenPasteBtn.disabled = submitting || !paste.jobs.length;
+  }
+
+  async function loadSourcePool() {
+    const listId = encodeURIComponent(selectedListId());
+    const { ok, data } = await api(
+      `/api/contentstation/character-remix-2-og?action=source-pool&listId=${listId}`,
+    );
+    sourcePool = ok && Array.isArray(data?.accounts) ? data.accounts : [];
+    const titleEl = document.getElementById('autogen-title');
+    if (titleEl && data?.listName) {
+      titleEl.textContent = `Autogenerate from ${data.listName}`;
+    }
+    renderAutogen();
+  }
+
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function isReplaceableCreateFailure(data) {
+    const err = String(data?.error || '');
+    return (
+      err === 'file_too_large' ||
+      err === 'too_many_scenes' ||
+      err === 'resolve_rejected' ||
+      err === 'resolve_rate_limited' ||
+      err === 'tiktok_download_failed'
+    );
+  }
+
+  function formatCreateFailure(data, status) {
+    const detail =
+      (typeof data?.detail === 'string' && data.detail.trim()) ||
+      (typeof data?.message === 'string' && data.message.trim()) ||
+      '';
+    const err = String(data?.error || '');
+    if (err === 'file_too_large') {
+      return detail ? `Too large (${detail})` : 'Too large (over 40MB)';
+    }
+    if (err === 'too_many_scenes') {
+      const n = Number(data?.shotCount);
+      const max = Number(data?.maxScenes) || 6;
+      if (Number.isFinite(n) && n > 0) {
+        return `${n} scenes (max ${max}) — removed + blocklisted`;
+      }
+      return `Too many scenes (max ${max}) — removed + blocklisted`;
+    }
+    if (detail) return detail;
+    if (err) return err;
+    if (status) return `Create failed (HTTP ${status})`;
+    return 'Create failed';
+  }
+
+  function nextLeftoverUrl(leftover, exclude) {
+    const pool = (leftover || []).filter((item) => item?.url && !exclude.has(item.url));
+    return pickRandom(pool)?.url || null;
+  }
+
   function setDupBanner(skipped, account) {
     if (!dupBanner) return;
     if (!skipped.length) {
@@ -225,6 +531,12 @@
     dupBanner.hidden = false;
   }
 
+  function setBusy(on) {
+    submitting = on;
+    if (runBtn) runBtn.disabled = on;
+    updateAutogenSummary();
+  }
+
   function setStatus(main, detail) {
     if (statusLine) statusLine.textContent = main || '';
     if (statusDetail) {
@@ -248,6 +560,7 @@
       urlCountEl.textContent = `${n} / ${MAX_URLS} links`;
       urlCountEl.classList.toggle('error', n > MAX_URLS);
     }
+    updateAutogenSummary();
   }
 
   function saveBatch() {
@@ -349,20 +662,12 @@
     return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
   }
 
-  /** Clear finished: only Done/Failed/give-up (never queued / in-flight). */
-  function isClearableFinishedJob(job) {
-    if (!job) return false;
-    const id = String(job.jobId || '');
-    if (id.startsWith('fail-') || id.startsWith('submit-failed-')) return true;
-    const stage = String(job.stage || '');
-    return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
-  }
-
   function isTerminalJob(job) {
     if (!job) return false;
     if (String(job.jobId || '').startsWith('fail-')) return true;
     if (String(job.jobId || '').startsWith('submit-failed-')) return true;
     if (isTerminalStage(job.stage)) return true;
+    if (!job.stage && job.outputUrl) return true;
     return false;
   }
 
@@ -408,10 +713,8 @@
   function updateCardFromStatus(job, data) {
     const card = ensureBatchCard(job);
     if (!card) return;
-    // Never use data.status as stage (Pages often returns status:"ok").
-    const stage =
-      typeof data?.stage === 'string' && data.stage ? data.stage : job?.stage || 'unknown';
-    if (job && typeof data?.stage === 'string' && data.stage) job.stage = data.stage;
+    const stage = data?.stage || data?.status || 'unknown';
+    if (job) job.stage = stage;
     const pos = data?.queuePosition;
     const depth = data?.queueDepth;
     let label = stage;
@@ -520,41 +823,18 @@
     maybeAutoTag(job, stage, data).catch(() => {});
   }
 
-  function isPlaceholderJobId(jobId) {
-    const id = String(jobId || '');
-    return id.startsWith('submit-failed-') || id.startsWith('fail-');
-  }
-
-  function jobNeedsPoll(job) {
-    return Boolean(job?.jobId) && !isPlaceholderJobId(job.jobId) && !isTerminalStage(job.stage);
-  }
-
-  function stopPoll() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
-  }
-
   async function pollBatch() {
-    if (document.hidden) return;
     if (!batchJobs.length) {
-      stopPoll();
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
       return;
     }
     let active = 0;
     let done = 0;
     let failed = 0;
     for (const job of batchJobs) {
-      if (isPlaceholderJobId(job.jobId)) {
-        failed += 1;
-        continue;
-      }
-      if (isTerminalStage(job.stage)) {
-        if (job.stage === 'error') failed += 1;
-        else done += 1;
-        continue;
-      }
       const { ok, data } = await api(
         `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
       );
@@ -578,25 +858,19 @@
     );
     saveBatch();
     if (active === 0 && !submitting) {
-      stopPoll();
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
       if (runBtn) runBtn.disabled = false;
     }
   }
 
   function startPoll() {
-    if (!batchJobs.some(jobNeedsPoll)) {
-      stopPoll();
-      return;
-    }
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(pollBatch, POLL_MS);
-    if (!document.hidden) pollBatch();
+    pollBatch();
   }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopPoll();
-    else if (batchJobs.some(jobNeedsPoll)) startPoll();
-  });
 
   async function refreshMissingStages() {
     await Promise.all(
@@ -605,12 +879,14 @@
         const { ok, data } = await api(
           `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
         );
-        if (ok && typeof data?.stage === 'string' && data.stage) {
+        if (ok && data?.stage) {
           job.stage = data.stage;
           if (data.stage === 'stitched') {
             const finalUrl = resolveFinalUrl(job, data);
             if (finalUrl) job.outputUrl = finalUrl;
           }
+        } else if (job.outputUrl) {
+          job.stage = 'stitched';
         }
       }),
     );
@@ -619,7 +895,7 @@
   async function clearFinishedFromList() {
     setError('');
     await refreshMissingStages();
-    const finished = batchJobs.filter(isClearableFinishedJob);
+    const finished = batchJobs.filter(isTerminalJob);
     const orphanFailCards = batchList
       ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) => {
           const id = String(card.dataset.jobId || '');
@@ -630,25 +906,20 @@
       setStatus('No finished jobs to clear.', 'In-flight and queued jobs stay on this list.');
       return;
     }
-    const keepPreview = batchJobs.filter((job) => !isClearableFinishedJob(job));
     const ok = confirm(
-      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\n` +
-        `${keepPreview.length} queued/in-flight job(s) will stay.\n` +
-        `Does not delete R2 files or Ready For Upload tags.`,
+      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\nIn-flight and queued jobs stay. Does not delete R2 files or Ready For Upload tags.`,
     );
     if (!ok) return;
 
     const keep = [];
     for (const job of batchJobs) {
-      if (isClearableFinishedJob(job)) removeJobCard(job.jobId);
+      if (isTerminalJob(job)) removeJobCard(job.jobId);
       else keep.push(job);
     }
     batchJobs = keep;
     for (const card of orphanFailCards) card.remove();
     saveBatch();
     syncBatchActionsVisibility();
-    if (keep.some(jobNeedsPoll)) startPoll();
-    else stopPoll();
     setStatus(
       keep.length
         ? `Cleared finished jobs · ${keep.length} still on list`
@@ -661,9 +932,230 @@
   if (outputGallery) outputGallery.hidden = true;
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
+  autogenRandomEl?.addEventListener('change', () => renderAutogen());
+  autogenSelectAllBtn?.addEventListener('click', () => selectAllAutogenAccounts());
+  autogenSelectNoneBtn?.addEventListener('click', () => selectNoneAutogenAccounts());
 
   clearFinishedBtn?.addEventListener('click', () => {
     clearFinishedFromList().catch((err) => setError(err?.message || String(err)));
+  });
+
+  autogenBtn?.addEventListener('click', async () => {
+    setError('');
+    const plan = plannedAutogenJobs();
+    if (!plan.jobs.length) {
+      setError(plan.blocked[0] || 'Check accounts that have a character and leftovers.');
+      return;
+    }
+    const work = [];
+    for (const job of plan.jobs) {
+      if (job.url) {
+        work.push({
+          account: job.account,
+          characterKey: job.characterKey,
+          url: job.url,
+          leftover: poolFor(job.account)?.leftover || job.leftover || [],
+        });
+        continue;
+      }
+      const leftovers = job.leftover || [];
+      if (!leftovers.length) continue;
+      work.push({
+        account: job.account,
+        characterKey: job.characterKey,
+        url: null,
+        leftover: leftovers,
+      });
+    }
+    if (!work.length) {
+      setError('No leftover URLs to autogenerate.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const baseTitle = titleInput?.value || 'TikTok remake (talking heads)';
+      const started = [];
+      const failures = [];
+      const skipped = [];
+      const replaced = [];
+      setDupBanner([]);
+      for (let i = 0; i < work.length; i++) {
+        const item = work[i];
+        const tried = new Set();
+        const maxAttempts = Math.max(
+          1,
+          Math.min(8, (item.leftover || []).length || (item.url ? 1 : 0)),
+        );
+        let url = item.url || nextLeftoverUrl(item.leftover, tried);
+        let created = null;
+        let lastDetail = '';
+
+        for (let attempt = 0; attempt < maxAttempts && url; attempt++) {
+          tried.add(url);
+          setStatus(
+            `Autogenerate ${i + 1} / ${work.length}`,
+            attempt === 0
+              ? `${item.account} · ${url}`
+              : `${item.account} · replace #${attempt} · ${url}`,
+          );
+          const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
+            method: 'POST',
+            body: JSON.stringify(
+              talkingHeadsCreateBody(
+                url,
+                item.characterKey,
+                item.account,
+                work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
+              ),
+            ),
+          });
+          if (data?.error === 'already_remixed_for_account') {
+            skipped.push(url);
+            setDupBanner(skipped, item.account);
+            url = nextLeftoverUrl(item.leftover, tried);
+            continue;
+          }
+          if (!ok || !data?.jobId) {
+            lastDetail = formatCreateFailure(data, status);
+            if (isReplaceableCreateFailure(data)) {
+              replaced.push(`${item.account}: ${lastDetail} → trying another leftover`);
+              showSubmitFailure(url, i * 10 + attempt, `${item.account}: ${lastDetail} — replacing…`);
+              url = nextLeftoverUrl(item.leftover, tried);
+              continue;
+            }
+            failures.push(`${item.account}: ${lastDetail}`);
+            showSubmitFailure(url, i, `${item.account}: ${lastDetail}`);
+            created = null;
+            break;
+          }
+          created = { data, url };
+          break;
+        }
+
+        if (!created) {
+          if (!failures.some((f) => f.startsWith(`${item.account}:`))) {
+            failures.push(
+              `${item.account}: ${lastDetail || 'No usable leftover after rejects/skips'}`,
+            );
+          }
+          continue;
+        }
+
+        const job = {
+          jobId: created.data.jobId,
+          tiktokUrl: created.url,
+          title: created.data.title || baseTitle,
+          account: item.account,
+          characterKey: item.characterKey,
+          tagged: false,
+        };
+        started.push(job);
+        batchJobs.push(job);
+        saveBatch();
+        updateCardFromStatus(job, created.data);
+      }
+      await loadSourcePool();
+      if (listsUi) await listsUi.load().catch(() => {});
+      if (!started.length) {
+        if (skipped.length && !failures.length) {
+          setStatus('All skipped', 'Those leftovers were already remixed for the selected accounts.');
+          return;
+        }
+        throw new Error(failures[0] || 'Autogenerate did not start any jobs.');
+      }
+      if (failures.length || replaced.length) {
+        setError([...replaced, ...failures].filter(Boolean).join('\n'));
+      }
+      setStatus(
+        `Autogenerated ${started.length} job(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}${
+          replaced.length ? ` · ${replaced.length} replaced` : ''
+        }`,
+        'Each job uses that account’s character. Pipelines queue on Fast Panda.',
+      );
+      startPoll();
+      accountsUi?.refresh?.().catch(() => {});
+    } catch (err) {
+      setError(err?.message || String(err));
+      setStatus('Failed');
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  autogenPasteBtn?.addEventListener('click', async () => {
+    setError('');
+    const plan = plannedPasteJobs();
+    if (!plan.jobs.length) {
+      setError(plan.blocked[0] || 'Paste URLs and select accounts.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const baseTitle = titleInput?.value || 'TikTok remake (talking heads)';
+      const started = [];
+      const failures = [];
+      const skipped = [];
+      setDupBanner([]);
+      for (let i = 0; i < plan.jobs.length; i++) {
+        const item = plan.jobs[i];
+        setStatus(`Autogenerate pasted ${i + 1} / ${plan.jobs.length}`, `${item.account} · ${item.url}`);
+        const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
+          method: 'POST',
+          body: JSON.stringify(
+            talkingHeadsCreateBody(
+              item.url,
+              item.characterKey,
+              item.account,
+              `${baseTitle} (${item.account})`,
+            ),
+          ),
+        });
+        if (data?.error === 'already_remixed_for_account') {
+          skipped.push(item.url);
+          setDupBanner(skipped, item.account);
+          continue;
+        }
+        if (!ok || !data?.jobId) {
+          const detail = `${item.account}: ${formatCreateFailure(data, status)}`;
+          failures.push(detail);
+          showSubmitFailure(item.url, i, detail);
+          continue;
+        }
+        const job = {
+          jobId: data.jobId,
+          tiktokUrl: item.url,
+          title: data.title || baseTitle,
+          account: item.account,
+          characterKey: item.characterKey,
+          tagged: false,
+        };
+        started.push(job);
+        batchJobs.push(job);
+        saveBatch();
+        updateCardFromStatus(job, data);
+      }
+      await loadSourcePool();
+      if (listsUi) await listsUi.load().catch(() => {});
+      if (!started.length) {
+        if (skipped.length && !failures.length) {
+          setStatus('All skipped', 'Those URLs were already remixed for the selected accounts.');
+          return;
+        }
+        throw new Error(failures[0] || 'Did not start any jobs.');
+      }
+      if (failures.length) setError(failures.join('\n'));
+      setStatus(
+        `Queued ${started.length} pasted remake(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}`,
+        'Each selected account uses its own character. Pipelines queue on Fast Panda.',
+      );
+      startPoll();
+      accountsUi?.refresh?.().catch(() => {});
+    } catch (err) {
+      setError(err?.message || String(err));
+      setStatus('Failed');
+    } finally {
+      setBusy(false);
+    }
   });
 
   runBtn?.addEventListener('click', async () => {
@@ -690,6 +1182,7 @@
 
     submitting = true;
     if (runBtn) runBtn.disabled = true;
+    updateAutogenSummary();
     try {
       setStatus('Preparing character…');
       const characterKey = await accountsUi.resolveCharacterKeyForCreate(uploadImage);
@@ -701,8 +1194,6 @@
       const baseTitle = titleInput?.value || 'TikTok remake (talking heads)';
       const started = [];
       const failures = [];
-      const skipped = [];
-      setDupBanner([]);
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         setStatus(`Submitting ${i + 1} / ${urls.length}`, url);
@@ -712,7 +1203,6 @@
             action: 'from-tiktok',
             tiktokUrl: url,
             characterKey,
-            account: account || undefined,
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
@@ -720,16 +1210,12 @@
             audioMode: 'grok',
             remixVariant: 'talking-heads',
             deriveCharacterFromSource: false,
+            account: account || undefined,
             listId: selectedListId(),
             title: urls.length > 1 ? `${baseTitle} (${i + 1}/${urls.length})` : baseTitle,
             autoRun: true,
           }),
         });
-        if (data?.error === 'already_remixed_for_account') {
-          skipped.push(url);
-          setDupBanner(skipped, account);
-          continue;
-        }
         if (!ok || !data?.jobId) {
           const detail = createFailureDetail(data, status, i);
           failures.push(detail);
@@ -750,22 +1236,13 @@
         updateCardFromStatus(job, data);
       }
       if (!started.length) {
-        if (skipped.length && !failures.length) {
-          setStatus(
-            'All skipped',
-            `${skipped.length} already remixed for ${account || 'this account'}`,
-          );
-          return;
-        }
         throw new Error(failures[0] || 'No jobs started — worker did not return a jobId.');
       }
       if (failures.length) {
         setError(`${failures.length} URL(s) failed to create. First: ${failures[0]}`);
       }
       setStatus(
-        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}${
-          skipped.length ? ` · ${skipped.length} skipped` : ''
-        }`,
+        `Submitted ${started.length} job(s)${account ? ` · account ${account}` : ''}`,
         account
           ? 'Pipelines queue on Fast Panda. Finished MP4s auto-tag to Ready For Upload.'
           : 'Pipelines queue on Fast Panda — one remake at a time. Tag later on the job card or Remix 2 ready.',
@@ -775,9 +1252,10 @@
     } catch (err) {
       setError(err?.message || String(err));
       setStatus('Failed');
-      if (runBtn) runBtn.disabled = false;
     } finally {
       submitting = false;
+      if (runBtn) runBtn.disabled = false;
+      updateAutogenSummary();
     }
   });
 
@@ -823,6 +1301,7 @@
       accountsCache = (await accountsUi.loadAccounts()) || [];
     }
     if (listsUi) await listsUi.load().catch(() => {});
+    await loadSourcePool();
     updateUrlCount();
     loadBatch();
     if (batchJobs.length) {
