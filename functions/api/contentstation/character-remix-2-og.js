@@ -117,11 +117,13 @@ export async function onRequest(context) {
       }
       const usagePercent = url.searchParams.get('usagePercent');
       const plan = url.searchParams.get('plan');
+      const forceRefresh = url.searchParams.get('forceRefresh');
       const q = new URLSearchParams();
       if (usagePercent != null && usagePercent !== '') q.set('usagePercent', usagePercent);
       if (plan) q.set('plan', plan);
+      if (forceRefresh === '1' || forceRefresh === 'true') q.set('forceRefresh', 'true');
       const path = `/grok-quota-estimate${q.toString() ? `?${q}` : ''}`;
-      const result = await workerFetch(env, path, { timeoutMs: 15000 });
+      const result = await workerFetch(env, path, { timeoutMs: 20000 });
       return json(result.data || { ok: false, error: 'worker_error' }, result.ok ? 200 : result.status || 502);
     }
     if (action === 'health' || action === 'ping') {

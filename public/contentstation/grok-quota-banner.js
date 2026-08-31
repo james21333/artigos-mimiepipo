@@ -1,11 +1,11 @@
 /**
  * Grok Imagine remaining-capacity banner (community formulas, no AI).
+ * Usage % is auto-fetched on the worker from Grok billing — no manual paste needed.
  * Mount: <div id="grok-quota-banner"></div> near top of #app.
  */
 (function () {
   const API = '/api/contentstation/character-remix-2-og';
-  const LS_KEY = 'cs_grok_usage_percent';
-  const REFRESH_MS = 120000;
+  const REFRESH_MS = 60000;
 
   function esc(s) {
     return String(s ?? '')
@@ -66,7 +66,9 @@
     const other = data.otherQuotas || [];
     const used = data.usagePercentUsed;
     const src = data.usagePercentSource || '';
-    const saved = localStorage.getItem(LS_KEY) || '';
+    const liveOk = data.usageLive?.ok;
+    const liveErr = data.usageLive?.error;
+    const liveAt = data.usageLive?.fetchedAt;
 
     el.innerHTML = `
       <div class="grok-quota-banner" data-state="ok">
@@ -84,65 +86,40 @@
           <div class="grok-quota-chip" role="listitem"><span class="n">${esc(v['1m'] ?? v['60s'] ?? '—')}</span><span class="l">× 1 min</span></div>
         </div>
         <p class="grok-quota-sub">
-          ~${esc(data.remaining?.as10sGens ?? '—')} community-style 10s gens left ·
-          pool ≈ ${esc(formulas.pool10sUnits)} × 10s
-          ( $30 baseline ${esc(formulas.communityStd10s720pPerWeek)} × Plus ${esc(formulas.plusMult)} ) ·
-          used <strong>${esc(used)}%</strong> (${esc(src)}) ·
-          our submits this week: ${esc(week.clips)} clips / ${esc(week.seconds)}s
+          used <strong>${esc(used)}%</strong>
+          ${liveOk ? ' · <span class="grok-quota-live">auto from Grok billing</span>' : ` · (${esc(src)})`}
+          ${liveAt ? ` · pulled ${esc(fmtReset(liveAt))}` : ''}
+          · ~${esc(data.remaining?.as10sGens ?? '—')} × 10s left
+          · pool ≈ ${esc(formulas.pool10sUnits)} × 10s ($30×${esc(formulas.plusMult)} planning)
+          · our submits this week: ${esc(week.clips)} clips / ${esc(week.seconds)}s
         </p>
+        ${liveErr && !liveOk ? `<p class="error">Live billing: ${esc(liveErr)}</p>` : ''}
         <details class="grok-quota-details">
           <summary>Quotas communities / xAI mention</summary>
           <ul>
             ${other.map((o) => `<li><strong>${esc(o.name)}:</strong> ${esc(o.detail)}</li>`).join('')}
           </ul>
-          <p class="muted-line">Formula: remaining_seconds = pool_10s×10 × (1 − used%). Counts = floor(remaining_seconds ÷ duration). Used % prefers grok.com Usage when saved; else our clip seconds this week.</p>
+          <p class="muted-line">$30 receipt: ~50×10s 720p/week (2%/gen). Plus has no published clip table — counts use a ${esc(formulas.plusMult)}× planning mult. Used % is live from Grok billing when OAuth works.</p>
         </details>
-        <form class="grok-quota-usage-form" id="grok-quota-usage-form">
-          <label for="grok-usage-percent">Usage % from grok.com Settings → Usage</label>
-          <div class="row">
-            <input id="grok-usage-percent" name="percent" type="number" min="0" max="100" step="0.1" inputmode="decimal" placeholder="e.g. 4" value="${esc(saved)}">
-            <button type="submit">Update estimates</button>
-          </div>
-        </form>
+        <button type="button" class="ghost grok-quota-refresh" id="grok-quota-refresh">Refresh usage now</button>
         <p id="grok-quota-usage-msg" class="muted-line" hidden></p>
       </div>
     `;
 
-    const form = el.querySelector('#grok-quota-usage-form');
-    form?.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const input = el.querySelector('#grok-usage-percent');
+    el.querySelector('#grok-quota-refresh')?.addEventListener('click', async () => {
       const msg = el.querySelector('#grok-quota-usage-msg');
-      const pct = Number(input?.value);
-      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-        if (msg) {
-          msg.hidden = false;
-          msg.textContent = 'Enter 0–100 from the Usage tab.';
-          msg.className = 'error';
-        }
-        return;
+      if (msg) {
+        msg.hidden = false;
+        msg.className = 'muted-line';
+        msg.textContent = 'Refreshing…';
       }
-      localStorage.setItem(LS_KEY, String(pct));
-      const { ok, data: out } = await api(API, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'grok-quota-usage', percentUsed: pct }),
-      });
-      if (!ok || !out?.ok) {
-        if (msg) {
-          msg.hidden = false;
-          msg.textContent = out?.error || 'Save failed';
-          msg.className = 'error';
-        }
-        return;
-      }
-      render(el, out, null);
+      await refresh(el, true);
     });
   }
 
-  async function refresh(el) {
-    const saved = localStorage.getItem(LS_KEY);
+  async function refresh(el, force) {
     const q = new URLSearchParams({ action: 'grok-quota' });
-    if (saved != null && saved !== '') q.set('usagePercent', saved);
+    if (force) q.set('forceRefresh', '1');
     const { ok, data } = await api(`${API}?${q}`);
     if (!ok || !data?.ok) {
       render(el, null, data?.error || data?.message || 'Could not load Grok quota estimate');
@@ -154,8 +131,8 @@
   function mount() {
     const el = document.getElementById('grok-quota-banner');
     if (!el) return;
-    refresh(el);
-    setInterval(() => refresh(el), REFRESH_MS);
+    refresh(el, false);
+    setInterval(() => refresh(el, false), REFRESH_MS);
   }
 
   if (document.readyState === 'loading') {
