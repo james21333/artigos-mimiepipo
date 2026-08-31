@@ -138,6 +138,8 @@
           <strong>${s.id || s.title || 'scene'}</strong>
           <p class="muted-line">${s.dialogue ? `Dialogue: ${s.dialogue}` : 'No dialogue yet'}</p>
           <p class="muted-line">Setting: ${s.setting || '—'}</p>
+          <p class="muted-line">Camera: ${s.cameraMovement || s.camera || '—'}</p>
+          <p class="muted-line">Bridge: ${s.continuityKind || '—'} — ${s.emotion || s.continuityBridge || '—'}</p>
           <p class="muted-line">Left hand: ${s.leftHand || '—'} · Right hand: ${s.rightHand || '—'}</p>
           <p class="muted-line">Products: ${(s.products || []).join(', ') || '—'}</p>
           <p class="muted-line">Scene read winner: ${winner || 'pending'} (OpenAI vs Grok)</p>
