@@ -189,7 +189,16 @@
     if (statusEl) statusEl.textContent = data?.message || stage || 'Working';
     if (data?.transcript) renderTranscript(data);
     if (data?.scenes) renderScenes(data);
+    const errEl = card.querySelector('.result-error');
+    if (errEl) {
+      if (stage === 'error' || data?.error) {
+        errEl.hidden = false;
+        errEl.textContent = data?.message || data?.error || 'Failed';
+      }
+    }
+    if (stage === 'error') setError(data?.message || data?.error || 'Job failed');
     if (data?.outputUrl) job.outputUrl = data.outputUrl;
+    if (data?.output_url) job.outputUrl = data.output_url;
     if (data?.stage) job.stage = data.stage;
     saveBatch();
     renderFinal(job, data);
@@ -202,14 +211,16 @@
   }
 
   async function tick() {
+    let allDone = true;
     for (const job of batchJobs) {
-      if (job.stage === 'stitched' || job.stage === 'error') continue;
       const { ok, data } = await api(
         `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
       );
       if (ok && data) updateCard(job, data);
+      const stage = (data && data.stage) || job.stage || '';
+      if (stage !== 'stitched' && stage !== 'error' && stage !== 'provider_give_up') allDone = false;
     }
-    if (batchJobs.every((j) => j.stage === 'stitched' || j.stage === 'error')) {
+    if (allDone) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
