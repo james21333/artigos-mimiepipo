@@ -1,6 +1,6 @@
 /**
  * Grok Imagine remaining-capacity banner (community formulas, no AI).
- * Usage % is auto-fetched on the worker from Grok billing — no manual paste needed.
+ * Consumer meter = per Imagine submit (~2%/720p gen). Scene count matters more than duration.
  * Mount: <div id="grok-quota-banner"></div> near top of #app.
  */
 (function () {
@@ -61,37 +61,41 @@
       return;
     }
     const v = data.remaining?.videos || {};
+    const fin = data.remaining?.finished || {};
     const week = data.weekClips || {};
     const formulas = data.formulas || {};
     const other = data.otherQuotas || [];
     const used = data.usagePercentUsed;
-    const src = data.usagePercentSource || '';
+    const submits = data.remaining?.submits ?? v['7s'];
     const liveOk = data.usageLive?.ok;
     const liveErr = data.usageLive?.error;
     const liveAt = data.usageLive?.fetchedAt;
+    const scenesT = formulas.scenesTalking ?? 6;
+    const scenesM = formulas.scenesMusicAvg ?? 8;
 
     el.innerHTML = `
       <div class="grok-quota-banner" data-state="ok">
         <div class="grok-quota-head">
-          <p class="grok-quota-title">Grok Imagine left (720p estimates)</p>
+          <p class="grok-quota-title">Grok Imagine left (per-submit estimates)</p>
           <p class="grok-quota-meta">
             SuperGrok Plus · weekly pool · resets <strong>${esc(fmtReset(data.resetAt))}</strong>
             ${data.msUntilReset != null ? ` · ${esc(fmtLeft(data.msUntilReset))}` : ''}
           </p>
         </div>
         <div class="grok-quota-counts" role="list">
-          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(v['7s'] ?? '—')}</span><span class="l">× 7s</span></div>
-          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(v['15s'] ?? '—')}</span><span class="l">× 15s</span></div>
-          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(v['30s'] ?? '—')}</span><span class="l">× 30s</span></div>
-          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(v['1m'] ?? v['60s'] ?? '—')}</span><span class="l">× 1 min</span></div>
+          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(submits ?? '—')}</span><span class="l">submits left</span></div>
+          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(fin.talking6Scene ?? '—')}</span><span class="l">× talking (${esc(scenesT)} sc)</span></div>
+          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(fin.musicAvgScenes ?? '—')}</span><span class="l">× music (~${esc(scenesM)} sc)</span></div>
+          <div class="grok-quota-chip" role="listitem"><span class="n">${esc(fin.singleSubmit ?? v['1m'] ?? '—')}</span><span class="l">× 1-submit clips</span></div>
         </div>
         <p class="grok-quota-sub">
           used <strong>${esc(used)}%</strong>
-          ${liveOk ? ' · <span class="grok-quota-live">auto from Grok billing</span>' : ` · (${esc(src)})`}
+          ${liveOk ? ' · <span class="grok-quota-live">auto from Grok billing</span>' : ''}
           ${liveAt ? ` · pulled ${esc(fmtReset(liveAt))}` : ''}
-          · ~${esc(data.remaining?.as10sGens ?? '—')} × 10s left
-          · pool ≈ ${esc(formulas.pool10sUnits)} × 10s ($30×${esc(formulas.plusMult)} planning)
-          · our submits this week: ${esc(week.clips)} clips / ${esc(week.seconds)}s
+          · pool ≈ ${esc(formulas.poolGens ?? formulas.pool10sUnits)} submits
+          ($30×${esc(formulas.plusMult)}; account cal ≈${esc(formulas.accountCalibratedMult)}×)
+          · our week: ${esc(week.clips)} submits / ${esc(week.seconds)}s
+          · duration chips flat: 7s=${esc(v['7s'])} 15s=${esc(v['15s'])} 30s=${esc(v['30s'])} 1m=${esc(v['1m'])}
         </p>
         ${liveErr && !liveOk ? `<p class="error">Live billing: ${esc(liveErr)}</p>` : ''}
         <details class="grok-quota-details">
@@ -99,7 +103,7 @@
           <ul>
             ${other.map((o) => `<li><strong>${esc(o.name)}:</strong> ${esc(o.detail)}</li>`).join('')}
           </ul>
-          <p class="muted-line">$30 receipt: ~50×10s 720p/week (2%/gen). Plus has no published clip table — counts use a ${esc(formulas.plusMult)}× planning mult. Used % is live from Grok billing when OAuth works.</p>
+          <p class="muted-line">$30: ~50×720p gens/week at 2%/submit (r/grok + FamilyPro). Duration barely changes consumer %. Scene submits divide finished videos. Plus has no published table — we use account ≈3.3×.</p>
         </details>
         <button type="button" class="ghost grok-quota-refresh" id="grok-quota-refresh">Refresh usage now</button>
         <p id="grok-quota-usage-msg" class="muted-line" hidden></p>
