@@ -288,12 +288,14 @@ export async function onRequest(context) {
       remixVariantRaw === 'viralbuilder' ||
       remixVariantRaw === 'write-from-scratch' ||
       remixVariantRaw === 'writefromscratch';
-    const talkingDialogueVariant =
-      remixVariantRaw === 'talking-heads-v3' ||
-      remixVariantRaw === 'talking-v3' ||
+    const talkingJohnny =
       remixVariantRaw === 'talking-johnny' ||
       remixVariantRaw === 'talking-heads-johnny' ||
       remixVariantRaw === 'johnny-talking';
+    const talkingDialogueVariant =
+      remixVariantRaw === 'talking-heads-v3' ||
+      remixVariantRaw === 'talking-v3' ||
+      talkingJohnny;
     const identityLock =
       body.identityLock === true ||
       versionRaw === 'v2' ||
@@ -333,15 +335,21 @@ export async function onRequest(context) {
             : undefined);
     const restoreOverlays = writeFromScratch
       ? body.restoreOverlays !== false
-      : musicLock
+      : musicLock || talkingJohnny
         ? body.restoreOverlays !== false
         : body.restoreOverlays === true;
-    // Music-Only: subtle rewrite default ON when restoring overlays (unless explicitly false).
+    // Music-Only: subtle rewrite default ON. Johnny: keep source titles then misspell (subtle OFF).
     const subtleRewriteOverlays =
       restoreOverlays &&
       (musicLock || writeFromScratch
         ? body.subtleRewriteOverlays !== false
         : body.subtleRewriteOverlays === true);
+    const adsStrictCopy = body.adsStrictCopy === true;
+    const overlayComplianceMode = adsStrictCopy
+      ? 'ads_strict'
+      : talkingJohnny && restoreOverlays
+        ? String(body.overlayComplianceMode || 'organic_misspell')
+        : body.overlayComplianceMode || undefined;
     const viralSceneChat = talkingDialogueVariant
       ? body.viralSceneChat !== false
       : musicLock && !writeFromScratch
@@ -559,6 +567,8 @@ export async function onRequest(context) {
         remixVariant,
         restoreOverlays,
         subtleRewriteOverlays,
+        adsStrictCopy,
+        overlayComplianceMode,
         viralSceneChat,
         writeFromScratch,
         grokDialogue: writeFromScratch ? body.grokDialogue !== false : undefined,
@@ -678,6 +688,10 @@ export async function onRequest(context) {
       (musicLock
         ? body.subtleRewriteOverlays !== false
         : body.subtleRewriteOverlays === true);
+    const adsStrictCopy = body.adsStrictCopy === true;
+    const overlayComplianceMode = adsStrictCopy
+      ? 'ads_strict'
+      : body.overlayComplianceMode || undefined;
     const viralSceneChat = musicLock
       ? body.viralSceneChat !== false
       : body.viralSceneChat === true;
@@ -794,6 +808,8 @@ export async function onRequest(context) {
         remixVariant,
         restoreOverlays,
         subtleRewriteOverlays,
+        adsStrictCopy,
+        overlayComplianceMode,
         viralSceneChat,
         productKey: body.productKey || null,
         setKey: body.setKey || null,

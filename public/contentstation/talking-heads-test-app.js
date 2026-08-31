@@ -21,6 +21,7 @@
   const errorEl = document.getElementById('talking-test-error');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
+  const adsStrictEl = document.getElementById('ads-strict-copy');
   const runBtn = document.getElementById('run-btn');
   const transcriptEl = document.getElementById('transcript-box');
   const scenesEl = document.getElementById('scenes-box');
@@ -259,6 +260,14 @@
             audioMode: 'grok',
             remixVariant: VARIANT,
             viralSceneChat: VARIANT === 'talking-heads-v3',
+            restoreOverlays: VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking' ? true : undefined,
+            subtleRewriteOverlays: false,
+            adsStrictCopy: Boolean(adsStrictEl?.checked),
+            overlayComplianceMode: adsStrictEl?.checked
+              ? 'ads_strict'
+              : VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking'
+                ? 'organic_misspell'
+                : undefined,
             allowDuplicate: true,
             deriveCharacterFromSource: false,
             title: titleInput?.value || TITLE_DEFAULT,

@@ -70,6 +70,14 @@
         <textarea id="tiktok-urls" rows="3"></textarea>
         <label for="job-title">Title</label>
         <input id="job-title" type="text" value="Talking Johnny test">
+        <label class="posted-check" for="ads-strict-copy">
+          <input id="ads-strict-copy" type="checkbox">
+          Ads-strict copy (manual) — stricter Meta/TikTok ad-safe on-screen text; leave unchecked for organic misspell titles
+        </label>
+        <p class="muted-line">
+          Default: Music-V2-style title restore + intentional organic misspells on GLP/WL words.
+          Backgrounds stay the same place-type with different colors (not an exact set copy).
+        </p>
         <div class="row">
           <button type="button" id="run-btn">Generate Johnny test</button>
         </div>
@@ -99,6 +107,6 @@
       showScenes: true
     };
   </script>
-  <script src="./talking-heads-test-app.js?v=3"></script>
+  <script src="./talking-heads-test-app.js?v=4"></script>
 </body>
 </html>
