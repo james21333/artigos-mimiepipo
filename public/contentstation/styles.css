@@ -371,6 +371,78 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.grok-quota-banner {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ok) 8%, var(--bg, #0e1116));
+}
+.grok-quota-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.grok-quota-meta,
+.grok-quota-sub {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.grok-quota-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0.75rem 0 0.35rem;
+}
+.grok-quota-chip {
+  min-width: 4.6rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.grok-quota-chip .n {
+  font-size: 1.35rem;
+  font-weight: 750;
+  line-height: 1.1;
+  color: var(--text);
+}
+.grok-quota-chip .l {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.grok-quota-details {
+  margin: 0.65rem 0 0.5rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.grok-quota-details ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+.grok-quota-details li {
+  margin: 0.25rem 0;
+}
+.grok-quota-usage-form {
+  margin-top: 0.55rem;
+}
+.grok-quota-usage-form label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+.grok-quota-usage-form input[type="number"] {
+  max-width: 7rem;
+}
+
 .ff-balance {
   margin-left: auto;
   font-size: 1.15rem;
@@ -549,48 +621,6 @@ a { color: var(--accent); }
   height: 100%;
   object-fit: contain;
   background: #0f1713;
-}
-
-/* Stitch videos library — compact square thumbs (16:9 clips letterboxed) */
-.stitch-videos-grid {
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 1rem;
-}
-
-@media (min-width: 640px) {
-  .stitch-videos-grid {
-    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  }
-}
-
-.stitch-video-card {
-  max-width: 14rem;
-}
-
-.stitch-video-thumb {
-  position: relative;
-  aspect-ratio: 1 / 1;
-  max-width: 14rem;
-  overflow: hidden;
-  background: #0f1713;
-  border: 1px solid rgba(244, 247, 244, 0.12);
-}
-
-.stitch-video-thumb video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #0f1713;
-}
-
-.stitch-video-meta {
-  padding: 0.5rem 0 0;
-}
-
-.stitch-video-meta .gallery-card-title {
-  margin: 0 0 0.15rem;
-  font-size: 0.9rem;
 }
 
 .gallery-meta {
@@ -1214,10 +1244,6 @@ a { color: var(--accent); }
   padding: 0.85rem 0.95rem 0.95rem;
   border: 1px solid var(--rule);
   background: var(--accent-soft);
-}
-
-.url-list-picker > label {
-  font-weight: 700;
 }
 
 .autogen-select-row {

@@ -106,10 +106,23 @@ export async function onRequest(context) {
     });
   }
 
-  if (method === 'GET' || method === 'HEAD') {
+    if (method === 'GET' || method === 'HEAD') {
     const action = url.searchParams.get('action') || 'config';
     if (action === 'config') {
       return json(configPayload(env), remix2WorkerConfigured(env) ? 200 : 503);
+    }
+    if (action === 'grok-quota') {
+      if (!remix2WorkerConfigured(env)) {
+        return json({ ok: false, error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+      }
+      const usagePercent = url.searchParams.get('usagePercent');
+      const plan = url.searchParams.get('plan');
+      const q = new URLSearchParams();
+      if (usagePercent != null && usagePercent !== '') q.set('usagePercent', usagePercent);
+      if (plan) q.set('plan', plan);
+      const path = `/grok-quota-estimate${q.toString() ? `?${q}` : ''}`;
+      const result = await workerFetch(env, path, { timeoutMs: 15000 });
+      return json(result.data || { ok: false, error: 'worker_error' }, result.ok ? 200 : result.status || 502);
     }
     if (action === 'health' || action === 'ping') {
       if (!remix2WorkerConfigured(env)) {
@@ -242,6 +255,22 @@ export async function onRequest(context) {
 
   const action = body.action || 'create';
   const r2 = remix2R2Payload(env);
+
+  if (action === 'grok-quota-usage') {
+    if (!remix2WorkerConfigured(env)) {
+      return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+    }
+    const percentUsed = Number(body.percentUsed);
+    if (!Number.isFinite(percentUsed) || percentUsed < 0 || percentUsed > 100) {
+      return json({ error: 'percentUsed must be 0–100' }, 400);
+    }
+    const result = await workerFetch(env, '/grok-quota-estimate/usage', {
+      method: 'POST',
+      body: { percentUsed },
+      timeoutMs: 15000,
+    });
+    return json(result.data || { ok: false, error: 'worker_error' }, result.ok ? 200 : result.status || 502);
+  }
 
   if (action === 'from-tiktok') {
     if (!remix2WorkerConfigured(env)) {
