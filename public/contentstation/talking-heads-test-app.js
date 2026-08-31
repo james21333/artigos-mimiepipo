@@ -151,7 +151,7 @@
   }
 
   function renderFinal(job, data) {
-    if (!outputGallery) return;
+    if (!outputGallery || !job?.jobId) return;
     const url = resolveFinalUrl(job, data);
     const ready = data?.stage === 'stitched' || data?.outputUploaded || job?.outputUrl;
     if (!ready || !url) {
@@ -159,12 +159,18 @@
       return;
     }
     outputGallery.hidden = false;
-    outputGallery.innerHTML = `<article class="download-result-card">
-      <h2>Test final</h2>
+    let card = outputGallery.querySelector(`[data-final-job="${job.jobId}"]`);
+    if (!card) {
+      card = document.createElement('article');
+      card.className = 'download-result-card';
+      card.dataset.finalJob = job.jobId;
+      outputGallery.appendChild(card);
+    }
+    const idx = [...outputGallery.querySelectorAll('[data-final-job]')].indexOf(card) + 1;
+    card.innerHTML = `<h2>Test final ${idx}</h2>
       <p class="muted-line">${job.jobId} · ${VARIANT}</p>
       <video src="${url}" controls playsinline preload="metadata" class="result-preview"></video>
-      <p class="result-actions"><a class="btn-link" href="${url}" target="_blank" rel="noopener">Open MP4</a></p>
-    </article>`;
+      <p class="result-actions"><a class="btn-link" href="${url}" target="_blank" rel="noopener">Open MP4</a></p>`;
   }
 
   function ensureCard(job) {
