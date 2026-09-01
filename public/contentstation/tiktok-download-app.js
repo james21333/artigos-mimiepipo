@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 10;
-  const POLL_MS = 4000;
+  const POLL_MS = 180000;
   const MAX_POLL_ERRORS = 8;
   /** Cap concurrent GhostCut cleans to avoid vendor throttle / credit spikes. */
   const MAX_CLEAN_IN_FLIGHT = 3;
@@ -192,6 +192,16 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  const listsUi =
+    window.CSTikTokLists &&
+    window.CSTikTokLists.createController({
+      api,
+    });
+
+  function selectedListId() {
+    return listsUi?.selected?.() || 'glp-1';
+  }
+
   function showGate(msg) {
     if (gate) gate.hidden = false;
     if (app) app.hidden = true;
@@ -258,6 +268,7 @@
     showApp(data);
     await loadAccounts().catch(() => {});
     await loadDownloadConfig().catch(() => {});
+    if (listsUi) await listsUi.load().catch(() => {});
     return true;
   }
 
@@ -1001,7 +1012,7 @@
         try {
           const { ok, data } = await api('/api/contentstation/tiktok-download', {
             method: 'POST',
-            body: JSON.stringify({ url, smallerFile, allowDuplicate }),
+            body: JSON.stringify({ url, smallerFile, allowDuplicate, listId: selectedListId() }),
           });
           if (!ok) {
             if (data?.error === 'already_downloaded') {

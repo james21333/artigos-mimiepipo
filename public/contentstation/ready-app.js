@@ -56,6 +56,21 @@
     return window.__csRole !== 'download';
   }
 
+  function accountSlug(name) {
+    return (
+      String(name || '')
+        .trim()
+        .replace(/[\/\\]/g, '-')
+        .replace(/[^a-zA-Z0-9._\-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 80) || 'account'
+    );
+  }
+
+  function characterSrc(a) {
+    return (a && (a.characterUrl || a.characterDownloadPath)) || '';
+  }
+
   function setError(msg) {
     if (msg) {
       galleryError.hidden = false;
@@ -105,6 +120,20 @@
       const row = document.createElement('div');
       row.className = 'account-card-row';
 
+      const thumbSrc = characterSrc(a);
+      if (thumbSrc) {
+        const thumb = document.createElement('img');
+        thumb.className = 'account-card-character';
+        thumb.alt = '';
+        thumb.src = thumbSrc;
+        row.appendChild(thumb);
+      } else {
+        const ph = document.createElement('span');
+        ph.className = 'account-card-character is-empty';
+        ph.textContent = 'No img';
+        row.appendChild(ph);
+      }
+
       const link = document.createElement('a');
       link.className = 'account-card-link';
       link.href = `./ready-account.html?account=${encodeURIComponent(a.name)}`;
@@ -128,10 +157,58 @@
 
       row.appendChild(link);
       if (canEditAccounts()) {
+        const saveWrap = document.createElement('div');
+        saveWrap.className = 'account-card-character-save';
+        const file = document.createElement('input');
+        file.type = 'file';
+        file.accept = 'image/png,image/jpeg,image/webp,image/*';
+        file.setAttribute('aria-label', `Character image for ${a.name}`);
+        const saveCharBtn = document.createElement('button');
+        saveCharBtn.type = 'button';
+        saveCharBtn.textContent = 'Save character';
+        saveCharBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          saveCharacterForAccount(a.name, file, saveCharBtn).catch(() => {});
+        });
+        saveWrap.appendChild(file);
+        saveWrap.appendChild(saveCharBtn);
+        row.appendChild(saveWrap);
         row.appendChild(editBtn);
       }
       li.appendChild(row);
       accountList.appendChild(li);
+    }
+  }
+
+  async function saveCharacterForAccount(account, fileInput, btn) {
+    const picked = fileInput?.files?.[0];
+    if (!picked) {
+      setError(`Choose an image for ${account} first.`);
+      return;
+    }
+    setError('');
+    if (btn) btn.disabled = true;
+    try {
+      const form = new FormData();
+      form.append('file', picked, picked.name || 'image.png');
+      form.append('prefix', `account-characters/${accountSlug(account)}/`);
+      const up = await api('/api/contentstation/media', { method: 'POST', body: form });
+      if (!up.ok || !up.data?.object?.key) {
+        throw new Error(up.data?.message || up.data?.error || 'Character upload failed.');
+      }
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'set-character', account, key: up.data.object.key }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not save character.');
+      }
+      renderAccounts(data.accounts || []);
+      galleryStatus.textContent = `Saved character for ${account}.`;
+    } catch (err) {
+      setError(err && err.message ? err.message : String(err));
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 

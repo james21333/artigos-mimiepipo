@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content Station | Account upload queue</title>
   <meta name="robots" content="noindex,nofollow">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=savechar1">
 </head>
 <body>
   <main class="gallery-main">
@@ -18,7 +18,6 @@
         <a href="./character-remixes.html">Recent remixes</a>
         <a href="./downloaded.html">Downloaded videos</a>
         <a href="./ready.html" aria-current="page">Ready For Upload</a>
-        <a href="./johnny-jolly-voice-mod.html">Johnny Jolly Voice Mod</a>
       </nav>
       <p class="brand">Content Station</p>
       <p class="sub" id="account-sub">Account</p>
@@ -59,6 +58,19 @@
           </form>
         </div>
 
+        <section class="account-character-panel" id="account-character-panel">
+          <label for="account-character-file">Character image for this account</label>
+          <p class="muted-line">Save a face here for autogenerate. Does not start a remix.</p>
+          <div id="account-character-preview-wrap" class="character-preview-wrap" hidden>
+            <img id="account-character-preview" class="character-preview" alt="Saved character">
+          </div>
+          <input id="account-character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+          <div class="row">
+            <button type="button" id="save-account-character-btn">Save character to this account</button>
+          </div>
+          <p id="account-character-status" class="muted-line"></p>
+        </section>
+
         <p id="gallery-status" class="status" aria-live="polite">Loading…</p>
         <p id="gallery-error" class="error" hidden></p>
 
@@ -74,6 +86,6 @@
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./ready-account-app.js?v=postinfo2"></script>
+  <script src="./ready-account-app.js?v=savechar1"></script>
 </body>
 </html>

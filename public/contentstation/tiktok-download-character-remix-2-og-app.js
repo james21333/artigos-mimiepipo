@@ -270,7 +270,7 @@
 
   function startPoll() {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollJob, 4000);
+    pollTimer = setInterval(pollJob, 180000);
     pollJob();
   }
 
