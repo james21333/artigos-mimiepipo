@@ -203,10 +203,10 @@
         : `Test final ${idx}`;
     const cleanNote = job.postCleanError
       ? `<p class="error">${job.postCleanError}</p>`
-      : job.postCleanWorkId && !cleanedUrl
-        ? `<p class="muted-line">Post-clean: light remake + metadata + alter audio… (${job.postCleanWorkId})</p>`
+        : job.postCleanWorkId && !cleanedUrl
+        ? `<p class="muted-line">Post-clean: metadata + alter audio… (${job.postCleanWorkId})</p>`
         : cleanedUrl
-          ? `<p class="muted-line">Post-clean done (light remake + metadata + alter audio)</p>`
+          ? `<p class="muted-line">Post-clean done (metadata + alter audio)</p>`
           : '';
     card.innerHTML = `<h2>${label}</h2>
       <p class="muted-line">${job.jobId} · ${VARIANT}</p>

@@ -17,7 +17,7 @@
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Johnny → light remake + clean metadata + alter audio</p>
+      <p class="sub">Johnny → clean metadata + alter audio</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -42,8 +42,7 @@
         <h1>Johnny Jolly Voice Mod</h1>
         <p class="lede">
           Same Talking Johnny pipeline. When the final is ready it automatically runs
-          <strong>light remake</strong> (no deep edge junk), <strong>clean metadata</strong>,
-          and <strong>alter audio</strong>. Use the cleaned file below / in Ready.
+          <strong>clean metadata</strong> and <strong>alter audio</strong> (no remake / no deep junk).
         </p>
 
         <section class="account-picker" id="account-picker">
@@ -101,7 +100,7 @@
       storageKey: 'cs_talking_johnny_jolly_voice_mod_v1',
       showScenes: true,
       postClean: {
-        basicVideoRemix: true,
+        basicVideoRemix: false,
         cleanMetadata: true,
         alterAudio: true,
       },
