@@ -17,40 +17,8 @@
   const editAccountForm = document.getElementById('edit-account-form');
   const editAccountName = document.getElementById('edit-account-name');
   const editAccountCancel = document.getElementById('edit-account-cancel');
-  const characterPreview = document.getElementById('account-character-preview');
-  const characterPreviewWrap = document.getElementById('account-character-preview-wrap');
-  const characterFile = document.getElementById('account-character-file');
-  const saveCharacterBtn = document.getElementById('save-account-character-btn');
-  const characterStatus = document.getElementById('account-character-status');
 
   let accountsCache = [];
-
-  function accountSlug(name) {
-    return (
-      String(name || '')
-        .trim()
-        .replace(/[\/\\]/g, '-')
-        .replace(/[^a-zA-Z0-9._\-]+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .slice(0, 80) || 'account'
-    );
-  }
-
-  function setCharacterStatus(msg) {
-    if (!characterStatus) return;
-    characterStatus.textContent = msg || '';
-  }
-
-  function showCharacterPreview(url) {
-    if (!characterPreview || !characterPreviewWrap) return;
-    if (!url) {
-      characterPreviewWrap.hidden = true;
-      characterPreview.removeAttribute('src');
-      return;
-    }
-    characterPreview.src = url;
-    characterPreviewWrap.hidden = false;
-  }
 
   function setAccountHeading(name) {
     accountTitle.textContent = name || 'Account';
@@ -455,62 +423,6 @@
     galleryStatus.textContent = `${cards.length} video${cards.length === 1 ? '' : 's'} · ${posted} posted · ${left} left`;
   }
 
-  async function loadCharacter() {
-    if (!accountName) return;
-    const { ok, data } = await api(
-      `/api/contentstation/accounts?action=character&account=${encodeURIComponent(accountName)}`,
-    );
-    if (!ok) return;
-    const url = data.publicUrl || data.downloadPath || '';
-    showCharacterPreview(url);
-    setCharacterStatus(
-      url ? 'Saved character for this account.' : 'No character saved yet.',
-    );
-  }
-
-  async function saveCharacterToAccount() {
-    const file = characterFile?.files?.[0];
-    if (!accountName) {
-      setError('Missing account name in the URL.');
-      return;
-    }
-    if (!file) {
-      setError('Choose a character image first.');
-      return;
-    }
-    setError('');
-    if (saveCharacterBtn) saveCharacterBtn.disabled = true;
-    setCharacterStatus('Uploading character…');
-    try {
-      const form = new FormData();
-      form.append('file', file, file.name || 'image.png');
-      form.append('prefix', `account-characters/${accountSlug(accountName)}/`);
-      const up = await api('/api/contentstation/media', { method: 'POST', body: form });
-      if (!up.ok || !up.data?.object?.key) {
-        throw new Error(up.data?.message || up.data?.error || 'Character upload failed.');
-      }
-      const { ok, data } = await api('/api/contentstation/accounts', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'set-character',
-          account: accountName,
-          key: up.data.object.key,
-        }),
-      });
-      if (!ok) {
-        throw new Error((data && (data.message || data.error)) || 'Could not save character.');
-      }
-      if (characterFile) characterFile.value = '';
-      showCharacterPreview(data.publicUrl || data.downloadPath || '');
-      setCharacterStatus(`Saved character for ${accountName}.`);
-    } catch (err) {
-      setCharacterStatus('');
-      setError(err && err.message ? err.message : String(err));
-    } finally {
-      if (saveCharacterBtn) saveCharacterBtn.disabled = false;
-    }
-  }
-
   async function loadGallery() {
     if (!accountName) {
       setError('Missing account name in the URL.');
@@ -522,7 +434,6 @@
     refreshBtn.disabled = true;
     try {
       await loadAccountOptions();
-      await loadCharacter().catch(() => {});
       const { ok, data } = await api(
         `/api/contentstation/accounts?action=videos&account=${encodeURIComponent(accountName)}`,
       );
@@ -576,17 +487,6 @@
 
   refreshBtn.addEventListener('click', () => {
     loadGallery().catch(() => {});
-  });
-
-  characterFile?.addEventListener('change', () => {
-    const f = characterFile.files?.[0];
-    if (!f) return;
-    showCharacterPreview(URL.createObjectURL(f));
-    setCharacterStatus('New image selected — click Save character to this account.');
-  });
-
-  saveCharacterBtn?.addEventListener('click', () => {
-    saveCharacterToAccount().catch(() => {});
   });
 
   function showEditForm(show) {

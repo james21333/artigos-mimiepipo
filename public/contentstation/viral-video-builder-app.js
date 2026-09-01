@@ -1,6 +1,6 @@
 (function () {
   const MAX_URLS = 5;
-  const POLL_MS = 180000;
+  const POLL_MS = 3500;
   const ACTIVE_STORAGE_KEY = 'cs_remix2_viral_builder_batch_v1';
 
   const DEFAULT_LABELS = [
@@ -32,7 +32,6 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const errorEl = document.getElementById('remix2-v2-error');
-  const dupBanner = document.getElementById('remix-dup-banner');
   const urlCountEl = document.getElementById('url-count');
   const tiktokUrls = document.getElementById('tiktok-urls');
   const titleInput = document.getElementById('job-title');
@@ -111,39 +110,6 @@
     }
     errorEl.hidden = false;
     errorEl.textContent = msg;
-  }
-
-  function setDupBanner(skipped, account) {
-    if (!dupBanner) return;
-    if (!skipped.length) {
-      dupBanner.hidden = true;
-      dupBanner.innerHTML = '';
-      return;
-    }
-    const title = document.createElement('p');
-    title.className = 'duplicate-skip-title';
-    title.textContent =
-      skipped.length === 1
-        ? 'Already remixed for this account — skipped.'
-        : `${skipped.length} URLs already remixed for this account — skipped.`;
-    const sub = document.createElement('p');
-    sub.style.margin = '0 0 0.35rem';
-    sub.style.fontWeight = '700';
-    sub.textContent = account
-      ? `Account: ${account}. Other accounts can still remix these URLs.`
-      : 'Pick an account to track per-account duplicates.';
-    const list = document.createElement('ul');
-    list.className = 'duplicate-skip-list';
-    for (const url of skipped) {
-      const li = document.createElement('li');
-      li.textContent = url;
-      list.appendChild(li);
-    }
-    dupBanner.innerHTML = '';
-    dupBanner.appendChild(title);
-    dupBanner.appendChild(sub);
-    dupBanner.appendChild(list);
-    dupBanner.hidden = false;
   }
 
   function setStatus(main, detail) {
@@ -242,20 +208,12 @@
     return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
   }
 
-  /** Clear finished: only Done/Failed/give-up (never queued / in-flight). */
-  function isClearableFinishedJob(job) {
-    if (!job) return false;
-    const id = String(job.jobId || '');
-    if (id.startsWith('fail-') || id.startsWith('submit-failed-')) return true;
-    const stage = String(job.stage || '');
-    return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
-  }
-
   function isTerminalJob(job) {
     if (!job) return false;
     if (String(job.jobId || '').startsWith('fail-')) return true;
     if (String(job.jobId || '').startsWith('submit-failed-')) return true;
     if (isTerminalStage(job.stage)) return true;
+    if (!job.stage && job.outputUrl) return true;
     return false;
   }
 
@@ -569,10 +527,8 @@
   function updateCardFromStatus(job, data) {
     const card = ensureBatchCard(job);
     if (!card) return;
-    // Never use data.status as stage (Pages often returns status:"ok").
-    const stage =
-      typeof data?.stage === 'string' && data.stage ? data.stage : job?.stage || 'unknown';
-    if (job && typeof data?.stage === 'string' && data.stage) job.stage = data.stage;
+    const stage = data?.stage || data?.status || 'unknown';
+    if (job) job.stage = stage;
     const statusEl = card.querySelector('.result-status');
     if (statusEl) {
       let label = stageLabel(stage, data);
@@ -762,7 +718,7 @@
 
   async function clearFinishedFromList() {
     setError('');
-    const finished = batchJobs.filter(isClearableFinishedJob);
+    const finished = batchJobs.filter(isTerminalJob);
     const orphanFailCards = batchList
       ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) => {
           const id = String(card.dataset.jobId || '');
@@ -773,23 +729,19 @@
       setStatus('No finished jobs to clear.', 'In-flight and awaiting-prompt jobs stay.');
       return;
     }
-    const keepPreview = batchJobs.filter((job) => !isClearableFinishedJob(job));
     const ok = confirm(
-      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\n` +
-        `${keepPreview.length} queued/in-flight/awaiting-prompt job(s) will stay.\n` +
-        `Does not delete R2 files.`,
+      `Clear ${finished.length + orphanFailCards.length} finished job(s) from this list?\n\nAwaiting-prompt and in-flight jobs stay. Does not delete R2 files.`,
     );
     if (!ok) return;
     const keep = [];
     for (const job of batchJobs) {
-      if (isClearableFinishedJob(job)) removeJobCard(job.jobId);
+      if (isTerminalJob(job)) removeJobCard(job.jobId);
       else keep.push(job);
     }
     batchJobs = keep;
     for (const card of orphanFailCards) card.remove();
     saveBatch();
     syncBatchActionsVisibility();
-    if (keep.some((job) => !isTerminalJob(job))) startPoll();
     setStatus(
       keep.length ? `Cleared finished · ${keep.length} still on list` : 'Cleared finished jobs.',
       'R2 finals unchanged.',
@@ -901,9 +853,6 @@
       const account = accountsUi.selected() || '';
       const baseTitle = titleInput?.value || 'Viral Video Builder — Write From Scratch';
       const failures = [];
-      const skipped = [];
-      let started = 0;
-      setDupBanner([]);
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         setStatus(`Analyzing ${i + 1} / ${urls.length}`, url);
@@ -913,7 +862,6 @@
             action: 'from-tiktok',
             tiktokUrl: url,
             characterKey,
-            account: account || undefined,
             characterMode: 'upload',
             version: 'v2',
             identityLock: true,
@@ -926,18 +874,12 @@
             autoRun: false,
           }),
         });
-        if (data?.error === 'already_remixed_for_account') {
-          skipped.push(url);
-          setDupBanner(skipped, account);
-          continue;
-        }
         if (!ok || !data?.jobId) {
           const detail = createFailureDetail(data, status, i);
           failures.push(detail);
           showSubmitFailure(url, i, detail);
           continue;
         }
-        started += 1;
         const job = {
           jobId: data.jobId,
           tiktokUrl: url,
@@ -954,18 +896,11 @@
       }
       saveBatch();
       if (failures.length) setError(failures.join('\n'));
-      if (started) startPoll();
+      startPoll();
       setStatus(
-        !started && skipped.length && !failures.length
-          ? 'All skipped'
-          : failures.length
-            ? `Started with ${failures.length} failure(s)${skipped.length ? ` · ${skipped.length} skipped` : ''}`
-            : skipped.length
-              ? `Analyze running · ${skipped.length} skipped`
-              : 'Analyze running — write prompts when scenes appear.',
-        !started && skipped.length
-          ? `${skipped.length} already remixed for ${account || 'this account'}`
-          : undefined,
+        failures.length
+          ? `Started with ${failures.length} failure(s)`
+          : 'Analyze running — write prompts when scenes appear.',
       );
       accountsUi?.refresh?.().catch(() => {});
     } catch (err) {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | Talking Johnny</title>
+  <title>Content Station | Johnny Jolly Voice Mod</title>
   <meta name="robots" content="noindex,nofollow">
   <link rel="stylesheet" href="./styles.css?v=grokquota1">
 </head>
@@ -12,15 +12,12 @@
     <header class="site-header">
       <nav class="top-nav" aria-label="Station">
         <a href="./">Clean video</a>
-        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
-        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
-        <a href="./tiktok-download-character-remix-2-og-v3.html">Talking Heads V3</a>
-        <a href="./tiktok-download-character-remix-2-og-talking-johnny.html" aria-current="page">Talking Johnny</a>
-        <a href="./johnny-jolly-voice-mod.html">Johnny Jolly Voice Mod</a>
+        <a href="./tiktok-download-character-remix-2-og-talking-johnny.html">Talking Johnny</a>
+        <a href="./johnny-jolly-voice-mod.html" aria-current="page">Johnny Jolly Voice Mod</a>
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Talking Johnny — scene + hands/products + exact dialogue</p>
+      <p class="sub">Johnny → light remake + clean metadata + alter audio</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -42,12 +39,10 @@
       <div id="grok-quota-banner"></div>
 
       <section class="hero-flow">
-        <h1>Talking Johnny</h1>
+        <h1>Johnny Jolly Voice Mod</h1>
         <p class="lede">
-          Johnny Deyo talking pipeline (exact spoken line + lip-sync). Each scene is read by
-          <strong>OpenAI and Grok</strong>; the better read wins for setting and what’s in each hand.
-          Automatic product still briefs are generated per scene. You can still type a manual redo
-          note on a scene when you want something specific.
+          Same Talking Johnny pipeline. When the final is ready it automatically runs
+          <strong>light remake</strong>, <strong>clean metadata</strong>, and <strong>alter audio</strong> (no deep remake).
         </p>
 
         <section class="account-picker" id="account-picker">
@@ -70,17 +65,16 @@
         <label for="tiktok-urls">TikTok URL</label>
         <textarea id="tiktok-urls" rows="3"></textarea>
         <label for="job-title">Title</label>
-        <input id="job-title" type="text" value="Talking Johnny test">
+        <input id="job-title" type="text" value="Johnny Jolly Voice Mod">
         <label class="posted-check" for="ads-strict-copy">
           <input id="ads-strict-copy" type="checkbox">
           Ads-strict copy (manual) — stricter Meta/TikTok ad-safe on-screen text; leave unchecked for organic misspell titles
         </label>
         <p class="muted-line">
-          Default: Music-V2-style title restore + intentional organic misspells on GLP/WL words.
-          Backgrounds stay the same place-type with different colors (not an exact set copy).
+          Post-clean: light remake + clean metadata + alter audio (not deep remake).
         </p>
         <div class="row">
-          <button type="button" id="run-btn">Generate Johnny test</button>
+          <button type="button" id="run-btn">Generate Voice Mod</button>
         </div>
         <p id="status-line" class="status">Ready.</p>
         <p id="status-detail" class="muted-line" hidden></p>
@@ -101,11 +95,15 @@
   <script>
     window.CSTalkingTest = {
       variant: 'talking-johnny',
-      pageId: 'tiktok-download-character-remix-2-og-talking-johnny',
-      title: 'Talking Johnny test',
-      storageKey: 'cs_talking_johnny_test_v1',
-      resumeJobId: '741ce5d6cb5f',
-      showScenes: true
+      pageId: 'johnny-jolly-voice-mod',
+      title: 'Johnny Jolly Voice Mod',
+      storageKey: 'cs_talking_johnny_jolly_voice_mod_v1',
+      showScenes: true,
+      postClean: {
+        basicVideoRemix: true,
+        cleanMetadata: true,
+        alterAudio: true,
+      },
     };
   </script>
   <script src="./talking-heads-test-app.js?v=5"></script>
