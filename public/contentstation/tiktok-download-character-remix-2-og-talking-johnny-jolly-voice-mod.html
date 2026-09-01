@@ -17,7 +17,7 @@
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Johnny → light remake + clean metadata + alter audio</p>
+      <p class="sub">Johnny → clean metadata + alter audio</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -42,7 +42,7 @@
         <h1>Johnny Jolly Voice Mod</h1>
         <p class="lede">
           Same Talking Johnny pipeline. When the final is ready it automatically runs
-          <strong>light remake</strong>, <strong>clean metadata</strong>, and <strong>alter audio</strong> (no deep remake).
+          <strong>clean metadata</strong> and <strong>alter audio</strong> (no remake).
         </p>
 
         <section class="account-picker" id="account-picker">
@@ -71,7 +71,7 @@
           Ads-strict copy (manual) — stricter Meta/TikTok ad-safe on-screen text; leave unchecked for organic misspell titles
         </label>
         <p class="muted-line">
-          Post-clean: light remake + clean metadata + alter audio (not deep remake).
+          Post-clean: clean metadata + alter audio only (no GhostCut remake).
         </p>
         <div class="row">
           <button type="button" id="run-btn">Generate Voice Mod</button>
@@ -100,12 +100,12 @@
       storageKey: 'cs_talking_johnny_jolly_voice_mod_v1',
       showScenes: true,
       postClean: {
-        basicVideoRemix: true,
+        basicVideoRemix: false,
         cleanMetadata: true,
         alterAudio: true,
       },
     };
   </script>
-  <script src="./talking-heads-test-app.js?v=5"></script>
+  <script src="./talking-heads-test-app.js?v=6"></script>
 </body>
 </html>

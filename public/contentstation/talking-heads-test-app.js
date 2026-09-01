@@ -8,19 +8,28 @@
   const TEST_ACCOUNT = cfg.testAccount || '1-GLP- 20.YOUTUBE 1';
   const POLL_MS = 4000;
   const SHOW_SCENES = Boolean(cfg.showScenes);
-  /** After Johnny stitch: light GhostCut remaker + CloudConvert metadata/audio. */
+  /** After Johnny stitch: optional GhostCut remaker + CloudConvert metadata/audio. */
   const POST_CLEAN = cfg.postClean && typeof cfg.postClean === 'object' ? cfg.postClean : null;
   const POST_CLEAN_OPTS = POST_CLEAN
     ? {
         removeWatermark: false,
-        cleanMetadata: POST_CLEAN.cleanMetadata !== false,
-        alterAudio: POST_CLEAN.alterAudio !== false,
-        basicVideoRemix: POST_CLEAN.basicVideoRemix !== false,
+        cleanMetadata: Boolean(POST_CLEAN.cleanMetadata),
+        alterAudio: Boolean(POST_CLEAN.alterAudio),
+        basicVideoRemix: Boolean(POST_CLEAN.basicVideoRemix),
         remix: false,
         deepAiRemake: false,
         mirror: false,
       }
     : null;
+  const POST_CLEAN_LABEL = POST_CLEAN_OPTS
+    ? [
+        POST_CLEAN_OPTS.basicVideoRemix ? 'light remake' : null,
+        POST_CLEAN_OPTS.cleanMetadata ? 'metadata' : null,
+        POST_CLEAN_OPTS.alterAudio ? 'alter audio' : null,
+      ]
+        .filter(Boolean)
+        .join(' + ') || 'post-clean'
+    : '';
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -204,9 +213,9 @@
     const cleanNote = job.postCleanError
       ? `<p class="error">${job.postCleanError}</p>`
         : job.postCleanWorkId && !cleanedUrl
-        ? `<p class="muted-line">Post-clean: light remake + metadata + alter audio… (${job.postCleanWorkId})</p>`
+        ? `<p class="muted-line">Post-clean: ${POST_CLEAN_LABEL}… (${job.postCleanWorkId})</p>`
         : cleanedUrl
-          ? `<p class="muted-line">Post-clean done (light remake + metadata + alter audio)</p>`
+          ? `<p class="muted-line">Post-clean done (${POST_CLEAN_LABEL})</p>`
           : '';
     card.innerHTML = `<h2>${label}</h2>
       <p class="muted-line">${job.jobId} · ${VARIANT}</p>
