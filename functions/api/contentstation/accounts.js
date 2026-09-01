@@ -1,7 +1,10 @@
 import { json, requireRole, ROLES } from '../../lib/contentstation-auth.js';
 import {
   accountSummaries,
+  archiveAccount,
+  archivedAccountSummaries,
   createAccount,
+  deleteAccount,
   getAccountCharacter,
   getTagForKey,
   isVideoPosted,
@@ -13,6 +16,7 @@ import {
   setAccountCharacter,
   setVideoAccount,
   setVideoPosted,
+  unarchiveAccount,
 } from '../../lib/account-tags.js';
 import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
 
@@ -22,9 +26,10 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  * Roles:
  *   admin    → all actions
  *   download → list, tag, create, rename (account picker on TikTok download)
- *   ready    → list, tags, videos, tag, posted, create, rename, info
+ *   ready    → list, tags, videos, tag, posted, create, rename, archive, delete, info
  *
- * GET  ?action=list              → accounts + counts (+ character defaults)
+ * GET  ?action=list              → active accounts + counts (+ character defaults)
+ * GET  ?action=archived          → archived accounts + counts
  * GET  ?action=tags              → full key→account map
  * GET  ?action=videos&account=   → tagged keys for account (cleaned + Remix 2 + FaceFusion)
  * GET  ?action=tag&key=          → tag for one key
@@ -33,6 +38,9 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  * GET  ?action=characters        → all account character defaults/history
  * POST { action: "create", name }
  * POST { action: "rename", from, to }
+ * POST { action: "archive", name }
+ * POST { action: "unarchive", name }
+ * POST { action: "delete", name }  // permanent; untags videos, keeps R2 files
  * POST { action: "tag", key, account }   // account "" clears
  * POST { action: "posted", key, posted } // boolean — marked posted to TikTok
  * POST { action: "set-character", account, key } // key "" clears default
@@ -131,7 +139,7 @@ function forbidden(role) {
 }
 
 export async function onRequestGet(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
@@ -142,6 +150,12 @@ export async function onRequestGet(context) {
   if (action === 'list') {
     const accounts = await accountSummaries(env);
     return json({ ok: true, accounts });
+  }
+
+  if (action === 'archived') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const accounts = await archivedAccountSummaries(env);
+    return json({ ok: true, accounts, archived: true });
   }
 
   if (action === 'tags') {
@@ -210,7 +224,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
@@ -249,6 +263,49 @@ export async function onRequestPost(context) {
       to: result.to,
       renamed: result.renamed,
       accounts: result.accounts,
+    });
+  }
+
+  if (action === 'archive') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const result = await archiveAccount(env, body.name || body.account);
+    if (!result.ok) {
+      return json({ ok: false, error: 'archive_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      name: result.name,
+      accounts: result.accounts,
+      archivedAccounts: result.archivedAccounts,
+    });
+  }
+
+  if (action === 'unarchive') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const result = await unarchiveAccount(env, body.name || body.account);
+    if (!result.ok) {
+      return json({ ok: false, error: 'unarchive_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      name: result.name,
+      accounts: result.accounts,
+      archivedAccounts: result.archivedAccounts,
+    });
+  }
+
+  if (action === 'delete') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const result = await deleteAccount(env, body.name || body.account);
+    if (!result.ok) {
+      return json({ ok: false, error: 'delete_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      name: result.name,
+      untagged: result.untagged,
+      accounts: result.accounts,
+      archivedAccounts: result.archivedAccounts,
     });
   }
 

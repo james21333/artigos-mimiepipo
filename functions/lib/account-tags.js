@@ -17,6 +17,7 @@
  */
 
 const ACCOUNTS_KEY = 'meta/accounts.json';
+const ARCHIVED_ACCOUNTS_KEY = 'meta/archived-accounts.json';
 const TAGS_KEY = 'meta/cleaned-tags.json';
 const POSTED_KEY = 'meta/cleaned-posted.json';
 const CHARACTERS_KEY = 'meta/account-characters.json';
@@ -94,6 +95,20 @@ export async function listAccounts(env) {
   if (!bucket) return [];
   const list = await readJson(bucket, ACCOUNTS_KEY, []);
   if (!Array.isArray(list)) return [];
+  const archived = await archivedNameSet(env);
+  return list
+    .map((n) => sanitizeAccountName(n))
+    .filter(Boolean)
+    .filter((n, i, arr) => arr.indexOf(n) === i)
+    .filter((n) => !archived.has(n.toLowerCase()))
+    .sort(compareAccountNames);
+}
+
+async function readArchivedList(env) {
+  const bucket = getBucket(env);
+  if (!bucket) return [];
+  const list = await readJson(bucket, ARCHIVED_ACCOUNTS_KEY, []);
+  if (!Array.isArray(list)) return [];
   return list
     .map((n) => sanitizeAccountName(n))
     .filter(Boolean)
@@ -101,16 +116,35 @@ export async function listAccounts(env) {
     .sort(compareAccountNames);
 }
 
+async function archivedNameSet(env) {
+  const list = await readArchivedList(env);
+  return new Set(list.map((n) => n.toLowerCase()));
+}
+
+export async function listArchivedAccounts(env) {
+  return readArchivedList(env);
+}
+
 export async function createAccount(env, nameRaw) {
   const bucket = getBucket(env);
   if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
   const name = sanitizeAccountName(nameRaw);
   if (!name) return { ok: false, error: 'Enter a valid account name.' };
-  const list = await listAccounts(env);
-  if (!list.some((n) => n.toLowerCase() === name.toLowerCase())) {
-    list.push(name);
-    list.sort(compareAccountNames);
-    await writeJson(bucket, ACCOUNTS_KEY, list);
+  const archived = await archivedNameSet(env);
+  if (archived.has(name.toLowerCase())) {
+    return {
+      ok: false,
+      error: `“${name}” is archived. Unarchive it from Archived accounts first.`,
+    };
+  }
+  const raw = await readJson(bucket, ACCOUNTS_KEY, []);
+  const next = Array.isArray(raw)
+    ? raw.map((n) => sanitizeAccountName(n)).filter(Boolean)
+    : [];
+  if (!next.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    next.push(name);
+    next.sort(compareAccountNames);
+    await writeJson(bucket, ACCOUNTS_KEY, next);
   }
   return { ok: true, name, accounts: await listAccounts(env) };
 }
@@ -297,6 +331,10 @@ export async function renameAccount(env, fromRaw, toRaw) {
   if (conflict) {
     return { ok: false, error: `“${conflict}” already exists.` };
   }
+  const archived = await archivedNameSet(env);
+  if (archived.has(to.toLowerCase()) && to.toLowerCase() !== from.toLowerCase()) {
+    return { ok: false, error: `“${to}” is archived. Unarchive or pick another name.` };
+  }
 
   const nextList = list.filter((n) => n.toLowerCase() !== from.toLowerCase());
   if (!nextList.some((n) => n.toLowerCase() === to.toLowerCase())) {
@@ -395,6 +433,7 @@ function entryIsPosted(entry) {
 
 export async function accountSummaries(env) {
   const accounts = await listAccounts(env);
+  const archived = await archivedNameSet(env);
   const map = await readTagsMap(env);
   const postedMap = await readPostedMap(env);
   const charMap = await readCharactersMap(env);
@@ -404,9 +443,14 @@ export async function accountSummaries(env) {
   for (const [key, a] of Object.entries(map)) {
     const name = sanitizeAccountName(a);
     if (!name) continue;
-    if (!accounts.includes(name)) accounts.push(name);
+    if (archived.has(name.toLowerCase())) continue;
+    if (!accounts.some((n) => n.toLowerCase() === name.toLowerCase())) {
+      accounts.push(name);
+      counts[name] = counts[name] || 0;
+    }
     if (entryIsPosted(postedMap[key])) continue;
-    counts[name] = (counts[name] || 0) + 1;
+    const canon = accounts.find((n) => n.toLowerCase() === name.toLowerCase()) || name;
+    counts[canon] = (counts[canon] || 0) + 1;
   }
   accounts.sort(compareAccountNames);
   return accounts.map((name) => {
@@ -417,11 +461,176 @@ export async function accountSummaries(env) {
     return {
       name,
       count: counts[name] || 0,
+      archived: false,
       characterKey: character.defaultKey || null,
       characterUrl: character.publicUrl || null,
       characterDownloadPath: character.downloadPath || null,
     };
   });
+}
+
+export async function archivedAccountSummaries(env) {
+  const accounts = await listArchivedAccounts(env);
+  const map = await readTagsMap(env);
+  const postedMap = await readPostedMap(env);
+  const charMap = await readCharactersMap(env);
+  const counts = {};
+  for (const a of accounts) counts[a] = 0;
+  for (const [key, a] of Object.entries(map)) {
+    const name = sanitizeAccountName(a);
+    if (!name) continue;
+    const canon = accounts.find((n) => n.toLowerCase() === name.toLowerCase());
+    if (!canon) continue;
+    if (entryIsPosted(postedMap[key])) continue;
+    counts[canon] = (counts[canon] || 0) + 1;
+  }
+  return accounts.map((name) => {
+    const charHit =
+      charMap[name] ||
+      charMap[Object.keys(charMap).find((k) => k.toLowerCase() === name.toLowerCase()) || ''];
+    const character = enrichCharacterPayload(env, name, charHit);
+    return {
+      name,
+      count: counts[name] || 0,
+      archived: true,
+      characterKey: character.defaultKey || null,
+      characterUrl: character.publicUrl || null,
+      characterDownloadPath: character.downloadPath || null,
+    };
+  });
+}
+
+/**
+ * Move an active account into the archived registry (keeps tags + character).
+ * Archived accounts are hidden from Autogenerate / account pickers.
+ */
+export async function archiveAccount(env, nameRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const name = sanitizeAccountName(nameRaw);
+  if (!name) return { ok: false, error: 'Missing account name.' };
+
+  const rawActive = await readJson(bucket, ACCOUNTS_KEY, []);
+  const active = Array.isArray(rawActive)
+    ? rawActive.map((n) => sanitizeAccountName(n)).filter(Boolean)
+    : [];
+  const idx = active.findIndex((n) => n.toLowerCase() === name.toLowerCase());
+  const archived = await readArchivedList(env);
+
+  if (idx < 0 && !archived.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    // Allow archive from tag-only orphan names.
+    const map = await readTagsMap(env);
+    const hasTags = Object.values(map).some(
+      (a) => sanitizeAccountName(a)?.toLowerCase() === name.toLowerCase(),
+    );
+    if (!hasTags) return { ok: false, error: 'Account not found.' };
+  }
+
+  const nextActive = active.filter((n) => n.toLowerCase() !== name.toLowerCase());
+  const nextArchived = archived.filter((n) => n.toLowerCase() !== name.toLowerCase());
+  nextArchived.push(name);
+  nextArchived.sort(compareAccountNames);
+  await writeJson(bucket, ACCOUNTS_KEY, nextActive);
+  await writeJson(bucket, ARCHIVED_ACCOUNTS_KEY, nextArchived);
+
+  return {
+    ok: true,
+    name,
+    accounts: await accountSummaries(env),
+    archivedAccounts: await archivedAccountSummaries(env),
+  };
+}
+
+/** Restore an archived account to the active Ready / Autogenerate lists. */
+export async function unarchiveAccount(env, nameRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const name = sanitizeAccountName(nameRaw);
+  if (!name) return { ok: false, error: 'Missing account name.' };
+
+  const archived = await readArchivedList(env);
+  const hit = archived.find((n) => n.toLowerCase() === name.toLowerCase());
+  if (!hit) return { ok: false, error: 'Archived account not found.' };
+
+  const rawActive = await readJson(bucket, ACCOUNTS_KEY, []);
+  const active = Array.isArray(rawActive)
+    ? rawActive.map((n) => sanitizeAccountName(n)).filter(Boolean)
+    : [];
+  if (active.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    return { ok: false, error: `“${name}” is already active.` };
+  }
+
+  const nextArchived = archived.filter((n) => n.toLowerCase() !== name.toLowerCase());
+  active.push(hit);
+  active.sort(compareAccountNames);
+  await writeJson(bucket, ACCOUNTS_KEY, active);
+  await writeJson(bucket, ARCHIVED_ACCOUNTS_KEY, nextArchived);
+
+  return {
+    ok: true,
+    name: hit,
+    accounts: await accountSummaries(env),
+    archivedAccounts: await archivedAccountSummaries(env),
+  };
+}
+
+/**
+ * Permanently remove an account from active + archived registries.
+ * Untags its videos and drops character metadata (media files stay in R2).
+ */
+export async function deleteAccount(env, nameRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const name = sanitizeAccountName(nameRaw);
+  if (!name) return { ok: false, error: 'Missing account name.' };
+
+  const rawActive = await readJson(bucket, ACCOUNTS_KEY, []);
+  const active = Array.isArray(rawActive)
+    ? rawActive.map((n) => sanitizeAccountName(n)).filter(Boolean)
+    : [];
+  const archived = await readArchivedList(env);
+  const inActive = active.some((n) => n.toLowerCase() === name.toLowerCase());
+  const inArchived = archived.some((n) => n.toLowerCase() === name.toLowerCase());
+
+  const map = await readTagsMap(env);
+  let untagged = 0;
+  for (const [key, value] of Object.entries(map)) {
+    if (sanitizeAccountName(value)?.toLowerCase() === name.toLowerCase()) {
+      delete map[key];
+      untagged += 1;
+    }
+  }
+
+  if (!inActive && !inArchived && untagged === 0) {
+    return { ok: false, error: 'Account not found.' };
+  }
+
+  await writeJson(
+    bucket,
+    ACCOUNTS_KEY,
+    active.filter((n) => n.toLowerCase() !== name.toLowerCase()),
+  );
+  await writeJson(
+    bucket,
+    ARCHIVED_ACCOUNTS_KEY,
+    archived.filter((n) => n.toLowerCase() !== name.toLowerCase()),
+  );
+  if (untagged) await writeJson(bucket, TAGS_KEY, map);
+
+  const charMap = await readCharactersMap(env);
+  const charKey = Object.keys(charMap).find((k) => k.toLowerCase() === name.toLowerCase());
+  if (charKey) {
+    delete charMap[charKey];
+    await writeJson(bucket, CHARACTERS_KEY, charMap);
+  }
+
+  return {
+    ok: true,
+    name,
+    untagged,
+    accounts: await accountSummaries(env),
+    archivedAccounts: await archivedAccountSummaries(env),
+  };
 }
 
 export async function readPostedMap(env) {

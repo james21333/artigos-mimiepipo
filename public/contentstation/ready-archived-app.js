@@ -8,8 +8,6 @@
   const accountList = document.getElementById('account-list');
   const galleryEmpty = document.getElementById('gallery-empty');
   const refreshBtn = document.getElementById('refresh-btn');
-  const createForm = document.getElementById('create-account-form');
-  const newAccountName = document.getElementById('new-account-name');
 
   async function api(path, options = {}) {
     const opts = { credentials: 'same-origin', ...options };
@@ -46,10 +44,6 @@
     sessionMeta.textContent =
       session && session.role === 'ready' ? 'Ready For Upload access' : 'Signed in';
     window.__csRole = (session && session.role) || 'admin';
-    // Download-only sessions shouldn't manage Ready accounts here.
-    if (createForm) {
-      createForm.hidden = window.__csRole === 'download';
-    }
   }
 
   function canEditAccounts() {
@@ -91,12 +85,12 @@
     if (!list.length) {
       accountList.hidden = true;
       galleryEmpty.hidden = false;
-      galleryStatus.textContent = 'No accounts';
+      galleryStatus.textContent = 'No archived accounts';
       return;
     }
     galleryEmpty.hidden = true;
     accountList.hidden = false;
-    galleryStatus.textContent = `${list.length} account${list.length === 1 ? '' : 's'}`;
+    galleryStatus.textContent = `${list.length} archived account${list.length === 1 ? '' : 's'}`;
 
     for (const a of list) {
       const li = document.createElement('li');
@@ -115,29 +109,20 @@
       link.querySelector('.account-card-name').textContent = a.name;
       const n = a.count || 0;
       link.querySelector('.account-card-count').textContent =
-        n === 1 ? '1 video ready' : `${n} videos ready`;
+        n === 1 ? '1 video tagged' : `${n} videos tagged`;
 
       row.appendChild(link);
       if (canEditAccounts()) {
         const actions = document.createElement('div');
         actions.className = 'account-card-actions';
 
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'ghost account-edit-btn';
-        editBtn.textContent = 'Edit name';
-        editBtn.addEventListener('click', (e) => {
+        const unarchiveBtn = document.createElement('button');
+        unarchiveBtn.type = 'button';
+        unarchiveBtn.className = 'ghost';
+        unarchiveBtn.textContent = 'Unarchive';
+        unarchiveBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          startRename(li, a.name);
-        });
-
-        const archiveBtn = document.createElement('button');
-        archiveBtn.type = 'button';
-        archiveBtn.className = 'ghost account-archive-btn';
-        archiveBtn.textContent = 'Archive';
-        archiveBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          archiveAccount(a.name).catch(() => {});
+          unarchiveAccount(a.name).catch(() => {});
         });
 
         const deleteBtn = document.createElement('button');
@@ -149,8 +134,7 @@
           deleteAccount(a.name).catch(() => {});
         });
 
-        actions.appendChild(editBtn);
-        actions.appendChild(archiveBtn);
+        actions.appendChild(unarchiveBtn);
         actions.appendChild(deleteBtn);
         row.appendChild(actions);
       }
@@ -159,20 +143,17 @@
     }
   }
 
-  async function archiveAccount(name) {
+  async function unarchiveAccount(name) {
     setError('');
-    if (!window.confirm(`Archive “${name}”? It will disappear from Autogenerate until you unarchive it.`)) {
-      return;
-    }
     const { ok, data } = await api('/api/contentstation/accounts', {
       method: 'POST',
-      body: JSON.stringify({ action: 'archive', name }),
+      body: JSON.stringify({ action: 'unarchive', name }),
     });
     if (!ok) {
-      setError((data && (data.message || data.error)) || 'Could not archive.');
+      setError((data && (data.message || data.error)) || 'Could not unarchive.');
       return;
     }
-    renderAccounts(data.accounts || []);
+    renderAccounts(data.archivedAccounts || []);
   }
 
   async function deleteAccount(name) {
@@ -192,81 +173,7 @@
       setError((data && (data.message || data.error)) || 'Could not delete.');
       return;
     }
-    renderAccounts(data.accounts || []);
-  }
-
-  function startRename(li, currentName) {
-    setError('');
-    const row = document.createElement('div');
-    row.className = 'account-rename-row';
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 80;
-    input.value = currentName;
-    input.setAttribute('aria-label', 'New account name');
-
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.textContent = 'Save';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'ghost';
-    cancelBtn.textContent = 'Cancel';
-
-    const finish = () => loadAccounts().catch(() => {});
-
-    cancelBtn.addEventListener('click', () => finish());
-
-    const save = async () => {
-      const to = input.value.trim();
-      if (!to) {
-        setError('Enter a new account name.');
-        return;
-      }
-      if (to === currentName) {
-        finish();
-        return;
-      }
-      saveBtn.disabled = true;
-      cancelBtn.disabled = true;
-      input.disabled = true;
-      try {
-        const { ok, data } = await api('/api/contentstation/accounts', {
-          method: 'POST',
-          body: JSON.stringify({ action: 'rename', from: currentName, to }),
-        });
-        if (!ok) {
-          throw new Error((data && (data.message || data.error)) || 'Could not rename.');
-        }
-        renderAccounts(data.accounts || []);
-      } catch (err) {
-        setError(err && err.message ? err.message : String(err));
-        saveBtn.disabled = false;
-        cancelBtn.disabled = false;
-        input.disabled = false;
-      }
-    };
-
-    saveBtn.addEventListener('click', () => {
-      save().catch(() => {});
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        save().catch(() => {});
-      }
-      if (e.key === 'Escape') finish();
-    });
-
-    row.appendChild(input);
-    row.appendChild(saveBtn);
-    row.appendChild(cancelBtn);
-    li.innerHTML = '';
-    li.appendChild(row);
-    input.focus();
-    input.select();
+    renderAccounts(data.archivedAccounts || []);
   }
 
   async function loadAccounts() {
@@ -274,9 +181,9 @@
     galleryStatus.textContent = 'Loading…';
     refreshBtn.disabled = true;
     try {
-      const { ok, data } = await api('/api/contentstation/accounts?action=list');
+      const { ok, data } = await api('/api/contentstation/accounts?action=archived');
       if (!ok) {
-        throw new Error((data && (data.message || data.error)) || 'Could not load accounts.');
+        throw new Error((data && (data.message || data.error)) || 'Could not load archived accounts.');
       }
       renderAccounts(data.accounts || []);
     } catch (err) {
@@ -292,7 +199,7 @@
   async function refreshSession() {
     const { ok, data } = await api('/api/contentstation/session');
     if (ok && data && data.authenticated) {
-      if (window.CSAuth && !window.CSAuth.gatePage(data, 'ready')) return false;
+      if (window.CSAuth && !window.CSAuth.gatePage(data, 'ready-archived')) return false;
       if (window.CSAuth) window.CSAuth.applyNav(data.role);
       showApp(data);
       return true;
@@ -325,26 +232,6 @@
 
   refreshBtn.addEventListener('click', () => {
     loadAccounts().catch(() => {});
-  });
-
-  createForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    setError('');
-    const name = newAccountName.value.trim();
-    if (!name) {
-      setError('Enter an account name.');
-      return;
-    }
-    const { ok, data } = await api('/api/contentstation/accounts', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'create', name }),
-    });
-    if (!ok) {
-      setError((data && (data.message || data.error)) || 'Could not create account.');
-      return;
-    }
-    newAccountName.value = '';
-    renderAccounts(data.accounts || []);
   });
 
   refreshSession()

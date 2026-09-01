@@ -256,10 +256,24 @@ input[type="file"] {
   color: inherit;
 }
 
-.account-edit-btn {
+.account-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.account-edit-btn,
+.account-archive-btn,
+.account-delete-btn {
   flex-shrink: 0;
   padding: 0.35rem 0.7rem;
   font-size: 0.9rem;
+}
+
+.account-delete-btn {
+  color: #a33;
 }
 
 .account-rename-row {

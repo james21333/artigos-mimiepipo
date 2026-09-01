@@ -35,7 +35,7 @@
     { match: /character-remixes\.html/, roles: ['admin'] },
     { match: /tiktok-download\.html/, roles: ['admin', 'download'] },
     { match: /downloaded\.html/, roles: ['admin'] },
-    { match: /ready(?:-account)?\.html/, roles: ['admin', 'ready'] },
+    { match: /ready(?:-account|-archived)?\.html/, roles: ['admin', 'ready'] },
   ];
 
   const PAGE_ROLES = {
@@ -62,6 +62,7 @@
     'remix2-ready': ['admin'],
     ready: ['admin', 'ready'],
     'ready-account': ['admin', 'ready'],
+    'ready-archived': ['admin', 'ready'],
     old: ['admin'],
   };
 
@@ -102,7 +103,7 @@
       }
       // Hide links this role cannot use.
       let allowed = false;
-      if (/ready(?:-account)?\.html/.test(href) || href.includes('ready.html')) {
+      if (/ready(?:-account|-archived)?\.html/.test(href) || href.includes('ready.html')) {
         allowed = r === 'ready';
       } else if (/remix2-ready\.html/.test(href)) {
         allowed = false;
