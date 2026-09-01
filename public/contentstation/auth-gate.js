@@ -5,38 +5,33 @@
  * window.CSAuth.gatePage(session, pageId) → true if allowed (else redirects)
  * window.CSAuth.applyNav(role)
  * window.CSAuth.homeFor(role)
- * window.CSAuth.applyBrand(role)
  */
 (function (global) {
-  const BRAND_KENNETH = "Kenneth's Content Tools";
-
   const HOMES = {
     admin: './',
     download: './tiktok-download.html',
     ready: './ready.html',
-    kenneth: './kenneth.html',
   };
 
   /** Nav link href → roles that may see it (admin always sees all). */
   const NAV_BY_HREF = [
-    { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
-    { match: /stitch-maker\.html/, roles: ['kenneth', 'admin'] },
-    { match: /stitch-videos\.html/, roles: ['kenneth', 'admin'] },
-    { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ['admin', 'kenneth'] },
     { match: /(?:^|\/)(?:index\.html)?$/, roles: ['admin'], label: 'Clean' },
     { match: /cleaned\.html/, roles: ['admin'] },
     { match: /tiktok-download-facefusion-remix\.html/, roles: ['admin'] },
     { match: /facefusion-remixes\.html/, roles: ['admin'] },
+    { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-v2\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-v3\.html/, roles: ['admin'] },
+    { match: /tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-talking-johnny\.html/, roles: ['admin'] },
+
     { match: /tiktok-url-lists\.html/, roles: ['admin'] },
     { match: /viral-video-builder\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og(?:-v1)?\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix\.html/, roles: ['admin'] },
     { match: /remix2-ready\.html/, roles: ['admin'] },
     { match: /character-remixes\.html/, roles: ['admin'] },
-    { match: /tiktok-download\.html/, roles: ['admin', 'download', 'kenneth'] },
+    { match: /tiktok-download\.html/, roles: ['admin', 'download'] },
     { match: /downloaded\.html/, roles: ['admin'] },
     { match: /ready(?:-account)?\.html/, roles: ['admin', 'ready'] },
   ];
@@ -45,7 +40,7 @@
     clean: ['admin'],
     cleaned: ['admin'],
     downloaded: ['admin'],
-    'tiktok-download': ['admin', 'download', 'kenneth'],
+    'tiktok-download': ['admin', 'download'],
     'tiktok-download-facefusion-remix': ['admin'],
     'facefusion-remixes': ['admin'],
     'tiktok-download-character-remix': ['admin'],
@@ -54,16 +49,15 @@
     'tiktok-download-character-remix-2-og-v2': ['admin'],
     'tiktok-download-character-remix-2-og-v3': ['admin'],
     'tiktok-download-character-remix-2-og-talking-johnny': ['admin'],
-    'tiktok-download-character-remix-2-og-v2-music': ['admin', 'kenneth'],
+    'tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod': ['admin'],
+
+    'tiktok-download-character-remix-2-og-v2-music': ['admin'],
     'tiktok-url-lists': ['admin'],
     'viral-video-builder': ['admin'],
     'character-remixes': ['admin'],
     'remix2-ready': ['admin'],
     ready: ['admin', 'ready'],
     'ready-account': ['admin', 'ready'],
-    kenneth: ['admin', 'kenneth'],
-    'stitch-maker': ['admin', 'kenneth'],
-    'stitch-videos': ['admin', 'kenneth'],
     old: ['admin'],
   };
 
@@ -85,28 +79,10 @@
   function gatePage(session, pageId) {
     if (!session || !session.authenticated) return false;
     const role = session.role || 'admin';
-    if (roleAllowed(role, pageId)) {
-      applyBrand(role);
-      return true;
-    }
+    if (roleAllowed(role, pageId)) return true;
     const dest = session.homePath || homeFor(role);
     if (dest) {
       global.location.replace(dest);
-    }
-    return false;
-  }
-
-  function hrefAllowedForRole(href, role) {
-    if (role === 'admin') return true;
-    for (const rule of NAV_BY_HREF) {
-      if (rule.match.test(href) && rule.roles.includes(role)) return true;
-    }
-    // Home-ish links for limited roles
-    if (
-      (href === './' || href === '.' || /index\.html/.test(href)) &&
-      role === 'kenneth'
-    ) {
-      return false;
     }
     return false;
   }
@@ -116,28 +92,44 @@
     const navs = document.querySelectorAll('nav.top-nav a, footer a, .site-footer a');
     navs.forEach((a) => {
       const href = a.getAttribute('href') || '';
-      const allowed = hrefAllowedForRole(href, r);
+      if (r === 'admin') {
+        a.hidden = false;
+        return;
+      }
+      // Hide links this role cannot use.
+      let allowed = false;
+      if (/ready(?:-account)?\.html/.test(href) || href.includes('ready.html')) {
+        allowed = r === 'ready';
+      } else if (/remix2-ready\.html/.test(href)) {
+        allowed = false;
+      } else if (/tiktok-download-character-remix-2-og(?:-v\d+(?:-music)?)?\.html/.test(href)) {
+        allowed = false;
+      } else if (/tiktok-download-character-remix\.html/.test(href)) {
+        allowed = false;
+      } else if (/character-remixes\.html/.test(href)) {
+        allowed = false;
+      } else if (/tiktok-download\.html/.test(href)) {
+        allowed = r === 'download';
+      } else if (
+        /cleaned\.html/.test(href) ||
+        /downloaded\.html/.test(href) ||
+        href === './' ||
+        href === '.' ||
+        /index\.html/.test(href) ||
+        href.endsWith('/contentstation/') ||
+        href.endsWith('/contentstation')
+      ) {
+        allowed = false;
+      } else {
+        // Unknown link — hide for limited roles
+        allowed = false;
+      }
       a.hidden = !allowed;
       if (!allowed) {
         a.setAttribute('aria-hidden', 'true');
         a.tabIndex = -1;
-      } else {
-        a.removeAttribute('aria-hidden');
-        a.removeAttribute('tabIndex');
       }
     });
-    applyBrand(r);
-  }
-
-  function applyBrand(role) {
-    if (role !== 'kenneth') return;
-    document.querySelectorAll('.brand').forEach((el) => {
-      el.textContent = BRAND_KENNETH;
-    });
-    const title = document.querySelector('title');
-    if (title && !/Kenneth/i.test(title.textContent || '')) {
-      title.textContent = `${BRAND_KENNETH} | ${(title.textContent || '').replace(/^Content Station\s*\|\s*/i, '')}`;
-    }
   }
 
   global.CSAuth = {
@@ -145,8 +137,6 @@
     roleAllowed,
     gatePage,
     applyNav,
-    applyBrand,
     PAGE_ROLES,
-    BRAND_KENNETH,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

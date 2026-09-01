@@ -2,10 +2,11 @@
  * Shared Content Station auth helpers for Cloudflare Pages Functions.
  * Cookie session is HMAC-signed with CONTENT_STATION_SESSION_SECRET (or password as fallback).
  *
- * Roles: admin | download | ready | kenneth
+ * Roles: admin | download | ready
  * Token: v2.${role}.${exp}.${sig}  (payload signed: v2.${role}.${exp})
- * Download / Kenneth: v2.${role}.${exp}.${pwdStamp}.${sig}
- *   pwdStamp binds the session to that role password so rotating it invalidates sessions.
+ * Download role: v2.download.${exp}.${pwdStamp}.${sig}
+ *   pwdStamp binds the session to CONTENT_STATION_PASSWORD_DOWNLOAD so rotating
+ *   that password immediately invalidates existing download sessions.
  * Legacy v1.${exp}.${sig} tokens are accepted as admin until they expire.
  */
 
@@ -16,10 +17,9 @@ export const ROLES = Object.freeze({
   ADMIN: 'admin',
   DOWNLOAD: 'download',
   READY: 'ready',
-  KENNETH: 'kenneth',
 });
 
-const VALID_ROLES = new Set([ROLES.ADMIN, ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
+const VALID_ROLES = new Set([ROLES.ADMIN, ROLES.DOWNLOAD, ROLES.READY]);
 
 /** Page paths (relative to /contentstation/) each role may open. */
 const ROLE_PAGES = Object.freeze({
@@ -33,45 +33,30 @@ const ROLE_PAGES = Object.freeze({
     '/tiktok-download-character-remix-2-og.html',
     '/tiktok-download-character-remix-2-og-v1.html',
     '/tiktok-download-character-remix-2-og-v2.html',
-    '/tiktok-download-character-remix-2-og-v2-music.html',
     '/tiktok-download-character-remix-2-og-v3.html',
     '/tiktok-download-character-remix-2-og-talking-johnny.html',
+    '/tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod.html',
+    '/tiktok-download-character-remix-2-og-v2-music.html',
+
     '/tiktok-url-lists.html',
+    '/viral-video-builder.html',
     '/tiktok-download-facefusion-remix.html',
     '/facefusion-remixes.html',
     '/character-remixes.html',
     '/remix2-ready.html',
     '/ready.html',
     '/ready-account.html',
-    '/viral-video-builder.html',
-    '/kenneth.html',
-    '/stitch-maker.html',
-    '/stitch-videos.html',
     '/old213223523.html',
   ],
   [ROLES.DOWNLOAD]: ['/tiktok-download.html'],
   [ROLES.READY]: ['/ready.html', '/ready-account.html'],
-  [ROLES.KENNETH]: [
-    '/kenneth.html',
-    '/tiktok-download.html',
-    '/tiktok-download-character-remix-2-og-v2-music.html',
-    '/stitch-maker.html',
-    '/stitch-videos.html',
-  ],
 });
 
 const ROLE_HOME = Object.freeze({
   [ROLES.ADMIN]: './',
   [ROLES.DOWNLOAD]: './tiktok-download.html',
   [ROLES.READY]: './ready.html',
-  [ROLES.KENNETH]: './kenneth.html',
 });
-
-const KENNETH_WRITE_PREFIXES = [
-  'account-characters/',
-  'characters/',
-  'stitch-maker/',
-];
 
 export function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -94,7 +79,6 @@ function getSessionSecret(env) {
     getPassword(env) ||
     env.CONTENT_STATION_PASSWORD_DOWNLOAD ||
     env.CONTENT_STATION_PASSWORD_READY ||
-    env.CONTENT_STATION_PASSWORD_KENNETH ||
     'dev-insecure'
   );
 }
@@ -103,8 +87,7 @@ function anyPasswordConfigured(env) {
   return Boolean(
     getPassword(env) ||
       env.CONTENT_STATION_PASSWORD_DOWNLOAD ||
-      env.CONTENT_STATION_PASSWORD_READY ||
-      env.CONTENT_STATION_PASSWORD_KENNETH,
+      env.CONTENT_STATION_PASSWORD_READY,
   );
 }
 
@@ -142,12 +125,12 @@ export function checkPassword(env, password) {
     { role: ROLES.ADMIN, expected: getPassword(env) },
     { role: ROLES.DOWNLOAD, expected: env.CONTENT_STATION_PASSWORD_DOWNLOAD || '' },
     { role: ROLES.READY, expected: env.CONTENT_STATION_PASSWORD_READY || '' },
-    { role: ROLES.KENNETH, expected: env.CONTENT_STATION_PASSWORD_KENNETH || '' },
   ];
 
   let matched = null;
   for (const { role, expected } of candidates) {
     if (!expected) continue;
+    // Always run a compare-shaped loop so empty slots don't short-circuit timing for others.
     if (timingSafeEqualStr(password, expected) && matched == null) {
       matched = role;
     }
@@ -155,19 +138,11 @@ export function checkPassword(env, password) {
   return matched;
 }
 
-async function rolePasswordStamp(env, role, envKey, label) {
-  const pwd = env[envKey] || '';
-  if (!pwd) return '0';
-  const hex = await hmacHex(getSessionSecret(env), `${label}-pwd:${pwd}`);
-  return hex.slice(0, 12);
-}
-
 async function downloadPasswordStamp(env) {
-  return rolePasswordStamp(env, ROLES.DOWNLOAD, 'CONTENT_STATION_PASSWORD_DOWNLOAD', 'download');
-}
-
-async function kennethPasswordStamp(env) {
-  return rolePasswordStamp(env, ROLES.KENNETH, 'CONTENT_STATION_PASSWORD_KENNETH', 'kenneth');
+  const pwd = env.CONTENT_STATION_PASSWORD_DOWNLOAD || '';
+  if (!pwd) return '0';
+  const hex = await hmacHex(getSessionSecret(env), `download-pwd:${pwd}`);
+  return hex.slice(0, 12);
 }
 
 export async function createSessionToken(env, role = ROLES.ADMIN) {
@@ -176,9 +151,6 @@ export async function createSessionToken(env, role = ROLES.ADMIN) {
   let payload = `v2.${safeRole}.${exp}`;
   if (safeRole === ROLES.DOWNLOAD) {
     const stamp = await downloadPasswordStamp(env);
-    payload = `v2.${safeRole}.${exp}.${stamp}`;
-  } else if (safeRole === ROLES.KENNETH) {
-    const stamp = await kennethPasswordStamp(env);
     payload = `v2.${safeRole}.${exp}.${stamp}`;
   }
   const sig = await hmacHex(getSessionSecret(env), payload);
@@ -205,16 +177,12 @@ export async function verifySessionToken(env, token) {
 
   if (parts[0] !== 'v2') return { ok: false };
 
-  // Download / Kenneth: v2.${role}.${exp}.${pwdStamp}.${sig}
-  if (
-    parts.length === 5 &&
-    (parts[1] === ROLES.DOWNLOAD || parts[1] === ROLES.KENNETH)
-  ) {
+  // Download: v2.download.${exp}.${pwdStamp}.${sig}
+  if (parts.length === 5 && parts[1] === ROLES.DOWNLOAD) {
     const [, role, expStr, stamp, sig] = parts;
     const exp = Number(expStr);
     if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return { ok: false };
-    const wantStamp =
-      role === ROLES.KENNETH ? await kennethPasswordStamp(env) : await downloadPasswordStamp(env);
+    const wantStamp = await downloadPasswordStamp(env);
     if (!timingSafeEqualStr(stamp, wantStamp)) return { ok: false };
     const payload = `v2.${role}.${expStr}.${stamp}`;
     const expected = await hmacHex(getSessionSecret(env), payload);
@@ -231,8 +199,6 @@ export async function verifySessionToken(env, token) {
   if (parts.length !== 4) return { ok: false };
   const [, role, expStr, sig] = parts;
   if (!VALID_ROLES.has(role)) return { ok: false };
-  // Kenneth must use stamped tokens.
-  if (role === ROLES.KENNETH) return { ok: false };
   const exp = Number(expStr);
   if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return { ok: false };
   const payload = `v2.${role}.${expStr}`;
@@ -306,6 +272,7 @@ export function roleMayAccessPage(role, pageId) {
   if (role === ROLES.ADMIN) return true;
   const pages = ROLE_PAGES[role];
   if (!pages) return false;
+  // pageId examples: 'tiktok-download', 'ready', 'ready-account', 'clean', 'cleaned', 'downloaded'
   const map = {
     clean: ['/', '/index.html'],
     cleaned: ['/cleaned.html'],
@@ -319,58 +286,31 @@ export function roleMayAccessPage(role, pageId) {
     'tiktok-download-character-remix-2-og-talking-johnny': [
       '/tiktok-download-character-remix-2-og-talking-johnny.html',
     ],
+    'tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod': [
+      '/tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod.html',
+    ],
+
     'tiktok-download-character-remix-2-og-v2-music': [
       '/tiktok-download-character-remix-2-og-v2-music.html',
     ],
     'tiktok-url-lists': ['/tiktok-url-lists.html'],
+    'viral-video-builder': ['/viral-video-builder.html'],
     'tiktok-download-facefusion-remix': ['/tiktok-download-facefusion-remix.html'],
     'facefusion-remixes': ['/facefusion-remixes.html'],
     'character-remixes': ['/character-remixes.html'],
     'remix2-ready': ['/remix2-ready.html'],
     ready: ['/ready.html'],
     'ready-account': ['/ready-account.html'],
-    'viral-video-builder': ['/viral-video-builder.html'],
-    kenneth: ['/kenneth.html'],
-    'stitch-maker': ['/stitch-maker.html'],
-    'stitch-videos': ['/stitch-videos.html'],
     old: ['/old213223523.html'],
   };
   const targets = map[pageId] || [];
   return targets.some((p) => pages.includes(p));
 }
 
-function kennethKeyAllowed(key) {
-  if (!key || typeof key !== 'string') return false;
-  if (key.startsWith('tiktok/')) return true;
-  if (key.startsWith('account-characters/')) return true;
-  if (key.startsWith('characters/')) return true;
-  if (key.startsWith('stitch-maker/')) return true;
-  if (/^character-remix-2-og\/[^/]+\/(final\.mp4|character\.jpg|frames\/)/i.test(key)) return true;
-  if (/^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)) return true;
-  return false;
-}
-
-function kennethPrefixAllowed(prefix) {
-  const p = prefix || '';
-  return (
-    p === 'tiktok/' ||
-    p.startsWith('tiktok/') ||
-    p === 'account-characters/' ||
-    p.startsWith('account-characters/') ||
-    p === 'characters/' ||
-    p.startsWith('characters/') ||
-    p === 'stitch-maker/' ||
-    p.startsWith('stitch-maker/') ||
-    p === 'character-remix-2-og/' ||
-    p.startsWith('character-remix-2-og/')
-  );
-}
-
 /**
  * Media key/prefix access by role.
  * download → tiktok/ read
  * ready → cleaned/ + Remix 2 finals + FaceFusion remixes read
- * kenneth → tiktok + characters + remix2 finals/frames + stitch-maker
  * admin → all
  */
 export function mediaKeyAllowed(role, key) {
@@ -386,7 +326,6 @@ export function mediaKeyAllowed(role, key) {
       /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
     );
   }
-  if (role === ROLES.KENNETH) return kennethKeyAllowed(key);
   return false;
 }
 
@@ -408,20 +347,11 @@ export function mediaPrefixAllowed(role, prefix) {
       p.startsWith('facefusion-remix/')
     );
   }
-  if (role === ROLES.KENNETH) return kennethPrefixAllowed(p);
   return false;
 }
 
-/** Admin always; kenneth may write only under character / stitch prefixes. */
 export function mediaWriteAllowed(role) {
-  return role === ROLES.ADMIN || role === ROLES.KENNETH;
-}
-
-export function mediaWriteKeyAllowed(role, key) {
-  if (role === ROLES.ADMIN) return true;
-  if (role !== ROLES.KENNETH) return false;
-  if (!key || typeof key !== 'string') return false;
-  return KENNETH_WRITE_PREFIXES.some((p) => key.startsWith(p));
+  return role === ROLES.ADMIN;
 }
 
 export { COOKIE_NAME, SESSION_TTL_SEC, anyPasswordConfigured };

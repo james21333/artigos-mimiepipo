@@ -8,6 +8,19 @@
   const TEST_ACCOUNT = cfg.testAccount || '1-GLP- 20.YOUTUBE 1';
   const POLL_MS = 4000;
   const SHOW_SCENES = Boolean(cfg.showScenes);
+  /** After Johnny stitch: light GhostCut remaker + CloudConvert metadata/audio. */
+  const POST_CLEAN = cfg.postClean && typeof cfg.postClean === 'object' ? cfg.postClean : null;
+  const POST_CLEAN_OPTS = POST_CLEAN
+    ? {
+        removeWatermark: false,
+        cleanMetadata: POST_CLEAN.cleanMetadata !== false,
+        alterAudio: POST_CLEAN.alterAudio !== false,
+        basicVideoRemix: POST_CLEAN.basicVideoRemix !== false,
+        remix: false,
+        deepAiRemake: false,
+        mirror: false,
+      }
+    : null;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -152,10 +165,24 @@
     }
   }
 
+  function publicFinalUrl(job, data) {
+    const direct = data?.output_url || data?.outputUrl || job?.outputUrl || '';
+    if (/^https?:\/\//i.test(direct)) return direct;
+    if (publicBaseUrl && job?.jobId) {
+      return `${publicBaseUrl.replace(/\/$/, '')}/character-remix-2-og/${job.jobId}/final.mp4`;
+    }
+    return '';
+  }
+
   function renderFinal(job, data) {
     if (!outputGallery || !job?.jobId) return;
-    const url = resolveFinalUrl(job, data);
-    const ready = data?.stage === 'stitched' || data?.outputUploaded || job?.outputUrl;
+    const cleanedUrl = job.cleanedDownloadPath || job.cleanedPublicUrl || '';
+    const url = cleanedUrl || resolveFinalUrl(job, data);
+    const ready =
+      Boolean(cleanedUrl) ||
+      data?.stage === 'stitched' ||
+      data?.outputUploaded ||
+      job?.outputUrl;
     if (!ready || !url) {
       if (!outputGallery.children.length) outputGallery.hidden = true;
       return;
@@ -169,10 +196,114 @@
       outputGallery.appendChild(card);
     }
     const idx = [...outputGallery.querySelectorAll('[data-final-job]')].indexOf(card) + 1;
-    card.innerHTML = `<h2>Test final ${idx}</h2>
+    const label = cleanedUrl
+      ? `Voice Mod final ${idx}`
+      : POST_CLEAN_OPTS
+        ? `Raw Johnny ${idx} (cleaning…)`
+        : `Test final ${idx}`;
+    const cleanNote = job.postCleanError
+      ? `<p class="error">${job.postCleanError}</p>`
+      : job.postCleanWorkId && !cleanedUrl
+        ? `<p class="muted-line">Post-clean: light remake + metadata + alter audio… (${job.postCleanWorkId})</p>`
+        : cleanedUrl
+          ? `<p class="muted-line">Post-clean done (light remake + metadata + alter audio)</p>`
+          : '';
+    card.innerHTML = `<h2>${label}</h2>
       <p class="muted-line">${job.jobId} · ${VARIANT}</p>
+      ${cleanNote}
       <video src="${url}" controls playsinline preload="metadata" class="result-preview"></video>
       <p class="result-actions"><a class="btn-link" href="${url}" target="_blank" rel="noopener">Open MP4</a></p>`;
+  }
+
+  async function runPostClean(job, data) {
+    if (!POST_CLEAN_OPTS || job.postCleanDone || job.postCleanStarted) return;
+    const videoUrl = publicFinalUrl(job, data);
+    if (!videoUrl) {
+      job.postCleanError = 'No public final URL for post-clean.';
+      saveBatch();
+      renderFinal(job, data);
+      return;
+    }
+    job.postCleanStarted = true;
+    saveBatch();
+    setStatus('Johnny done — starting light clean…', job.jobId);
+    try {
+      const { ok, data: sub } = await api('/api/contentstation/clean', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'submit',
+          videoUrl,
+          options: {
+            ...POST_CLEAN_OPTS,
+            account: job.account || null,
+            sourceKey: `character-remix-2-og/${job.jobId}/final.mp4`,
+          },
+        }),
+      });
+      if (!ok || !(sub?.workId || sub?.id)) {
+        throw new Error(sub?.message || sub?.error || 'Post-clean submit failed');
+      }
+      job.postCleanWorkId = sub.workId || sub.id;
+      job.postCleanError = '';
+      saveBatch();
+      await pollPostClean(job);
+    } catch (err) {
+      job.postCleanError = err?.message || String(err);
+      job.postCleanStarted = false;
+      saveBatch();
+      setError(job.postCleanError);
+      renderFinal(job, data || { stage: job.stage });
+    }
+  }
+
+  async function pollPostClean(job) {
+    const workId = job.postCleanWorkId;
+    if (!workId) return;
+    let errors = 0;
+    for (;;) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      const st = await api('/api/contentstation/clean', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'status', workId }),
+      });
+      if (!st.ok) {
+        errors += 1;
+        if (errors >= 8) {
+          job.postCleanError = st.data?.message || st.data?.error || 'Post-clean status failed';
+          job.postCleanStarted = false;
+          saveBatch();
+          renderFinal(job, { stage: 'stitched', outputUrl: job.outputUrl });
+          return;
+        }
+        continue;
+      }
+      errors = 0;
+      const state = String(st.data?.state || '').toLowerCase();
+      if (state === 'failed') {
+        job.postCleanError = st.data?.error || st.data?.message || 'Post-clean failed';
+        job.postCleanStarted = false;
+        saveBatch();
+        renderFinal(job, { stage: 'stitched', outputUrl: job.outputUrl });
+        return;
+      }
+      if (st.data?.cleanedKey || (state === 'ready' && st.data?.downloadUrl && !st.data?.savingToLibrary)) {
+        job.postCleanDone = true;
+        job.cleanedKey = st.data.cleanedKey || null;
+        job.cleanedDownloadPath =
+          st.data.downloadPath ||
+          (st.data.cleanedKey
+            ? `/api/contentstation/media?action=get&key=${encodeURIComponent(st.data.cleanedKey)}`
+            : null) ||
+          st.data.downloadUrl ||
+          null;
+        job.cleanedPublicUrl = st.data.publicUrl || null;
+        job.postCleanError = '';
+        saveBatch();
+        setStatus('Voice Mod ready', job.jobId);
+        renderFinal(job, { stage: 'stitched', outputUrl: job.outputUrl });
+        return;
+      }
+    }
   }
 
   function ensureCard(job) {
@@ -211,6 +342,14 @@
     if (data?.stage) job.stage = data.stage;
     saveBatch();
     renderFinal(job, data);
+    if (
+      POST_CLEAN_OPTS &&
+      (stage === 'stitched' || data?.outputUploaded) &&
+      !job.postCleanDone &&
+      !job.postCleanStarted
+    ) {
+      runPostClean(job, data);
+    }
   }
 
   function startPoll() {
@@ -227,6 +366,18 @@
       );
       if (ok && data) updateCard(job, data);
       const stage = (data && data.stage) || job.stage || '';
+      if (POST_CLEAN_OPTS && !job.postCleanDone) {
+        if (job.postCleanWorkId && !job._postCleanPolling) {
+          job._postCleanPolling = true;
+          pollPostClean(job).finally(() => {
+            job._postCleanPolling = false;
+          });
+        }
+        if (stage === 'stitched' || job.postCleanStarted || job.postCleanWorkId) {
+          allDone = false;
+          continue;
+        }
+      }
       if (stage !== 'stitched' && stage !== 'error' && stage !== 'provider_give_up') allDone = false;
     }
     if (allDone) {
