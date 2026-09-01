@@ -18,7 +18,7 @@
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Johnny + merge micro continuation stubs before Grok + local Whisper QA</p>
+      <p class="sub">Johnny Stub Fix + Autogenerate leftovers from URL list</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -42,13 +42,14 @@
       <section class="hero-flow">
         <h1>Johnny Stub Fix</h1>
         <p class="lede">
-          Same Talking Johnny pipeline, but merges micro continuation beats
-          (e.g. 0.7s “glowiness”) into the previous scene before Grok so lines aren’t cut off.
-          Local Whisper QA after clips and after stitch — no extra Grok burn for QA.
+          Same Talking Johnny pipeline, but merges micro continuation beats before Grok
+          so lines aren’t cut off. Local Whisper QA after clips/stitch.
+          Autogenerate uses the shared URL list leftovers (same package as V2 / Music-Only).
         </p>
 
         <section class="account-picker" id="account-picker">
           <label for="account-select">Ready For Upload account</label>
+          <p class="muted-line">Manual single-run uses this account’s character. Autogenerate uses the checkboxes below.</p>
           <div class="row account-select-row">
             <select id="account-select" class="account-select">
               <option value="">— Pick account —</option>
@@ -64,8 +65,66 @@
           <p id="account-error" class="error" hidden></p>
         </section>
 
-        <label for="tiktok-urls">TikTok URL</label>
-        <textarea id="tiktok-urls" rows="3"></textarea>
+        <section class="url-list-picker" id="url-list-picker">
+          <label for="url-list-select">URL list</label>
+          <p class="muted-line">
+            Manage lists on
+            <a href="./tiktok-url-lists.html">TikTok URL lists</a>.
+            Every TikTok URL used here is added to this list. Autogenerate leftovers =
+            the list minus videos <strong>this account</strong> already remixed. All accounts share the same list.
+          </p>
+          <div class="row account-select-row">
+            <select id="url-list-select" class="account-select"></select>
+          </div>
+          <form id="create-url-list-form" class="account-create-row">
+            <label for="new-url-list-name">Create list</label>
+            <div class="row">
+              <input id="new-url-list-name" type="text" maxlength="80" placeholder="e.g. GLP-1 List" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="url-list-meta" class="muted-line"></p>
+          <p id="url-list-error" class="error" hidden></p>
+        </section>
+
+        <section class="autogen-panel" id="autogen-panel" aria-labelledby="autogen-title">
+          <h2 id="autogen-title">Autogenerate from list</h2>
+          <p class="muted-line">
+            Shared pool for every account. A URL is blocked for an account only after
+            <strong>that account</strong> already remixed it. Each account uses
+            <strong>its own saved character</strong>. Accounts without a character can’t run.
+          </p>
+          <label class="check" for="autogen-random">
+            <input id="autogen-random" type="checkbox" checked>
+            <span>Random leftover
+              <em class="muted-line">— default. One unused original per selected account. Uncheck to pick specific URLs.</em>
+            </span>
+          </label>
+          <p class="autogen-group-label">Accounts to run</p>
+          <div class="row autogen-select-row">
+            <button type="button" id="autogen-select-all" class="ghost">Select all accounts</button>
+            <button type="button" id="autogen-select-none" class="ghost">Uncheck all</button>
+          </div>
+          <ul id="autogen-account-list" class="autogen-account-list"></ul>
+          <p id="autogen-empty" class="muted-line" hidden>No accounts loaded yet.</p>
+          <p id="autogen-summary" class="autogen-summary" aria-live="polite"></p>
+          <div class="row">
+            <button type="button" id="autogen-btn">Autogenerate leftover remakes</button>
+          </div>
+        </section>
+
+        <label for="tiktok-urls">Or paste TikTok URLs yourself (max 20)</label>
+        <textarea id="tiktok-urls" rows="6" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…
+https://www.tiktok.com/@user/video/…
+(up to 20 links)"></textarea>
+        <p id="url-count" class="muted-line">0 / 20 links</p>
+        <div id="remix-dup-banner" class="duplicate-skip-banner" hidden role="alert"></div>
+        <p id="autogen-paste-summary" class="autogen-summary" aria-live="polite"></p>
+        <div class="row">
+          <button type="button" id="autogen-paste-btn">Autogenerate pasted URLs for selected accounts</button>
+        </div>
+
         <label for="job-title">Title</label>
         <input id="job-title" type="text" value="Johnny Stub Fix">
         <label class="posted-check" for="ads-strict-copy">
@@ -76,7 +135,7 @@
           Stub merge + plan QA before Grok; clip + stitch Whisper QA after (local only).
         </p>
         <div class="row">
-          <button type="button" id="run-btn">Generate Stub Fix</button>
+          <button type="button" id="run-btn">Generate Stub Fix (manual)</button>
         </div>
         <p id="status-line" class="status">Ready.</p>
         <p id="status-detail" class="muted-line" hidden></p>
@@ -94,6 +153,8 @@
   <script src="./auth-gate.js"></script>
   <script src="./grok-quota-banner.js?v=3"></script>
   <script src="./remix2-account-ui.js?v=1"></script>
+  <script src="./tiktok-lists-ui.js?v=1"></script>
+  <script src="./remix2-autogen-ui.js?v=1"></script>
   <script>
     window.CSTalkingTest = {
       variant: 'talking-johnny-stub-fix',
@@ -101,10 +162,11 @@
       title: 'Johnny Stub Fix',
       storageKey: 'cs_talking_johnny_stub_fix_v1',
       showScenes: true,
-      testUrl: 'https://www.tiktok.com/t/ZTDtNMRRM',
+      autogen: true,
+      testUrl: '',
       testAccount: '1-GLP- 20.YOUTUBE 1',
     };
   </script>
-  <script src="./talking-heads-test-app.js?v=7"></script>
+  <script src="./talking-heads-test-app.js?v=8"></script>
 </body>
 </html>

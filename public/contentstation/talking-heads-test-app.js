@@ -84,6 +84,48 @@
       onError: (msg) => setError(msg),
     });
 
+  let listsUi = null;
+  let autogenUi = null;
+
+  function isJohnnyLikeVariant() {
+    return (
+      VARIANT === 'talking-johnny' ||
+      VARIANT === 'talking-heads-johnny' ||
+      VARIANT === 'johnny-talking' ||
+      VARIANT === 'talking-johnny-stub-fix' ||
+      VARIANT === 'johnny-stub-fix'
+    );
+  }
+
+  function buildJohnnyCreateBody({ url, account, characterKey, title, listId }) {
+    return {
+      action: 'from-tiktok',
+      tiktokUrl: url,
+      characterKey,
+      account,
+      characterMode: 'upload',
+      version: 'v2',
+      identityLock: true,
+      musicLock: false,
+      audioMode: 'grok',
+      remixVariant: VARIANT,
+      viralSceneChat: VARIANT === 'talking-heads-v3',
+      restoreOverlays: isJohnnyLikeVariant() ? true : undefined,
+      subtleRewriteOverlays: false,
+      adsStrictCopy: Boolean(adsStrictEl?.checked),
+      overlayComplianceMode: adsStrictEl?.checked
+        ? 'ads_strict'
+        : isJohnnyLikeVariant()
+          ? 'organic_misspell'
+          : undefined,
+      allowDuplicate: true,
+      deriveCharacterFromSource: false,
+      listId: listId || undefined,
+      title: title || TITLE_DEFAULT,
+      autoRun: true,
+    };
+  }
+
   function setError(msg) {
     if (!errorEl) return;
     errorEl.hidden = !msg;
@@ -416,31 +458,15 @@
         setStatus('Submitting…', url);
         const { ok, status, data } = await api('/api/contentstation/character-remix-2-og', {
           method: 'POST',
-          body: JSON.stringify({
-            action: 'from-tiktok',
-            tiktokUrl: url,
-            characterKey,
-            account,
-            characterMode: 'upload',
-            version: 'v2',
-            identityLock: true,
-            musicLock: false,
-            audioMode: 'grok',
-            remixVariant: VARIANT,
-            viralSceneChat: VARIANT === 'talking-heads-v3',
-            restoreOverlays: VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking' || VARIANT === 'talking-johnny-stub-fix' || VARIANT === 'johnny-stub-fix' ? true : undefined,
-            subtleRewriteOverlays: false,
-            adsStrictCopy: Boolean(adsStrictEl?.checked),
-            overlayComplianceMode: adsStrictEl?.checked
-              ? 'ads_strict'
-              : VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking' || VARIANT === 'talking-johnny-stub-fix' || VARIANT === 'johnny-stub-fix'
-                ? 'organic_misspell'
-                : undefined,
-            allowDuplicate: true,
-            deriveCharacterFromSource: false,
-            title: titleInput?.value || TITLE_DEFAULT,
-            autoRun: true,
-          }),
+          body: JSON.stringify(
+            buildJohnnyCreateBody({
+              url,
+              account,
+              characterKey,
+              title: titleInput?.value || TITLE_DEFAULT,
+              listId: listsUi?.selected?.() || undefined,
+            }),
+          ),
         });
         if (!ok || !data?.jobId) {
           throw new Error((data && (data.message || data.error)) || `Create failed (HTTP ${status})`);
@@ -514,7 +540,45 @@
         }
       }
     }
-    if (tiktokUrls && !tiktokUrls.value.trim()) tiktokUrls.value = TEST_URL;
+
+    if (cfg.autogen && window.CSTikTokLists && document.getElementById('url-list-picker')) {
+      listsUi = window.CSTikTokLists.createController({
+        api,
+        onChange: () => {
+          autogenUi?.loadSourcePool?.().catch(() => {});
+        },
+      });
+      await listsUi.load().catch(() => {});
+    }
+
+    if (cfg.autogen && window.CSRemix2Autogen && document.getElementById('autogen-panel')) {
+      autogenUi = window.CSRemix2Autogen.createController({
+        api,
+        getListId: () => listsUi?.selected?.() || window.CSTikTokLists?.DEFAULT_ID || 'glp-1',
+        getTitle: () => titleInput?.value || TITLE_DEFAULT,
+        tiktokUrlsEl: tiktokUrls,
+        runBtn,
+        setStatus,
+        setError,
+        buildCreateBody: buildJohnnyCreateBody,
+        onJobsStarted: (started) => {
+          for (const job of started) {
+            batchJobs.push(job);
+            ensureCard(job);
+            updateCard(job, { stage: job.stage || 'queued' });
+          }
+          saveBatch();
+          startPoll();
+        },
+        onBusy: (busy) => {
+          submitting = busy;
+          if (runBtn) runBtn.disabled = busy;
+        },
+      });
+      await autogenUi.loadSourcePool().catch(() => {});
+    }
+
+    if (tiktokUrls && !tiktokUrls.value.trim() && TEST_URL) tiktokUrls.value = TEST_URL;
     loadBatch();
     if (cfg.resumeJobId && !batchJobs.some((j) => j.jobId === cfg.resumeJobId)) {
       batchJobs.push({
@@ -529,6 +593,8 @@
       for (const job of batchJobs) ensureCard(job);
       startPoll();
       setStatus(`Resuming ${batchJobs.length} test job(s)…`);
+    } else if (cfg.autogen) {
+      setStatus('Ready — Autogenerate leftovers above, or paste URLs / run a manual Stub Fix.');
     } else {
       setStatus('Ready — uses the account character + the TikTok URL, then shows the video below.');
     }
