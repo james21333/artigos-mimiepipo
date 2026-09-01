@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Content Station | Johnny Jolly Voice Mod</title>
+  <title>Content Station | Johnny Stub Fix</title>
   <meta name="robots" content="noindex,nofollow">
   <link rel="stylesheet" href="./styles.css?v=grokquota1">
 </head>
@@ -13,12 +13,12 @@
       <nav class="top-nav" aria-label="Station">
         <a href="./">Clean video</a>
         <a href="./tiktok-download-character-remix-2-og-talking-johnny.html">Talking Johnny</a>
-        <a href="./johnny-stub-fix.html">Johnny Stub Fix</a>
-        <a href="./johnny-jolly-voice-mod.html" aria-current="page">Johnny Jolly Voice Mod</a>
+        <a href="./johnny-stub-fix.html" aria-current="page">Johnny Stub Fix</a>
+        <a href="./johnny-jolly-voice-mod.html">Johnny Jolly Voice Mod</a>
         <a href="./ready.html">Ready For Upload</a>
       </nav>
       <p class="brand">Content Station</p>
-      <p class="sub">Johnny → clean metadata + alter audio</p>
+      <p class="sub">Johnny + merge micro continuation stubs before Grok + local Whisper QA</p>
     </header>
 
     <section id="gate" class="panel" hidden>
@@ -40,10 +40,11 @@
       <div id="grok-quota-banner"></div>
 
       <section class="hero-flow">
-        <h1>Johnny Jolly Voice Mod</h1>
+        <h1>Johnny Stub Fix</h1>
         <p class="lede">
-          Same Talking Johnny pipeline. When the final is ready it automatically runs
-          <strong>clean metadata</strong> and <strong>alter audio</strong> (no remake).
+          Same Talking Johnny pipeline, but merges micro continuation beats
+          (e.g. 0.7s “glowiness”) into the previous scene before Grok so lines aren’t cut off.
+          Local Whisper QA after clips and after stitch — no extra Grok burn for QA.
         </p>
 
         <section class="account-picker" id="account-picker">
@@ -66,16 +67,16 @@
         <label for="tiktok-urls">TikTok URL</label>
         <textarea id="tiktok-urls" rows="3"></textarea>
         <label for="job-title">Title</label>
-        <input id="job-title" type="text" value="Johnny Jolly Voice Mod">
+        <input id="job-title" type="text" value="Johnny Stub Fix">
         <label class="posted-check" for="ads-strict-copy">
           <input id="ads-strict-copy" type="checkbox">
           Ads-strict copy (manual) — stricter Meta/TikTok ad-safe on-screen text; leave unchecked for organic misspell titles
         </label>
         <p class="muted-line">
-          Post-clean: clean metadata + alter audio only (no GhostCut remake).
+          Stub merge + plan QA before Grok; clip + stitch Whisper QA after (local only).
         </p>
         <div class="row">
-          <button type="button" id="run-btn">Generate Voice Mod</button>
+          <button type="button" id="run-btn">Generate Stub Fix</button>
         </div>
         <p id="status-line" class="status">Ready.</p>
         <p id="status-detail" class="muted-line" hidden></p>
@@ -95,18 +96,15 @@
   <script src="./remix2-account-ui.js?v=1"></script>
   <script>
     window.CSTalkingTest = {
-      variant: 'talking-johnny',
-      pageId: 'johnny-jolly-voice-mod',
-      title: 'Johnny Jolly Voice Mod',
-      storageKey: 'cs_talking_johnny_jolly_voice_mod_v1',
+      variant: 'talking-johnny-stub-fix',
+      pageId: 'johnny-stub-fix',
+      title: 'Johnny Stub Fix',
+      storageKey: 'cs_talking_johnny_stub_fix_v1',
       showScenes: true,
-      postClean: {
-        basicVideoRemix: false,
-        cleanMetadata: true,
-        alterAudio: true,
-      },
+      testUrl: 'https://www.tiktok.com/t/ZTDtNMRRM',
+      testAccount: '1-GLP- 20.YOUTUBE 1',
     };
   </script>
-  <script src="./talking-heads-test-app.js?v=6"></script>
+  <script src="./talking-heads-test-app.js?v=7"></script>
 </body>
 </html>

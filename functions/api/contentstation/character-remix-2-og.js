@@ -291,7 +291,9 @@ export async function onRequest(context) {
     const talkingJohnny =
       remixVariantRaw === 'talking-johnny' ||
       remixVariantRaw === 'talking-heads-johnny' ||
-      remixVariantRaw === 'johnny-talking';
+      remixVariantRaw === 'johnny-talking' ||
+      remixVariantRaw === 'talking-johnny-stub-fix' ||
+      remixVariantRaw === 'johnny-stub-fix';
     const talkingDialogueVariant =
       remixVariantRaw === 'talking-heads-v3' ||
       remixVariantRaw === 'talking-v3' ||

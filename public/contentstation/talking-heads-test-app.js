@@ -428,12 +428,12 @@
             audioMode: 'grok',
             remixVariant: VARIANT,
             viralSceneChat: VARIANT === 'talking-heads-v3',
-            restoreOverlays: VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking' ? true : undefined,
+            restoreOverlays: VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking' || VARIANT === 'talking-johnny-stub-fix' || VARIANT === 'johnny-stub-fix' ? true : undefined,
             subtleRewriteOverlays: false,
             adsStrictCopy: Boolean(adsStrictEl?.checked),
             overlayComplianceMode: adsStrictEl?.checked
               ? 'ads_strict'
-              : VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking'
+              : VARIANT === 'talking-johnny' || VARIANT === 'talking-heads-johnny' || VARIANT === 'johnny-talking' || VARIANT === 'talking-johnny-stub-fix' || VARIANT === 'johnny-stub-fix'
                 ? 'organic_misspell'
                 : undefined,
             allowDuplicate: true,

@@ -22,6 +22,7 @@
     { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-v2\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-v3\.html/, roles: ['admin'] },
+    { match: /johnny-stub-fix\.html/, roles: ['admin'] },
     { match: /johnny-jolly-voice-mod\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-talking-johnny\.html/, roles: ['admin'] },
@@ -50,6 +51,7 @@
     'tiktok-download-character-remix-2-og-v2': ['admin'],
     'tiktok-download-character-remix-2-og-v3': ['admin'],
     'tiktok-download-character-remix-2-og-talking-johnny': ['admin'],
+    'johnny-stub-fix': ['admin'],
     'johnny-jolly-voice-mod': ['admin'],
     'tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod': ['admin'],
 
