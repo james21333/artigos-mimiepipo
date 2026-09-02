@@ -85,6 +85,7 @@
       voiceCatalogWrap: document.getElementById('voice-catalog-wrap'),
       voiceCatalogInputs: document.getElementById('voice-catalog-inputs'),
       voiceCatalogSave: document.getElementById('voice-catalog-save-btn'),
+      voiceCatalogPull: document.getElementById('voice-catalog-pull-btn'),
       voiceCatalogStatus: document.getElementById('voice-catalog-status'),
     };
 
@@ -167,6 +168,7 @@
           <p class="muted-line">Names like <strong>1</strong> and <strong>2</strong> match your xAI console clones. Copy Voice ID from each card (⋯ → Copy Voice ID).</p>
           <div id="voice-catalog-inputs" class="voice-catalog-grid"></div>
           <div class="row">
+            <button type="button" id="voice-catalog-pull-btn" class="ghost">Import from xAI team</button>
             <button type="button" id="voice-catalog-save-btn" class="ghost">Save catalog</button>
           </div>
           <p id="voice-catalog-status" class="muted-line" hidden></p>
@@ -180,6 +182,7 @@
       els.voiceCatalogWrap = document.getElementById('voice-catalog-wrap');
       els.voiceCatalogInputs = document.getElementById('voice-catalog-inputs');
       els.voiceCatalogSave = document.getElementById('voice-catalog-save-btn');
+      els.voiceCatalogPull = document.getElementById('voice-catalog-pull-btn');
       els.voiceCatalogStatus = document.getElementById('voice-catalog-status');
 
       els.voiceLockSave?.addEventListener('click', () => {
@@ -189,6 +192,11 @@
       });
       els.voiceCatalogSave?.addEventListener('click', () => {
         saveVoiceCatalog().catch((err) => {
+          setAccountError(err?.message || String(err));
+        });
+      });
+      els.voiceCatalogPull?.addEventListener('click', () => {
+        pullVoiceCatalogFromXai().catch((err) => {
           setAccountError(err?.message || String(err));
         });
       });
@@ -265,6 +273,30 @@
       voiceCatalog = ok && Array.isArray(data?.voices) ? data.voices : [];
       renderVoiceCatalogInputs();
       fillVoiceLockSelect();
+    }
+
+    async function pullVoiceCatalogFromXai() {
+      if (els.voiceCatalogPull) els.voiceCatalogPull.disabled = true;
+      setVoiceCatalogStatus('Importing from xAI team…');
+      try {
+        const { ok, data } = await api('/api/contentstation/accounts', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'pull-xai-voices' }),
+        });
+        if (!ok) {
+          throw new Error((data && (data.message || data.error)) || 'Could not import from xAI.');
+        }
+        voiceCatalog = data.voices || [];
+        renderVoiceCatalogInputs();
+        fillVoiceLockSelect();
+        renderRail();
+        setVoiceCatalogStatus(
+          `Imported ${data.imported ?? data.xaiCount ?? voiceCatalog.length} voice(s) from xAI.`,
+        );
+        setAccountError('');
+      } finally {
+        if (els.voiceCatalogPull) els.voiceCatalogPull.disabled = false;
+      }
     }
 
     async function saveVoiceCatalog() {

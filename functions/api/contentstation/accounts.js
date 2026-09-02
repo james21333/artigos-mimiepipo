@@ -22,6 +22,7 @@ import {
   setVoiceCatalog,
   unarchiveAccount,
 } from '../../lib/account-tags.js';
+import { workerFetch } from '../../lib/character-remix-2-og.js';
 import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
 
 /**
@@ -388,6 +389,56 @@ export async function onRequestPost(context) {
       return json({ ok: false, error: 'set_voice_catalog_failed', message: result.error }, 400);
     }
     return json(result);
+  }
+
+  if (action === 'pull-xai-voices') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const xai = await workerFetch(env, '/xai/custom-voices', { timeoutMs: 20000 });
+    if (!xai.ok) {
+      const d = xai.data || {};
+      return json(
+        {
+          ok: false,
+          error: 'xai_list_failed',
+          message: String(d.detail || d.message || d.error || `Worker HTTP ${xai.status}`).slice(0, 400),
+        },
+        502,
+      );
+    }
+    const remote = Array.isArray(xai.data?.voices) ? xai.data.voices : [];
+    const current = await getVoiceCatalog(env);
+    const byLabel = new Map((current.voices || []).map((v) => [v.label, { ...v }]));
+    for (const row of remote) {
+      const label = String(row?.name || '').trim();
+      const voiceId = String(row?.voice_id || '').trim().toLowerCase();
+      if (!label || !voiceId) continue;
+      byLabel.set(label, { label, voiceId });
+    }
+    if (!byLabel.has('1')) byLabel.set('1', { label: '1', voiceId: null });
+    if (!byLabel.has('2')) byLabel.set('2', { label: '2', voiceId: null });
+    const merged = ['1', '2', ...[...byLabel.keys()].filter((k) => k !== '1' && k !== '2').sort()]
+      .map((label) => byLabel.get(label))
+      .filter(Boolean)
+      .slice(0, 30);
+    const hasAny = merged.some((v) => v.voiceId);
+    if (!hasAny) {
+      return json({
+        ok: false,
+        error: 'no_xai_voices',
+        message:
+          'xAI returned no custom voices for the worker OAuth team. Paste Voice IDs from console (⋯ → Copy Voice ID) for voices 1 and 2.',
+        voices: merged,
+        xaiCount: remote.length,
+      }, 400);
+    }
+    const save = await setVoiceCatalog(
+      env,
+      merged.filter((v) => v.voiceId),
+    );
+    if (!save.ok) {
+      return json({ ok: false, error: 'set_voice_catalog_failed', message: save.error }, 400);
+    }
+    return json({ ...save, xaiCount: remote.length, imported: remote.length });
   }
 
   return json({ ok: false, error: 'unknown_action', message: 'Unknown action.' }, 400);
