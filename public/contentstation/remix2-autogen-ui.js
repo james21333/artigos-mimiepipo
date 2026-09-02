@@ -228,7 +228,7 @@
           const sub = document.createElement('span');
           sub.textContent = blocked
             ? 'Save a character for this account before autogenerate'
-            : `${p.leftoverCount} leftover · ${p.remixedCount} already remixed · ${p.poolCount} on list${p.voiceId ? ` · voice ${p.voiceLabel || p.voiceId}` : ''}`;
+            : `${p.leftoverCount} leftover · ${p.remixedCount} already remixed · ${p.poolCount} on list${p.voiceLocked && p.voiceId ? ` · voice ${p.voiceLabel || p.voiceId}` : ''}`;
           meta.appendChild(nameEl);
           meta.appendChild(sub);
           const count = document.createElement('span');

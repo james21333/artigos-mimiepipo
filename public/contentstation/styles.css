@@ -833,6 +833,17 @@ a { color: var(--accent); }
   border-top: 1px solid var(--rule);
 }
 
+.voice-lock-row {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.85rem;
+}
+
+.voice-lock-check {
+  margin: 0;
+  white-space: nowrap;
+}
+
 .voice-catalog-wrap {
   margin-top: 0.65rem;
 }

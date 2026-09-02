@@ -371,6 +371,7 @@ export async function onRequestPost(context) {
     const result = await setAccountVoice(env, body.account, {
       voiceLabel: body.voiceLabel,
       voiceId: body.voiceId,
+      voiceLocked: typeof body.voiceLocked === 'boolean' ? body.voiceLocked : undefined,
     });
     if (!result.ok) {
       return json({ ok: false, error: 'set_voice_failed', message: result.error }, 400);

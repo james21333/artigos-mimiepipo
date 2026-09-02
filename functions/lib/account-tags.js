@@ -10,7 +10,8 @@
  *       defaultKey: string,
  *       history: [{ key, uploadedAt }],  // newest first, capped
  *       voiceId?: string,                 // xAI custom voice_id (locked to account)
- *       voiceLabel?: string               // catalog label e.g. "1", "2"
+ *       voiceLabel?: string,              // catalog label e.g. "1", "2"
+ *       voiceLocked?: boolean             // false = keep assignment but skip on Grok jobs
  *     }
  *   }
  *   meta/xai-custom-voices.json → { voices: [{ label, voiceId }] }  // team catalog (max 30)
@@ -198,7 +199,7 @@ async function writeCharactersMap(env, map) {
 
 function normalizeCharacterEntry(raw) {
   if (!raw || typeof raw !== 'object') {
-    return { defaultKey: null, history: [], voiceId: null, voiceLabel: null };
+    return { defaultKey: null, history: [], voiceId: null, voiceLabel: null, voiceLocked: false };
   }
   const history = Array.isArray(raw.history)
     ? raw.history
@@ -214,7 +215,8 @@ function normalizeCharacterEntry(raw) {
   const defaultKey = String(raw.defaultKey || raw.key || '').trim() || null;
   const voiceId = String(raw.voiceId || '').trim() || null;
   const voiceLabel = String(raw.voiceLabel || '').trim() || null;
-  return { defaultKey, history, voiceId, voiceLabel };
+  const voiceLocked = raw.voiceLocked === false ? false : Boolean(voiceId);
+  return { defaultKey, history, voiceId, voiceLabel, voiceLocked };
 }
 
 function normalizeVoiceCatalog(raw) {
@@ -267,12 +269,14 @@ export async function setVoiceCatalog(env, voicesRaw) {
 
 export async function resolveAccountVoice(env, accountRaw) {
   const account = sanitizeAccountName(accountRaw);
-  if (!account) return { ok: false, voiceId: null, voiceLabel: null };
+  if (!account) return { ok: false, voiceId: null, voiceLabel: null, voiceLocked: false };
   const char = await getAccountCharacter(env, account);
+  const active = char.voiceLocked !== false && char.voiceId;
   return {
     ok: true,
-    voiceId: char.voiceId || null,
-    voiceLabel: char.voiceLabel || null,
+    voiceId: active ? char.voiceId : null,
+    voiceLabel: active ? char.voiceLabel : null,
+    voiceLocked: char.voiceLocked !== false,
   };
 }
 
@@ -280,7 +284,7 @@ export async function resolveAccountVoice(env, accountRaw) {
  * Lock (or clear) a custom xAI voice on an account by catalog label.
  * Pass voiceLabel "" / null to clear. Pass voiceId directly to bypass catalog lookup.
  */
-export async function setAccountVoice(env, accountRaw, { voiceLabel, voiceId } = {}) {
+export async function setAccountVoice(env, accountRaw, { voiceLabel, voiceId, voiceLocked } = {}) {
   const bucket = getBucket(env);
   if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
   const account = sanitizeAccountName(accountRaw);
@@ -293,13 +297,33 @@ export async function setAccountVoice(env, accountRaw, { voiceLabel, voiceId } =
     Object.keys(map).find((k) => k.toLowerCase() === account.toLowerCase()) || account;
   const prev = normalizeCharacterEntry(map[existingKey]);
 
+  if (voiceLocked === false) {
+    map[account] = {
+      defaultKey: prev.defaultKey,
+      history: prev.history,
+      voiceId: prev.voiceId,
+      voiceLabel: prev.voiceLabel,
+      voiceLocked: false,
+    };
+    if (existingKey !== account) delete map[existingKey];
+    await writeJson(bucket, CHARACTERS_KEY, map);
+    return { ok: true, ...enrichCharacterPayload(env, account, map[account]) };
+  }
+
   const clear =
     (voiceLabel == null || String(voiceLabel).trim() === '') &&
-    (voiceId == null || String(voiceId).trim() === '');
+    (voiceId == null || String(voiceId).trim() === '') &&
+    voiceLocked !== true;
 
   let nextVoiceId = null;
   let nextVoiceLabel = null;
-  if (!clear) {
+  if (clear) {
+    nextVoiceId = null;
+    nextVoiceLabel = null;
+  } else if (voiceLocked === true && !String(voiceLabel || '').trim() && !String(voiceId || '').trim() && prev.voiceId) {
+    nextVoiceId = prev.voiceId;
+    nextVoiceLabel = prev.voiceLabel;
+  } else {
     const direct = String(voiceId || '').trim();
     if (direct) {
       if (!VOICE_ID_RE.test(direct)) {
@@ -325,6 +349,7 @@ export async function setAccountVoice(env, accountRaw, { voiceLabel, voiceId } =
     history: prev.history,
     voiceId: nextVoiceId,
     voiceLabel: nextVoiceLabel,
+    voiceLocked: clear ? false : true,
   };
   if (existingKey !== account) delete map[existingKey];
   await writeJson(bucket, CHARACTERS_KEY, map);
@@ -332,7 +357,7 @@ export async function setAccountVoice(env, accountRaw, { voiceLabel, voiceId } =
 }
 
 function enrichCharacterPayload(env, account, entry) {
-  const { defaultKey, history, voiceId, voiceLabel } = normalizeCharacterEntry(entry);
+  const { defaultKey, history, voiceId, voiceLabel, voiceLocked } = normalizeCharacterEntry(entry);
   const hist = [];
   const seen = new Set();
   for (const h of history) {
@@ -353,7 +378,7 @@ function enrichCharacterPayload(env, account, entry) {
     history: hist.slice(0, MAX_CHARACTER_HISTORY),
     voiceId: voiceId || null,
     voiceLabel: voiceLabel || null,
-    voiceLocked: Boolean(voiceId),
+    voiceLocked: voiceLocked !== false && Boolean(voiceId),
   };
 }
 
@@ -399,6 +424,7 @@ export async function setAccountCharacter(env, accountRaw, keyRaw) {
       history: prev.history,
       voiceId: prev.voiceId,
       voiceLabel: prev.voiceLabel,
+      voiceLocked: prev.voiceLocked,
     };
     if (existingKey !== account) delete map[existingKey];
     await writeJson(bucket, CHARACTERS_KEY, map);
@@ -415,6 +441,7 @@ export async function setAccountCharacter(env, accountRaw, keyRaw) {
     history,
     voiceId: prev.voiceId,
     voiceLabel: prev.voiceLabel,
+    voiceLocked: prev.voiceLocked,
   };
   if (existingKey !== account) delete map[existingKey];
   await writeJson(bucket, CHARACTERS_KEY, map);
@@ -604,7 +631,7 @@ export async function accountSummaries(env) {
       characterDownloadPath: character.downloadPath || null,
       voiceId: character.voiceId || null,
       voiceLabel: character.voiceLabel || null,
-      voiceLocked: Boolean(character.voiceId),
+      voiceLocked: character.voiceLocked !== false && Boolean(character.voiceId),
     };
   });
 }
@@ -638,7 +665,7 @@ export async function archivedAccountSummaries(env) {
       characterDownloadPath: character.downloadPath || null,
       voiceId: character.voiceId || null,
       voiceLabel: character.voiceLabel || null,
-      voiceLocked: Boolean(character.voiceId),
+      voiceLocked: character.voiceLocked !== false && Boolean(character.voiceId),
     };
   });
 }

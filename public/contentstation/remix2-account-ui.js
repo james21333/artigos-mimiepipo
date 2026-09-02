@@ -79,8 +79,8 @@
       characterFile: document.getElementById('character-file'),
       characterHint: document.getElementById('character-account-hint'),
       voiceLockWrap: document.getElementById('voice-lock-wrap'),
+      voiceLockEnabled: document.getElementById('voice-lock-enabled'),
       voiceLockSelect: document.getElementById('voice-lock-select'),
-      voiceLockSave: document.getElementById('voice-lock-save-btn'),
       voiceLockStatus: document.getElementById('voice-lock-status'),
       voiceCatalogWrap: document.getElementById('voice-catalog-wrap'),
       voiceCatalogInputs: document.getElementById('voice-catalog-inputs'),
@@ -111,12 +111,20 @@
 
     function voiceId() {
       const detail = selectedAccount ? charactersByAccount[selectedAccount] : null;
+      if (detail && detail.voiceLocked === false) return '';
       return (detail && detail.voiceId) || '';
     }
 
     function voiceLabel() {
       const detail = selectedAccount ? charactersByAccount[selectedAccount] : null;
+      if (detail && detail.voiceLocked === false) return '';
       return (detail && detail.voiceLabel) || '';
+    }
+
+    function isVoiceLockEnabled() {
+      const detail = selectedAccount ? charactersByAccount[selectedAccount] : null;
+      if (!detail) return true;
+      return detail.voiceLocked !== false;
     }
 
     function ensureAccountRail() {
@@ -154,13 +162,15 @@
       wrap.id = 'voice-lock-wrap';
       wrap.className = 'voice-lock-wrap';
       wrap.innerHTML = `
-        <label for="voice-lock-select">Custom voice lock</label>
-        <p class="muted-line">Same idea as the saved character — pick a team voice for this account. Grok gets <code>voice_id</code> on every scene.</p>
-        <div class="row account-select-row">
+        <p class="muted-line">Pick a team voice for this account. When checked, Grok gets <code>voice_id</code> on every scene.</p>
+        <div class="row account-select-row voice-lock-row">
+          <label class="check voice-lock-check" for="voice-lock-enabled">
+            <input id="voice-lock-enabled" type="checkbox" checked disabled>
+            <span>Voice lock</span>
+          </label>
           <select id="voice-lock-select" class="account-select" disabled>
-            <option value="">— No voice lock —</option>
+            <option value="">— Pick voice —</option>
           </select>
-          <button type="button" id="voice-lock-save-btn" class="ghost" disabled>Lock voice</button>
         </div>
         <p id="voice-lock-status" class="muted-line" hidden></p>
         <details id="voice-catalog-wrap" class="voice-catalog-wrap">
@@ -176,8 +186,8 @@
       picker.appendChild(wrap);
 
       els.voiceLockWrap = wrap;
+      els.voiceLockEnabled = document.getElementById('voice-lock-enabled');
       els.voiceLockSelect = document.getElementById('voice-lock-select');
-      els.voiceLockSave = document.getElementById('voice-lock-save-btn');
       els.voiceLockStatus = document.getElementById('voice-lock-status');
       els.voiceCatalogWrap = document.getElementById('voice-catalog-wrap');
       els.voiceCatalogInputs = document.getElementById('voice-catalog-inputs');
@@ -185,8 +195,13 @@
       els.voiceCatalogPull = document.getElementById('voice-catalog-pull-btn');
       els.voiceCatalogStatus = document.getElementById('voice-catalog-status');
 
-      els.voiceLockSave?.addEventListener('click', () => {
-        persistAccountVoice(els.voiceLockSelect?.value || '').catch((err) => {
+      els.voiceLockEnabled?.addEventListener('change', () => {
+        syncVoiceLockFromUi().catch((err) => {
+          setAccountError(err?.message || String(err));
+        });
+      });
+      els.voiceLockSelect?.addEventListener('change', () => {
+        syncVoiceLockFromUi().catch((err) => {
           setAccountError(err?.message || String(err));
         });
       });
@@ -225,11 +240,12 @@
 
     function fillVoiceLockSelect() {
       if (!els.voiceLockSelect) return;
-      const current = voiceLabel();
+      const detail = selectedAccount ? charactersByAccount[selectedAccount] : null;
+      const current = detail?.voiceLabel || '';
       els.voiceLockSelect.innerHTML = '';
       const none = document.createElement('option');
       none.value = '';
-      none.textContent = '— No voice lock —';
+      none.textContent = '— Pick voice —';
       els.voiceLockSelect.appendChild(none);
       for (const v of voiceCatalog) {
         if (!v.label) continue;
@@ -240,10 +256,20 @@
         opt.disabled = !v.voiceId;
         els.voiceLockSelect.appendChild(opt);
       }
-      els.voiceLockSelect.value = current && voiceCatalog.some((v) => v.label === current) ? current : '';
-      const canSave = Boolean(selectedAccount);
-      if (els.voiceLockSave) els.voiceLockSave.disabled = !canSave;
-      if (els.voiceLockSelect) els.voiceLockSelect.disabled = !canSave;
+      const pick =
+        current && voiceCatalog.some((v) => v.label === current)
+          ? current
+          : voiceCatalog.find((v) => v.voiceId)?.label || '';
+      els.voiceLockSelect.value = pick;
+      const canEdit = Boolean(selectedAccount);
+      const locked = detail ? detail.voiceLocked !== false : true;
+      if (els.voiceLockEnabled) {
+        els.voiceLockEnabled.checked = locked;
+        els.voiceLockEnabled.disabled = !canEdit;
+      }
+      if (els.voiceLockSelect) {
+        els.voiceLockSelect.disabled = !canEdit || !locked;
+      }
     }
 
     function setVoiceLockStatus(msg) {
@@ -322,30 +348,48 @@
       setVoiceCatalogStatus(`Saved ${voiceCatalog.length} catalog voice(s).`);
     }
 
-    async function persistAccountVoice(label) {
+    async function syncVoiceLockFromUi() {
       if (!selectedAccount) {
         setAccountError('Pick an account first.');
         return null;
       }
+      const locked = Boolean(els.voiceLockEnabled?.checked);
+      const label = els.voiceLockSelect?.value || '';
+      if (locked && !label) {
+        setVoiceLockStatus('Pick voice 1 or 2 (save catalog first if empty).');
+        return null;
+      }
+      return persistAccountVoice({ locked, label: locked ? label : undefined });
+    }
+
+    async function persistAccountVoice({ locked, label } = {}) {
+      if (!selectedAccount) {
+        setAccountError('Pick an account first.');
+        return null;
+      }
+      const voiceLocked = locked !== undefined ? locked : Boolean(els.voiceLockEnabled?.checked);
+      const voiceLabel = label !== undefined ? label : els.voiceLockSelect?.value || '';
+      const body = {
+        action: 'set-voice',
+        account: selectedAccount,
+        voiceLocked,
+      };
+      if (voiceLocked) body.voiceLabel = voiceLabel;
       const { ok, data } = await api('/api/contentstation/accounts', {
         method: 'POST',
-        body: JSON.stringify({
-          action: 'set-voice',
-          account: selectedAccount,
-          voiceLabel: label || '',
-        }),
+        body: JSON.stringify(body),
       });
       if (!ok) {
-        throw new Error((data && (data.message || data.error)) || 'Could not lock voice.');
+        throw new Error((data && (data.message || data.error)) || 'Could not update voice lock.');
       }
       if (data.accounts) accounts = data.accounts;
       charactersByAccount[selectedAccount] = data;
       fillVoiceLockSelect();
       renderRail();
       setVoiceLockStatus(
-        label
-          ? `Locked voice ${label} (${data.voiceId || '?'}) on ${selectedAccount}.`
-          : `Cleared voice lock on ${selectedAccount}.`,
+        voiceLocked
+          ? `Voice lock on · ${data.voiceLabel || voiceLabel || '?'} (${data.voiceId || '?'})`
+          : `Voice lock off for ${selectedAccount} (assignment kept).`,
       );
       setAccountError('');
       return data;
@@ -357,8 +401,9 @@
       const acct = accounts.find((a) => (a.name || a) === accountName);
       const vLabel = detail.voiceLabel || acct?.voiceLabel || '';
       const vId = detail.voiceId || acct?.voiceId || '';
+      const locked = detail.voiceLocked !== false && acct?.voiceLocked !== false;
       let badge = btn.querySelector('.account-voice-badge');
-      if (!vId) {
+      if (!vId || !locked) {
         badge?.remove();
         return;
       }
@@ -568,6 +613,7 @@
             downloadPath: a.characterDownloadPath,
             voiceId: a.voiceId || null,
             voiceLabel: a.voiceLabel || null,
+            voiceLocked: a.voiceLocked !== false,
             history: a.characterKey
               ? [{ key: a.characterKey, publicUrl: a.characterUrl, downloadPath: a.characterDownloadPath }]
               : [],
@@ -769,6 +815,7 @@
       characterKey,
       voiceId,
       voiceLabel,
+      isVoiceLockEnabled,
       hasCharacter,
       resolveCharacterKeyForCreate,
       persistCharacterDefault,
