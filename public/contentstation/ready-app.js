@@ -114,8 +114,9 @@
       `;
       link.querySelector('.account-card-name').textContent = a.name;
       const n = a.count || 0;
+      const voiceNote = a.voiceId ? ` · voice ${a.voiceLabel || a.voiceId}` : '';
       link.querySelector('.account-card-count').textContent =
-        n === 1 ? '1 video ready' : `${n} videos ready`;
+        (n === 1 ? '1 video ready' : `${n} videos ready`) + voiceNote;
 
       row.appendChild(link);
       if (canEditAccounts()) {

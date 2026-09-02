@@ -7,15 +7,19 @@ import {
   deleteAccount,
   getAccountCharacter,
   getTagForKey,
+  getVoiceCatalog,
   isVideoPosted,
   keysForAccount,
   listAccountCharacters,
   readTagsMap,
   renameAccount,
+  resolveAccountVoice,
   sanitizeAccountName,
   setAccountCharacter,
+  setAccountVoice,
   setVideoAccount,
   setVideoPosted,
+  setVoiceCatalog,
   unarchiveAccount,
 } from '../../lib/account-tags.js';
 import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
@@ -36,6 +40,7 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  * GET  ?action=info&key=         → original TikTok post info for a cleaned video
  * GET  ?action=character&account= → default character + history for one account
  * GET  ?action=characters        → all account character defaults/history
+ * GET  ?action=voice-catalog     → team xAI custom voice catalog
  * POST { action: "create", name }
  * POST { action: "rename", from, to }
  * POST { action: "archive", name }
@@ -44,6 +49,8 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  * POST { action: "tag", key, account }   // account "" clears
  * POST { action: "posted", key, posted } // boolean — marked posted to TikTok
  * POST { action: "set-character", account, key } // key "" clears default
+ * POST { action: "set-voice", account, voiceLabel?, voiceId? } // clear when both empty
+ * POST { action: "set-voice-catalog", voices: [{ label, voiceId }] }
  */
 
 function downloadPath(key) {
@@ -220,6 +227,11 @@ export async function onRequestGet(context) {
     return json({ ok: true, characters });
   }
 
+  if (action === 'voice-catalog') {
+    const result = await getVoiceCatalog(env);
+    return json(result);
+  }
+
   return json({ ok: false, error: 'unknown_action' }, 400);
 }
 
@@ -352,6 +364,30 @@ export async function onRequestPost(context) {
       ...result,
       accounts: await accountSummaries(env),
     });
+  }
+
+  if (action === 'set-voice') {
+    const result = await setAccountVoice(env, body.account, {
+      voiceLabel: body.voiceLabel,
+      voiceId: body.voiceId,
+    });
+    if (!result.ok) {
+      return json({ ok: false, error: 'set_voice_failed', message: result.error }, 400);
+    }
+    return json({
+      ok: true,
+      ...result,
+      accounts: await accountSummaries(env),
+    });
+  }
+
+  if (action === 'set-voice-catalog') {
+    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    const result = await setVoiceCatalog(env, body.voices);
+    if (!result.ok) {
+      return json({ ok: false, error: 'set_voice_catalog_failed', message: result.error }, 400);
+    }
+    return json(result);
   }
 
   return json({ ok: false, error: 'unknown_action', message: 'Unknown action.' }, 400);

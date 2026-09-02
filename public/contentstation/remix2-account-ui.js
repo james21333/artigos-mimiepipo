@@ -54,6 +54,8 @@
     let accounts = [];
     /** @type {Record<string, any>} */
     let charactersByAccount = {};
+    /** @type {{ label: string, voiceId: string | null }[]} */
+    let voiceCatalog = [];
     let selectedAccount = '';
     /** Active character key for the next remake (may be default or history pick). */
     let selectedCharacterKey = '';
@@ -76,6 +78,14 @@
       characterPreviewWrap: document.getElementById('character-preview-wrap'),
       characterFile: document.getElementById('character-file'),
       characterHint: document.getElementById('character-account-hint'),
+      voiceLockWrap: document.getElementById('voice-lock-wrap'),
+      voiceLockSelect: document.getElementById('voice-lock-select'),
+      voiceLockSave: document.getElementById('voice-lock-save-btn'),
+      voiceLockStatus: document.getElementById('voice-lock-status'),
+      voiceCatalogWrap: document.getElementById('voice-catalog-wrap'),
+      voiceCatalogInputs: document.getElementById('voice-catalog-inputs'),
+      voiceCatalogSave: document.getElementById('voice-catalog-save-btn'),
+      voiceCatalogStatus: document.getElementById('voice-catalog-status'),
     };
 
     function setAccountError(msg) {
@@ -96,6 +106,237 @@
 
     function characterKey() {
       return selectedCharacterKey;
+    }
+
+    function voiceId() {
+      const detail = selectedAccount ? charactersByAccount[selectedAccount] : null;
+      return (detail && detail.voiceId) || '';
+    }
+
+    function voiceLabel() {
+      const detail = selectedAccount ? charactersByAccount[selectedAccount] : null;
+      return (detail && detail.voiceLabel) || '';
+    }
+
+    function ensureAccountRail() {
+      if (document.getElementById('account-character-rail')) {
+        els.rail = document.getElementById('account-character-rail');
+        els.railList = document.getElementById('account-character-rail-list');
+        els.railEmpty = document.getElementById('account-character-rail-empty');
+        return;
+      }
+      const app = document.getElementById('app');
+      if (!app) return;
+      const aside = document.createElement('aside');
+      aside.id = 'account-character-rail';
+      aside.className = 'account-character-rail';
+      aside.hidden = true;
+      aside.setAttribute('aria-label', 'Accounts and characters');
+      aside.innerHTML = `
+        <h2 class="account-character-rail-title">Accounts</h2>
+        <ul id="account-character-rail-list" class="account-character-rail-list"></ul>
+        <p id="account-character-rail-empty" class="muted-line" hidden>No accounts yet.</p>
+        <p class="muted-line">Tap to select · 🎙 = voice lock</p>`;
+      const hero = app.querySelector('.hero-flow');
+      if (hero) app.insertBefore(aside, hero);
+      else app.appendChild(aside);
+      els.rail = aside;
+      els.railList = document.getElementById('account-character-rail-list');
+      els.railEmpty = document.getElementById('account-character-rail-empty');
+    }
+
+    function ensureVoiceLockUi() {
+      const picker = document.getElementById('account-picker');
+      if (!picker || document.getElementById('voice-lock-wrap')) return;
+
+      const wrap = document.createElement('div');
+      wrap.id = 'voice-lock-wrap';
+      wrap.className = 'voice-lock-wrap';
+      wrap.innerHTML = `
+        <label for="voice-lock-select">Custom voice lock</label>
+        <p class="muted-line">Same idea as the saved character — pick a team voice for this account. Grok gets <code>voice_id</code> on every scene.</p>
+        <div class="row account-select-row">
+          <select id="voice-lock-select" class="account-select" disabled>
+            <option value="">— No voice lock —</option>
+          </select>
+          <button type="button" id="voice-lock-save-btn" class="ghost" disabled>Lock voice</button>
+        </div>
+        <p id="voice-lock-status" class="muted-line" hidden></p>
+        <details id="voice-catalog-wrap" class="voice-catalog-wrap">
+          <summary>Team voice catalog (paste xAI Voice IDs)</summary>
+          <p class="muted-line">Names like <strong>1</strong> and <strong>2</strong> match your xAI console clones. Copy Voice ID from each card (⋯ → Copy Voice ID).</p>
+          <div id="voice-catalog-inputs" class="voice-catalog-grid"></div>
+          <div class="row">
+            <button type="button" id="voice-catalog-save-btn" class="ghost">Save catalog</button>
+          </div>
+          <p id="voice-catalog-status" class="muted-line" hidden></p>
+        </details>`;
+      picker.appendChild(wrap);
+
+      els.voiceLockWrap = wrap;
+      els.voiceLockSelect = document.getElementById('voice-lock-select');
+      els.voiceLockSave = document.getElementById('voice-lock-save-btn');
+      els.voiceLockStatus = document.getElementById('voice-lock-status');
+      els.voiceCatalogWrap = document.getElementById('voice-catalog-wrap');
+      els.voiceCatalogInputs = document.getElementById('voice-catalog-inputs');
+      els.voiceCatalogSave = document.getElementById('voice-catalog-save-btn');
+      els.voiceCatalogStatus = document.getElementById('voice-catalog-status');
+
+      els.voiceLockSave?.addEventListener('click', () => {
+        persistAccountVoice(els.voiceLockSelect?.value || '').catch((err) => {
+          setAccountError(err?.message || String(err));
+        });
+      });
+      els.voiceCatalogSave?.addEventListener('click', () => {
+        saveVoiceCatalog().catch((err) => {
+          setAccountError(err?.message || String(err));
+        });
+      });
+    }
+
+    function renderVoiceCatalogInputs() {
+      if (!els.voiceCatalogInputs) return;
+      els.voiceCatalogInputs.innerHTML = '';
+      const rows = voiceCatalog.length ? voiceCatalog : [{ label: '1', voiceId: '' }, { label: '2', voiceId: '' }];
+      for (const row of rows.slice(0, 30)) {
+        const field = document.createElement('label');
+        field.className = 'voice-catalog-field';
+        field.innerHTML = `<span class="voice-catalog-label">${row.label}</span>`;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'voice-catalog-id';
+        input.dataset.label = row.label;
+        input.placeholder = 'voice_id';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.value = row.voiceId || '';
+        field.appendChild(input);
+        els.voiceCatalogInputs.appendChild(field);
+      }
+    }
+
+    function fillVoiceLockSelect() {
+      if (!els.voiceLockSelect) return;
+      const current = voiceLabel();
+      els.voiceLockSelect.innerHTML = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = '— No voice lock —';
+      els.voiceLockSelect.appendChild(none);
+      for (const v of voiceCatalog) {
+        if (!v.label) continue;
+        const opt = document.createElement('option');
+        opt.value = v.label;
+        const idHint = v.voiceId ? ` · ${v.voiceId}` : ' · (no id yet)';
+        opt.textContent = `Voice ${v.label}${idHint}`;
+        opt.disabled = !v.voiceId;
+        els.voiceLockSelect.appendChild(opt);
+      }
+      els.voiceLockSelect.value = current && voiceCatalog.some((v) => v.label === current) ? current : '';
+      const canSave = Boolean(selectedAccount);
+      if (els.voiceLockSave) els.voiceLockSave.disabled = !canSave;
+      if (els.voiceLockSelect) els.voiceLockSelect.disabled = !canSave;
+    }
+
+    function setVoiceLockStatus(msg) {
+      if (!els.voiceLockStatus) return;
+      if (msg) {
+        els.voiceLockStatus.hidden = false;
+        els.voiceLockStatus.textContent = msg;
+      } else {
+        els.voiceLockStatus.hidden = true;
+        els.voiceLockStatus.textContent = '';
+      }
+    }
+
+    function setVoiceCatalogStatus(msg) {
+      if (!els.voiceCatalogStatus) return;
+      if (msg) {
+        els.voiceCatalogStatus.hidden = false;
+        els.voiceCatalogStatus.textContent = msg;
+      } else {
+        els.voiceCatalogStatus.hidden = true;
+        els.voiceCatalogStatus.textContent = '';
+      }
+    }
+
+    async function loadVoiceCatalog() {
+      const { ok, data } = await api('/api/contentstation/accounts?action=voice-catalog');
+      voiceCatalog = ok && Array.isArray(data?.voices) ? data.voices : [];
+      renderVoiceCatalogInputs();
+      fillVoiceLockSelect();
+    }
+
+    async function saveVoiceCatalog() {
+      const inputs = els.voiceCatalogInputs?.querySelectorAll('.voice-catalog-id') || [];
+      const voices = [];
+      for (const input of inputs) {
+        const label = String(input.dataset.label || '').trim();
+        const voiceIdVal = String(input.value || '').trim().toLowerCase();
+        if (!label) continue;
+        voices.push({ label, voiceId: voiceIdVal || null });
+      }
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'set-voice-catalog', voices }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not save voice catalog.');
+      }
+      voiceCatalog = data.voices || voices;
+      renderVoiceCatalogInputs();
+      fillVoiceLockSelect();
+      renderRail();
+      setVoiceCatalogStatus(`Saved ${voiceCatalog.length} catalog voice(s).`);
+    }
+
+    async function persistAccountVoice(label) {
+      if (!selectedAccount) {
+        setAccountError('Pick an account first.');
+        return null;
+      }
+      const { ok, data } = await api('/api/contentstation/accounts', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'set-voice',
+          account: selectedAccount,
+          voiceLabel: label || '',
+        }),
+      });
+      if (!ok) {
+        throw new Error((data && (data.message || data.error)) || 'Could not lock voice.');
+      }
+      if (data.accounts) accounts = data.accounts;
+      charactersByAccount[selectedAccount] = data;
+      fillVoiceLockSelect();
+      renderRail();
+      setVoiceLockStatus(
+        label
+          ? `Locked voice ${label} (${data.voiceId || '?'}) on ${selectedAccount}.`
+          : `Cleared voice lock on ${selectedAccount}.`,
+      );
+      setAccountError('');
+      return data;
+    }
+
+    function renderVoiceBadge(btn, accountName) {
+      if (!btn || !accountName) return;
+      const detail = charactersByAccount[accountName] || {};
+      const acct = accounts.find((a) => (a.name || a) === accountName);
+      const vLabel = detail.voiceLabel || acct?.voiceLabel || '';
+      const vId = detail.voiceId || acct?.voiceId || '';
+      let badge = btn.querySelector('.account-voice-badge');
+      if (!vId) {
+        badge?.remove();
+        return;
+      }
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'account-voice-badge';
+        badge.title = `Voice lock: ${vLabel || vId}`;
+        btn.appendChild(badge);
+      }
+      badge.textContent = vLabel ? `🎙 ${vLabel}` : '🎙';
     }
 
     function hasCharacter() {
@@ -185,6 +426,8 @@
       fillHistorySelect();
       setSaveStatus('');
       updateCharacterHint();
+      fillVoiceLockSelect();
+      setVoiceLockStatus('');
       renderRail();
       if (els.select && els.select.value !== selectedAccount) {
         els.select.value = selectedAccount;
@@ -269,6 +512,7 @@
         meta.appendChild(nameEl);
         meta.appendChild(countEl);
         btn.appendChild(meta);
+        renderVoiceBadge(btn, name);
         btn.addEventListener('click', () => {
           applyAccountCharacter(name === selectedAccount ? '' : name);
         });
@@ -290,6 +534,8 @@
             defaultKey: a.characterKey,
             publicUrl: a.characterUrl,
             downloadPath: a.characterDownloadPath,
+            voiceId: a.voiceId || null,
+            voiceLabel: a.voiceLabel || null,
             history: a.characterKey
               ? [{ key: a.characterKey, publicUrl: a.characterUrl, downloadPath: a.characterDownloadPath }]
               : [],
@@ -299,13 +545,15 @@
     }
 
     async function loadAccounts(prefer) {
+      ensureAccountRail();
+      ensureVoiceLockUi();
       const { ok, data } = await api('/api/contentstation/accounts?action=list');
       if (!ok) {
         setAccountError((data && (data.message || data.error)) || 'Could not load accounts.');
         return [];
       }
       accounts = data.accounts || [];
-      await refreshCharacters().catch(() => {});
+      await Promise.all([refreshCharacters().catch(() => {}), loadVoiceCatalog().catch(() => {})]);
       fillAccountSelect();
       const want =
         prefer != null
@@ -487,6 +735,8 @@
       loadAccounts,
       selected,
       characterKey,
+      voiceId,
+      voiceLabel,
       hasCharacter,
       resolveCharacterKeyForCreate,
       persistCharacterDefault,
@@ -496,6 +746,7 @@
       mediaUrl: (key) => mediaUrl(key, getPublicBaseUrl()),
       applyAccountCharacter,
       refresh: () => loadAccounts(selectedAccount),
+      getVoiceCatalog: () => voiceCatalog.slice(),
     };
   }
 

@@ -8,9 +8,12 @@
  *   meta/account-characters.json → {
  *     [accountName]: {
  *       defaultKey: string,
- *       history: [{ key, uploadedAt }]  // newest first, capped
+ *       history: [{ key, uploadedAt }],  // newest first, capped
+ *       voiceId?: string,                 // xAI custom voice_id (locked to account)
+ *       voiceLabel?: string               // catalog label e.g. "1", "2"
  *     }
  *   }
+ *   meta/xai-custom-voices.json → { voices: [{ label, voiceId }] }  // team catalog (max 30)
  *
  * Tagable keys: cleaned/*, character-remix-2-og/{jobId}/final.mp4, facefusion-remix/*
  * Character images: account-characters/{slug}/… (and legacy characters/)
@@ -21,9 +24,12 @@ const ARCHIVED_ACCOUNTS_KEY = 'meta/archived-accounts.json';
 const TAGS_KEY = 'meta/cleaned-tags.json';
 const POSTED_KEY = 'meta/cleaned-posted.json';
 const CHARACTERS_KEY = 'meta/account-characters.json';
+const VOICES_CATALOG_KEY = 'meta/xai-custom-voices.json';
 
 const REMIX2_FINAL_RE = /^character-remix-2-og\/[^/]+\/final\.mp4$/i;
 const MAX_CHARACTER_HISTORY = 24;
+const MAX_CUSTOM_VOICES = 30;
+const VOICE_ID_RE = /^[a-z0-9]{4,32}$/i;
 
 export const ACCOUNT_CHARACTERS_PREFIX = 'account-characters/';
 
@@ -191,7 +197,9 @@ async function writeCharactersMap(env, map) {
 }
 
 function normalizeCharacterEntry(raw) {
-  if (!raw || typeof raw !== 'object') return { defaultKey: null, history: [] };
+  if (!raw || typeof raw !== 'object') {
+    return { defaultKey: null, history: [], voiceId: null, voiceLabel: null };
+  }
   const history = Array.isArray(raw.history)
     ? raw.history
         .map((h) => {
@@ -204,11 +212,127 @@ function normalizeCharacterEntry(raw) {
         .filter(Boolean)
     : [];
   const defaultKey = String(raw.defaultKey || raw.key || '').trim() || null;
-  return { defaultKey, history };
+  const voiceId = String(raw.voiceId || '').trim() || null;
+  const voiceLabel = String(raw.voiceLabel || '').trim() || null;
+  return { defaultKey, history, voiceId, voiceLabel };
+}
+
+function normalizeVoiceCatalog(raw) {
+  const voices = Array.isArray(raw?.voices) ? raw.voices : [];
+  const out = [];
+  const seen = new Set();
+  for (const row of voices) {
+    if (!row || typeof row !== 'object') continue;
+    const label = String(row.label || '').trim();
+    const voiceId = String(row.voiceId || '').trim() || null;
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push({ label, voiceId: voiceId && VOICE_ID_RE.test(voiceId) ? voiceId.toLowerCase() : null });
+    if (out.length >= MAX_CUSTOM_VOICES) break;
+  }
+  return out;
+}
+
+async function readVoiceCatalogMap(env) {
+  const bucket = getBucket(env);
+  if (!bucket) return { voices: [] };
+  const raw = await readJson(bucket, VOICES_CATALOG_KEY, { voices: [] });
+  return { voices: normalizeVoiceCatalog(raw) };
+}
+
+export async function getVoiceCatalog(env) {
+  const { voices } = await readVoiceCatalogMap(env);
+  return { ok: true, voices, maxVoices: MAX_CUSTOM_VOICES };
+}
+
+/** Replace team custom-voice catalog (labels 1…30 with xAI voice_id values). */
+export async function setVoiceCatalog(env, voicesRaw) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const voices = normalizeVoiceCatalog({ voices: voicesRaw });
+  if (!voices.length) {
+    return { ok: false, error: 'Add at least one voice label + voice_id.' };
+  }
+  for (const v of voices) {
+    if (!v.voiceId) {
+      return { ok: false, error: `Voice “${v.label}” is missing a valid voice_id.` };
+    }
+  }
+  await writeJson(bucket, VOICES_CATALOG_KEY, {
+    voices,
+    updatedAt: new Date().toISOString(),
+  });
+  return { ok: true, voices, maxVoices: MAX_CUSTOM_VOICES };
+}
+
+export async function resolveAccountVoice(env, accountRaw) {
+  const account = sanitizeAccountName(accountRaw);
+  if (!account) return { ok: false, voiceId: null, voiceLabel: null };
+  const char = await getAccountCharacter(env, account);
+  return {
+    ok: true,
+    voiceId: char.voiceId || null,
+    voiceLabel: char.voiceLabel || null,
+  };
+}
+
+/**
+ * Lock (or clear) a custom xAI voice on an account by catalog label.
+ * Pass voiceLabel "" / null to clear. Pass voiceId directly to bypass catalog lookup.
+ */
+export async function setAccountVoice(env, accountRaw, { voiceLabel, voiceId } = {}) {
+  const bucket = getBucket(env);
+  if (!bucket) return { ok: false, error: 'Storage isn’t available.' };
+  const account = sanitizeAccountName(accountRaw);
+  if (!account) return { ok: false, error: 'Enter a valid account name.' };
+
+  await createAccount(env, account);
+
+  const map = await readCharactersMap(env);
+  const existingKey =
+    Object.keys(map).find((k) => k.toLowerCase() === account.toLowerCase()) || account;
+  const prev = normalizeCharacterEntry(map[existingKey]);
+
+  const clear =
+    (voiceLabel == null || String(voiceLabel).trim() === '') &&
+    (voiceId == null || String(voiceId).trim() === '');
+
+  let nextVoiceId = null;
+  let nextVoiceLabel = null;
+  if (!clear) {
+    const direct = String(voiceId || '').trim();
+    if (direct) {
+      if (!VOICE_ID_RE.test(direct)) {
+        return { ok: false, error: 'Invalid voice_id format.' };
+      }
+      nextVoiceId = direct.toLowerCase();
+      nextVoiceLabel = String(voiceLabel || '').trim() || null;
+    } else {
+      const label = String(voiceLabel || '').trim();
+      if (!label) return { ok: false, error: 'Pick a voice label or pass voiceId.' };
+      const { voices } = await readVoiceCatalogMap(env);
+      const hit = voices.find((v) => v.label === label);
+      if (!hit?.voiceId) {
+        return { ok: false, error: `Voice “${label}” has no voice_id in the team catalog yet.` };
+      }
+      nextVoiceId = hit.voiceId;
+      nextVoiceLabel = label;
+    }
+  }
+
+  map[account] = {
+    defaultKey: prev.defaultKey,
+    history: prev.history,
+    voiceId: nextVoiceId,
+    voiceLabel: nextVoiceLabel,
+  };
+  if (existingKey !== account) delete map[existingKey];
+  await writeJson(bucket, CHARACTERS_KEY, map);
+  return { ok: true, ...enrichCharacterPayload(env, account, map[account]) };
 }
 
 function enrichCharacterPayload(env, account, entry) {
-  const { defaultKey, history } = normalizeCharacterEntry(entry);
+  const { defaultKey, history, voiceId, voiceLabel } = normalizeCharacterEntry(entry);
   const hist = [];
   const seen = new Set();
   for (const h of history) {
@@ -227,6 +351,9 @@ function enrichCharacterPayload(env, account, entry) {
     downloadPath: defaultKey ? downloadPathForKey(defaultKey) : null,
     publicUrl: defaultKey ? publicUrlForKey(env, defaultKey) : null,
     history: hist.slice(0, MAX_CHARACTER_HISTORY),
+    voiceId: voiceId || null,
+    voiceLabel: voiceLabel || null,
+    voiceLocked: Boolean(voiceId),
   };
 }
 
@@ -267,7 +394,12 @@ export async function setAccountCharacter(env, accountRaw, keyRaw) {
   const prev = normalizeCharacterEntry(map[existingKey]);
 
   if (clear) {
-    map[account] = { defaultKey: null, history: prev.history };
+    map[account] = {
+      defaultKey: null,
+      history: prev.history,
+      voiceId: prev.voiceId,
+      voiceLabel: prev.voiceLabel,
+    };
     if (existingKey !== account) delete map[existingKey];
     await writeJson(bucket, CHARACTERS_KEY, map);
     return { ok: true, ...enrichCharacterPayload(env, account, map[account]) };
@@ -278,7 +410,12 @@ export async function setAccountCharacter(env, accountRaw, keyRaw) {
     0,
     MAX_CHARACTER_HISTORY,
   );
-  map[account] = { defaultKey: key, history };
+  map[account] = {
+    defaultKey: key,
+    history,
+    voiceId: prev.voiceId,
+    voiceLabel: prev.voiceLabel,
+  };
   if (existingKey !== account) delete map[existingKey];
   await writeJson(bucket, CHARACTERS_KEY, map);
   return { ok: true, ...enrichCharacterPayload(env, account, map[account]) };
@@ -465,6 +602,9 @@ export async function accountSummaries(env) {
       characterKey: character.defaultKey || null,
       characterUrl: character.publicUrl || null,
       characterDownloadPath: character.downloadPath || null,
+      voiceId: character.voiceId || null,
+      voiceLabel: character.voiceLabel || null,
+      voiceLocked: Boolean(character.voiceId),
     };
   });
 }
@@ -496,6 +636,9 @@ export async function archivedAccountSummaries(env) {
       characterKey: character.defaultKey || null,
       characterUrl: character.publicUrl || null,
       characterDownloadPath: character.downloadPath || null,
+      voiceId: character.voiceId || null,
+      voiceLabel: character.voiceLabel || null,
+      voiceLocked: Boolean(character.voiceId),
     };
   });
 }

@@ -42,7 +42,7 @@ import {
 } from '../../lib/character-remix-2-og.js';
 import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
 import { flattenPostMetaForStorage } from '../../lib/tiktok-post-info.js';
-import { getTagForKey, sanitizeAccountName, setVideoAccount } from '../../lib/account-tags.js';
+import { getTagForKey, resolveAccountVoice, sanitizeAccountName, setVideoAccount } from '../../lib/account-tags.js';
 import {
   alreadyRemixedResult,
   ensureRemixUsedIndex,
@@ -556,6 +556,16 @@ export async function onRequest(context) {
       }
     }
 
+    let jobVoiceId = String(body.voiceId || '').trim() || null;
+    let jobVoiceLabel = String(body.voiceLabel || '').trim() || null;
+    if (talkingDialogueVariant && remixAccount && !jobVoiceId) {
+      const locked = await resolveAccountVoice(env, remixAccount);
+      if (locked?.voiceId) {
+        jobVoiceId = locked.voiceId;
+        jobVoiceLabel = locked.voiceLabel || jobVoiceLabel;
+      }
+    }
+
     const result = await workerFetch(env, '/jobs', {
       method: 'POST',
       body: {
@@ -600,6 +610,8 @@ export async function onRequest(context) {
         // Viral builder never auto-runs generate; worker kicks analyze-only prepare.
         autoRun: writeFromScratch ? false : body.autoRun !== false,
         account: remixAccount || null,
+        voiceId: jobVoiceId,
+        voiceLabel: jobVoiceLabel,
         callbackUrl: new URL(request.url).origin + '/api/contentstation/character-remix-2-og',
         r2,
       },

@@ -97,8 +97,8 @@
     );
   }
 
-  function buildJohnnyCreateBody({ url, account, characterKey, title, listId }) {
-    return {
+  function buildJohnnyCreateBody({ url, account, characterKey, title, listId, voiceId, voiceLabel }) {
+    const body = {
       action: 'from-tiktok',
       tiktokUrl: url,
       characterKey,
@@ -124,6 +124,13 @@
       title: title || TITLE_DEFAULT,
       autoRun: true,
     };
+    const vid = voiceId || accountsUi?.voiceId?.() || '';
+    const vlab = voiceLabel || accountsUi?.voiceLabel?.() || '';
+    if (vid) {
+      body.voiceId = vid;
+      if (vlab) body.voiceLabel = vlab;
+    }
+    return body;
   }
 
   function setError(msg) {

@@ -807,10 +807,57 @@ a { color: var(--accent); }
   padding: 0.35rem 0.4rem;
   border: 1px solid transparent;
   background: transparent;
+  position: relative;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.account-voice-badge {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.2rem;
+  font-size: 0.62rem;
+  line-height: 1;
+  padding: 0.12rem 0.28rem;
+  border-radius: 999px;
+  background: rgba(20, 120, 80, 0.12);
+  color: #0d6b45;
+  border: 1px solid rgba(20, 120, 80, 0.25);
+}
+
+.voice-lock-wrap {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.voice-catalog-wrap {
+  margin-top: 0.65rem;
+}
+
+.voice-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.45rem 0.65rem;
+  margin: 0.55rem 0 0.65rem;
+}
+
+.voice-catalog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+}
+
+.voice-catalog-label {
+  font-weight: 650;
+}
+
+.voice-catalog-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
 }
 
 .account-character-item.is-selected .account-character-btn {

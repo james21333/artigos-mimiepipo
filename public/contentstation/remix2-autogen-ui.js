@@ -85,6 +85,8 @@
           jobs.push({
             account: p.account,
             characterKey: p.characterKey,
+            voiceId: p.voiceId || null,
+            voiceLabel: p.voiceLabel || null,
             pick: 'random',
             leftover: p.leftover,
           });
@@ -101,6 +103,8 @@
           jobs.push({
             account: p.account,
             characterKey: p.characterKey,
+            voiceId: p.voiceId || null,
+            voiceLabel: p.voiceLabel || null,
             url: item.url,
           });
         }
@@ -122,7 +126,7 @@
           continue;
         }
         for (const url of urls) {
-          jobs.push({ account: p.account, characterKey: p.characterKey, url });
+          jobs.push({ account: p.account, characterKey: p.characterKey, voiceId: p.voiceId || null, voiceLabel: p.voiceLabel || null, url });
         }
       }
       return { jobs, blocked, urls };
@@ -224,7 +228,7 @@
           const sub = document.createElement('span');
           sub.textContent = blocked
             ? 'Save a character for this account before autogenerate'
-            : `${p.leftoverCount} leftover · ${p.remixedCount} already remixed · ${p.poolCount} on list`;
+            : `${p.leftoverCount} leftover · ${p.remixedCount} already remixed · ${p.poolCount} on list${p.voiceId ? ` · voice ${p.voiceLabel || p.voiceId}` : ''}`;
           meta.appendChild(nameEl);
           meta.appendChild(sub);
           const count = document.createElement('span');
@@ -414,6 +418,8 @@
               url,
               account: item.account,
               characterKey: item.characterKey,
+              voiceId: item.voiceId,
+              voiceLabel: item.voiceLabel,
               title: work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
               listId: getListId(),
             });
@@ -508,6 +514,8 @@
             url: item.url,
             account: item.account,
             characterKey: item.characterKey,
+            voiceId: item.voiceId,
+            voiceLabel: item.voiceLabel,
             title: `${baseTitle} (${item.account})`,
             listId: getListId(),
           });
