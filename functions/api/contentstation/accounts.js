@@ -443,7 +443,7 @@ export async function onRequestPost(context) {
     const builtIns = [...byLabel.values()]
       .filter((v) => v.source === 'built_in' && v.voiceId)
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-    const merged = [...customSlots, ...builtIns].slice(0, 40);
+    const merged = [...customSlots, ...builtIns].slice(0, 50);
     const withIds = merged.filter((v) => v.voiceId);
     if (!withIds.length) {
       return json(
