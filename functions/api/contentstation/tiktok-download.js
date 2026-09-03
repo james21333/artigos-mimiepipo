@@ -5,18 +5,6 @@ import {
   ensureTikTokSeenIndex,
   listSeenTikToks,
 } from '../../lib/tiktok-download-seen.js';
-import { addUrlsToList, DEFAULT_LIST_ID } from '../../lib/tiktok-url-lists.js';
-
-async function rememberDownloadOnList(env, body, url, extra = {}) {
-  try {
-    await addUrlsToList(env, body?.listId || DEFAULT_LIST_ID, [url], {
-      addedFrom: 'tiktok-download',
-      tiktokId: extra.tiktokId,
-    });
-  } catch {
-    /* list write must not block download */
-  }
-}
 
 /**
  * POST { url, smallerFile?, allowDuplicate? }
@@ -27,7 +15,7 @@ async function rememberDownloadOnList(env, body, url, extra = {}) {
  */
 export async function onRequestPost(context) {
   try {
-    const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.KENNETH]);
+    const auth = await requireRole(context, [ROLES.DOWNLOAD]);
     if (!auth.ok) return auth.response;
 
     const bucket = context.env.MEDIA_BUCKET;
@@ -74,9 +62,6 @@ export async function onRequestPost(context) {
       seenSource: 'tiktok-download',
     });
     if (!result.ok) {
-      if (result.error === 'already_downloaded') {
-        await rememberDownloadOnList(context.env, body, url, { tiktokId: result.tiktokId });
-      }
       const messages = {
         api_key_missing: 'Download isn’t configured yet.',
         resolve_failed: 'Could not reach the download service. Try again.',
@@ -112,10 +97,6 @@ export async function onRequestPost(context) {
       );
     }
 
-    await rememberDownloadOnList(context.env, body, result.tiktokUrl || url, {
-      tiktokId: result.tiktokId || result.meta?.tiktokId,
-    });
-
     return json({
       status: 'ok',
       key: result.key,
@@ -142,7 +123,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestGet(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD]);
   if (!auth.ok) return auth.response;
 
   const url = new URL(context.request.url);

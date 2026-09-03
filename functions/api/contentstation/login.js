@@ -19,7 +19,7 @@ export async function onRequestPost(context) {
       {
         error: 'password_not_configured',
         message:
-          'Set CONTENT_STATION_PASSWORD (and/or DOWNLOAD/READY/KENNETH role passwords) in Cloudflare Pages environment variables.',
+          'Set CONTENT_STATION_PASSWORD (and/or DOWNLOAD/READY role passwords) in Cloudflare Pages environment variables.',
       },
       500,
     );

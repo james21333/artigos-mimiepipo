@@ -418,7 +418,8 @@ export async function onRequestPost(context) {
       // Prefer custom over built-in when names collide.
       const prev = byLabel.get(label);
       if (prev?.voiceId && source !== 'custom' && prev.source === 'custom') continue;
-      byLabel.set(label, { label, voiceId, source: source || undefined });
+      const gender = String(row?.gender || '').trim() || undefined;
+      byLabel.set(label, { label, voiceId, source: source || undefined, gender });
     }
     if (!byLabel.has('1')) byLabel.set('1', { label: '1', voiceId: null });
     if (!byLabel.has('2')) byLabel.set('2', { label: '2', voiceId: null });

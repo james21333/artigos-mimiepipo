@@ -293,14 +293,33 @@
       none.value = '';
       none.textContent = '— Pick voice —';
       els.voiceLockSelect.appendChild(none);
-      for (const v of voiceCatalog) {
-        if (!v.label) continue;
-        const opt = document.createElement('option');
-        opt.value = v.label;
-        const idHint = v.voiceId ? ` · ${v.voiceId}` : ' · (no id yet)';
-        opt.textContent = `Voice ${v.label}${idHint}`;
-        opt.disabled = !v.voiceId;
-        els.voiceLockSelect.appendChild(opt);
+      const customs = voiceCatalog.filter((v) => v.source === 'custom' || (!v.source && v.label));
+      const builtIns = voiceCatalog.filter((v) => v.source === 'built_in');
+      if (customs.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Custom voices';
+        for (const v of customs) {
+          if (!v.label) continue;
+          const opt = document.createElement('option');
+          opt.value = v.label;
+          opt.textContent = v.label + (v.voiceId ? '' : ' (no id)');
+          opt.disabled = !v.voiceId;
+          grp.appendChild(opt);
+        }
+        els.voiceLockSelect.appendChild(grp);
+      }
+      if (builtIns.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Built-in voices';
+        for (const v of builtIns) {
+          if (!v.label) continue;
+          const opt = document.createElement('option');
+          opt.value = v.label;
+          opt.textContent = v.label + (v.gender ? ` (${v.gender})` : '');
+          opt.disabled = !v.voiceId;
+          grp.appendChild(opt);
+        }
+        els.voiceLockSelect.appendChild(grp);
       }
       const pick =
         current && voiceCatalog.some((v) => v.label === current)
