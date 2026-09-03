@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content Station | Account upload queue</title>
   <meta name="robots" content="noindex,nofollow">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=charlock1">
 </head>
 <body>
   <main class="gallery-main">
@@ -59,6 +59,22 @@
           </form>
         </div>
 
+        <section class="account-character-panel" id="account-character-panel">
+          <h2>Locked character</h2>
+          <p class="muted-line">Johnny, Autogenerate, and identity-lock remakes use this image for this account.</p>
+          <div id="character-preview-wrap" class="character-preview-wrap" hidden>
+            <img id="character-preview" alt="Locked character" class="character-preview">
+          </div>
+          <p id="character-lock-empty" class="muted-line">No character locked yet.</p>
+          <label for="character-file">Choose image</label>
+          <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+          <div class="row">
+            <button type="button" id="save-character-btn" disabled>Save character lock</button>
+          </div>
+          <p id="save-character-status" class="muted-line" hidden></p>
+          <p id="character-account-hint" class="muted-line"></p>
+        </section>
+
         <p id="gallery-status" class="status" aria-live="polite">Loading…</p>
         <p id="gallery-error" class="error" hidden></p>
 
@@ -74,6 +90,7 @@
     </p>
   </main>
   <script src="./auth-gate.js"></script>
-  <script src="./ready-account-app.js?v=postinfo2"></script>
+  <script src="./remix2-account-ui.js?v=charlock1"></script>
+  <script src="./ready-account-app.js?v=charlock1"></script>
 </body>
 </html>

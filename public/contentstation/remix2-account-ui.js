@@ -154,6 +154,52 @@
       els.railEmpty = document.getElementById('account-character-rail-empty');
     }
 
+    function refreshCharacterEls() {
+      els.historyWrap = document.getElementById('character-history-wrap');
+      els.historySelect = document.getElementById('character-history-select');
+      els.setDefaultBtn = document.getElementById('set-character-default-btn');
+      els.saveBtn = document.getElementById('save-character-btn');
+      els.saveStatus = document.getElementById('save-character-status');
+      els.characterPreview = document.getElementById('character-preview');
+      els.characterPreviewWrap = document.getElementById('character-preview-wrap');
+      els.characterFile = document.getElementById('character-file');
+      els.characterHint = document.getElementById('character-account-hint');
+    }
+
+    function ensureCharacterLockUi() {
+      const picker = document.getElementById('account-picker');
+      if (picker && !document.getElementById('character-file')) {
+        const wrap = document.createElement('div');
+        wrap.id = 'character-lock-wrap';
+        wrap.className = 'character-lock-wrap';
+        wrap.innerHTML = `
+          <label for="character-file">Locked character image</label>
+          <p class="muted-line">Saved to this Ready account. Johnny / Autogenerate use it as identity lock.</p>
+          <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+          <div id="character-preview-wrap" class="character-preview-wrap" hidden>
+            <img id="character-preview" alt="Locked character" class="character-preview">
+          </div>
+          <p id="character-account-hint" class="muted-line"></p>
+          <div class="row">
+            <button type="button" id="save-character-btn" disabled>Save character to this account</button>
+          </div>
+          <p id="save-character-status" class="muted-line" hidden></p>
+          <div id="character-history-wrap" class="character-history-wrap" hidden>
+            <label for="character-history-select">Previously used for this account</label>
+            <div class="row">
+              <select id="character-history-select" class="account-select">
+                <option value="">— Saved characters —</option>
+              </select>
+              <button type="button" id="set-character-default-btn" class="ghost" hidden>Set as default</button>
+            </div>
+          </div>`;
+        const voice = document.getElementById('voice-lock-wrap');
+        if (voice) picker.insertBefore(wrap, voice);
+        else picker.appendChild(wrap);
+      }
+      refreshCharacterEls();
+    }
+
     function ensureVoiceLockUi() {
       const picker = document.getElementById('account-picker');
       if (!picker || document.getElementById('voice-lock-wrap')) return;
@@ -630,6 +676,7 @@
 
     async function loadAccounts(prefer) {
       ensureAccountRail();
+      ensureCharacterLockUi();
       ensureVoiceLockUi();
       const { ok, data } = await api('/api/contentstation/accounts?action=list');
       if (!ok) {
@@ -772,6 +819,8 @@
     }
 
     function bind() {
+      ensureCharacterLockUi();
+      ensureVoiceLockUi();
       els.select?.addEventListener('change', () => {
         applyAccountCharacter(els.select.value || '');
       });
@@ -835,8 +884,35 @@
     };
   }
 
+  async function lockCharacterImage(api, account, file, { key } = {}) {
+    const name = String(account || '').trim();
+    if (!name) throw new Error('Pick an account first.');
+    let nextKey = key || '';
+    if (file) {
+      const prefix = `account-characters/${accountSlug(name)}/`;
+      const form = new FormData();
+      form.append('file', file, file.name || 'image.png');
+      form.append('prefix', prefix);
+      const { ok, data } = await api('/api/contentstation/media', { method: 'POST', body: form });
+      if (!ok || !data?.object?.key) {
+        throw new Error((data && (data.message || data.error)) || 'Character upload failed.');
+      }
+      nextKey = data.object.key;
+    }
+    if (!nextKey) throw new Error('Choose a character image to save.');
+    const { ok, data } = await api('/api/contentstation/accounts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'set-character', account: name, key: nextKey }),
+    });
+    if (!ok) {
+      throw new Error((data && (data.message || data.error)) || 'Could not save character.');
+    }
+    return data;
+  }
+
   global.CSRemix2Accounts = {
     createController,
+    lockCharacterImage,
     compareAccountNames,
     accountSlug,
     mediaUrl,

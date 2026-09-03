@@ -17,40 +17,15 @@
   const editAccountForm = document.getElementById('edit-account-form');
   const editAccountName = document.getElementById('edit-account-name');
   const editAccountCancel = document.getElementById('edit-account-cancel');
-  const characterPreview = document.getElementById('account-character-preview');
-  const characterPreviewWrap = document.getElementById('account-character-preview-wrap');
-  const characterFile = document.getElementById('account-character-file');
-  const saveCharacterBtn = document.getElementById('save-account-character-btn');
-  const characterStatus = document.getElementById('account-character-status');
+  const characterFile = document.getElementById('character-file');
+  const characterPreview = document.getElementById('character-preview');
+  const characterPreviewWrap = document.getElementById('character-preview-wrap');
+  const characterEmpty = document.getElementById('character-lock-empty');
+  const saveCharacterBtn = document.getElementById('save-character-btn');
+  const saveCharacterStatus = document.getElementById('save-character-status');
+  const characterHint = document.getElementById('character-account-hint');
 
   let accountsCache = [];
-
-  function accountSlug(name) {
-    return (
-      String(name || '')
-        .trim()
-        .replace(/[\/\\]/g, '-')
-        .replace(/[^a-zA-Z0-9._\-]+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .slice(0, 80) || 'account'
-    );
-  }
-
-  function setCharacterStatus(msg) {
-    if (!characterStatus) return;
-    characterStatus.textContent = msg || '';
-  }
-
-  function showCharacterPreview(url) {
-    if (!characterPreview || !characterPreviewWrap) return;
-    if (!url) {
-      characterPreviewWrap.hidden = true;
-      characterPreview.removeAttribute('src');
-      return;
-    }
-    characterPreview.src = url;
-    characterPreviewWrap.hidden = false;
-  }
 
   function setAccountHeading(name) {
     accountTitle.textContent = name || 'Account';
@@ -95,6 +70,71 @@
     gate.hidden = true;
     app.hidden = false;
     sessionMeta.textContent = 'Signed in';
+  }
+
+  function setCharacterStatus(msg) {
+    if (!saveCharacterStatus) return;
+    if (msg) {
+      saveCharacterStatus.hidden = false;
+      saveCharacterStatus.textContent = msg;
+    } else {
+      saveCharacterStatus.hidden = true;
+      saveCharacterStatus.textContent = '';
+    }
+  }
+
+  function showCharacter(url) {
+    if (!characterPreview || !characterPreviewWrap) return;
+    if (!url) {
+      characterPreviewWrap.hidden = true;
+      characterPreview.removeAttribute('src');
+      if (characterEmpty) characterEmpty.hidden = false;
+      return;
+    }
+    characterPreview.src = url;
+    characterPreviewWrap.hidden = false;
+    if (characterEmpty) characterEmpty.hidden = true;
+  }
+
+  async function loadCharacter() {
+    if (!accountName) return;
+    const { ok, data } = await api('/api/contentstation/accounts?action=characters');
+    const chars = (ok && data && data.characters) || {};
+    const hit =
+      chars[accountName] ||
+      Object.values(chars).find(
+        (c) => String(c?.account || '').toLowerCase() === accountName.toLowerCase(),
+      );
+    const url = hit && (hit.publicUrl || hit.downloadPath);
+    showCharacter(url || '');
+    if (characterHint) {
+      characterHint.textContent = url
+        ? 'Replace the image and Save to update the lock.'
+        : 'Choose an image and Save to lock it to this account.';
+    }
+    if (saveCharacterBtn) {
+      saveCharacterBtn.disabled = !(characterFile && characterFile.files && characterFile.files[0]);
+    }
+  }
+
+  async function saveCharacterLock() {
+    const file = characterFile && characterFile.files && characterFile.files[0];
+    const lock = window.CSRemix2Accounts && window.CSRemix2Accounts.lockCharacterImage;
+    if (!lock) throw new Error('Character saver failed to load. Refresh the page.');
+    if (!file) throw new Error('Choose a character image to save.');
+    if (saveCharacterBtn) saveCharacterBtn.disabled = true;
+    setCharacterStatus('Uploading character…');
+    try {
+      const data = await lock(api, accountName, file);
+      characterFile.value = '';
+      showCharacter(data.publicUrl || data.downloadPath || '');
+      setCharacterStatus(`Saved character for ${accountName}.`);
+      if (characterHint) {
+        characterHint.textContent = 'Replace the image and Save to update the lock.';
+      }
+    } finally {
+      if (saveCharacterBtn) saveCharacterBtn.disabled = true;
+    }
   }
 
   function setError(msg) {
@@ -455,62 +495,6 @@
     galleryStatus.textContent = `${cards.length} video${cards.length === 1 ? '' : 's'} · ${posted} posted · ${left} left`;
   }
 
-  async function loadCharacter() {
-    if (!accountName) return;
-    const { ok, data } = await api(
-      `/api/contentstation/accounts?action=character&account=${encodeURIComponent(accountName)}`,
-    );
-    if (!ok) return;
-    const url = data.publicUrl || data.downloadPath || '';
-    showCharacterPreview(url);
-    setCharacterStatus(
-      url ? 'Saved character for this account.' : 'No character saved yet.',
-    );
-  }
-
-  async function saveCharacterToAccount() {
-    const file = characterFile?.files?.[0];
-    if (!accountName) {
-      setError('Missing account name in the URL.');
-      return;
-    }
-    if (!file) {
-      setError('Choose a character image first.');
-      return;
-    }
-    setError('');
-    if (saveCharacterBtn) saveCharacterBtn.disabled = true;
-    setCharacterStatus('Uploading character…');
-    try {
-      const form = new FormData();
-      form.append('file', file, file.name || 'image.png');
-      form.append('prefix', `account-characters/${accountSlug(accountName)}/`);
-      const up = await api('/api/contentstation/media', { method: 'POST', body: form });
-      if (!up.ok || !up.data?.object?.key) {
-        throw new Error(up.data?.message || up.data?.error || 'Character upload failed.');
-      }
-      const { ok, data } = await api('/api/contentstation/accounts', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'set-character',
-          account: accountName,
-          key: up.data.object.key,
-        }),
-      });
-      if (!ok) {
-        throw new Error((data && (data.message || data.error)) || 'Could not save character.');
-      }
-      if (characterFile) characterFile.value = '';
-      showCharacterPreview(data.publicUrl || data.downloadPath || '');
-      setCharacterStatus(`Saved character for ${accountName}.`);
-    } catch (err) {
-      setCharacterStatus('');
-      setError(err && err.message ? err.message : String(err));
-    } finally {
-      if (saveCharacterBtn) saveCharacterBtn.disabled = false;
-    }
-  }
-
   async function loadGallery() {
     if (!accountName) {
       setError('Missing account name in the URL.');
@@ -574,19 +558,25 @@
     showGate();
   });
 
-  refreshBtn.addEventListener('click', () => {
-    loadGallery().catch(() => {});
-  });
-
   characterFile?.addEventListener('change', () => {
-    const f = characterFile.files?.[0];
-    if (!f) return;
-    showCharacterPreview(URL.createObjectURL(f));
-    setCharacterStatus('New image selected — click Save character to this account.');
+    const f = characterFile.files && characterFile.files[0];
+    if (saveCharacterBtn) saveCharacterBtn.disabled = !f;
+    if (f) {
+      showCharacter(URL.createObjectURL(f));
+      setCharacterStatus('');
+    }
   });
 
   saveCharacterBtn?.addEventListener('click', () => {
-    saveCharacterToAccount().catch(() => {});
+    saveCharacterLock().catch((err) => {
+      setError(err && err.message ? err.message : String(err));
+      setCharacterStatus('');
+      if (saveCharacterBtn) saveCharacterBtn.disabled = false;
+    });
+  });
+
+  refreshBtn.addEventListener('click', () => {
+    loadGallery().catch(() => {});
   });
 
   function showEditForm(show) {

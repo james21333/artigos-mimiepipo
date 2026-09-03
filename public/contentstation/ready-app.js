@@ -108,16 +108,36 @@
       const link = document.createElement('a');
       link.className = 'account-card-link';
       link.href = `./ready-account.html?account=${encodeURIComponent(a.name)}`;
-      link.innerHTML = `
+
+      const thumbSrc = a.characterUrl || a.characterDownloadPath || '';
+      if (thumbSrc) {
+        const img = document.createElement('img');
+        img.className = 'account-card-character';
+        img.alt = '';
+        img.src = thumbSrc;
+        link.appendChild(img);
+      } else {
+        const ph = document.createElement('span');
+        ph.className = 'account-card-character is-empty';
+        ph.textContent = '—';
+        link.appendChild(ph);
+      }
+
+      const meta = document.createElement('span');
+      meta.className = 'account-card-meta';
+      meta.innerHTML = `
         <span class="account-card-name"></span>
         <span class="account-card-count muted-line"></span>
       `;
-      link.querySelector('.account-card-name').textContent = a.name;
+      meta.querySelector('.account-card-name').textContent = a.name;
       const n = a.count || 0;
       const voiceNote =
         a.voiceLocked !== false && a.voiceId ? ` · voice ${a.voiceLabel || a.voiceId}` : '';
-      link.querySelector('.account-card-count').textContent =
-        (n === 1 ? '1 video ready' : `${n} videos ready`) + voiceNote;
+      meta.querySelector('.account-card-count').textContent =
+        (n === 1 ? '1 video ready' : `${n} videos ready`) +
+        (a.characterKey ? ' · character locked' : ' · no character') +
+        voiceNote;
+      link.appendChild(meta);
 
       row.appendChild(link);
       if (canEditAccounts()) {
@@ -150,6 +170,38 @@
           e.preventDefault();
           deleteAccount(a.name).catch(() => {});
         });
+
+        const charSave = document.createElement('label');
+        charSave.className = 'account-card-character-save';
+        const file = document.createElement('input');
+        file.type = 'file';
+        file.accept = 'image/png,image/jpeg,image/webp,image/*';
+        file.setAttribute('aria-label', `Save character for ${a.name}`);
+        const saveLab = document.createElement('span');
+        saveLab.textContent = a.characterKey ? 'Replace image' : 'Lock image';
+        file.addEventListener('change', () => {
+          const f = file.files && file.files[0];
+          if (!f) return;
+          saveLab.textContent = 'Saving…';
+          file.disabled = true;
+          const lock =
+            window.CSRemix2Accounts && window.CSRemix2Accounts.lockCharacterImage;
+          if (!lock) {
+            setError('Character saver failed to load. Refresh the page.');
+            file.disabled = false;
+            return;
+          }
+          lock(api, a.name, f)
+            .then(() => loadAccounts())
+            .catch((err) => {
+              setError(err && err.message ? err.message : String(err));
+              saveLab.textContent = a.characterKey ? 'Replace image' : 'Lock image';
+              file.disabled = false;
+            });
+        });
+        charSave.appendChild(file);
+        charSave.appendChild(saveLab);
+        actions.appendChild(charSave);
 
         actions.appendChild(editBtn);
         actions.appendChild(archiveBtn);
