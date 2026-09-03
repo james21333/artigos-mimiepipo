@@ -29,7 +29,7 @@ const VOICES_CATALOG_KEY = 'meta/xai-custom-voices.json';
 
 const REMIX2_FINAL_RE = /^character-remix-2-og\/[^/]+\/final\.mp4$/i;
 const MAX_CHARACTER_HISTORY = 24;
-const MAX_CUSTOM_VOICES = 30;
+const MAX_CUSTOM_VOICES = 40; // built-ins (~28) + clones (xAI team cap 30)
 const VOICE_ID_RE = /^[a-z0-9]{4,32}$/i;
 
 export const ACCOUNT_CHARACTERS_PREFIX = 'account-characters/';

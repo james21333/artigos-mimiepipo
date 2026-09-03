@@ -174,11 +174,11 @@
         </div>
         <p id="voice-lock-status" class="muted-line" hidden></p>
         <details id="voice-catalog-wrap" class="voice-catalog-wrap">
-          <summary>Team voice catalog (paste xAI Voice IDs)</summary>
-          <p class="muted-line">Names like <strong>1</strong> and <strong>2</strong> match your xAI console clones. Copy Voice ID from each card (⋯ → Copy Voice ID).</p>
+          <summary>Team voice catalog (Grok / xAI Voice IDs)</summary>
+          <p class="muted-line">Import pulls built-in Grok voices + any custom clones on the same Grok/xAI auth Johnny uses. Slots <strong>1</strong> / <strong>2</strong> stay reserved for your clones — paste Voice ID if Import leaves them blank.</p>
           <div id="voice-catalog-inputs" class="voice-catalog-grid"></div>
           <div class="row">
-            <button type="button" id="voice-catalog-pull-btn" class="ghost">Import from xAI team</button>
+            <button type="button" id="voice-catalog-pull-btn" class="ghost">Import from Grok / xAI</button>
             <button type="button" id="voice-catalog-save-btn" class="ghost">Save catalog</button>
           </div>
           <p id="voice-catalog-status" class="muted-line" hidden></p>
@@ -316,8 +316,14 @@
         renderVoiceCatalogInputs();
         fillVoiceLockSelect();
         renderRail();
+        const customN = data.customCount ?? data.customTotal;
+        const builtN = data.builtInCount;
+        const extra =
+          customN != null || builtN != null
+            ? ` (custom ${customN ?? '?'}/${data.customCap ?? 30}, built-in ${builtN ?? '?'})`
+            : '';
         setVoiceCatalogStatus(
-          `Imported ${data.imported ?? data.xaiCount ?? voiceCatalog.length} voice(s) from xAI.`,
+          `Imported ${data.imported ?? data.xaiCount ?? voiceCatalog.length} voice(s) from Grok/xAI${extra}.`,
         );
         setAccountError('');
       } finally {

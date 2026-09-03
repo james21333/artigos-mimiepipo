@@ -409,37 +409,56 @@ export async function onRequestPost(context) {
     const remote = Array.isArray(xai.data?.voices) ? xai.data.voices : [];
     const current = await getVoiceCatalog(env);
     const byLabel = new Map((current.voices || []).map((v) => [v.label, { ...v }]));
+    // Keep reserved slots 1/2 for your clones; fill from custom names when present.
     for (const row of remote) {
+      const source = String(row?.source || '').trim();
       const label = String(row?.name || '').trim();
       const voiceId = String(row?.voice_id || '').trim().toLowerCase();
       if (!label || !voiceId) continue;
-      byLabel.set(label, { label, voiceId });
+      // Prefer custom over built-in when names collide.
+      const prev = byLabel.get(label);
+      if (prev?.voiceId && source !== 'custom' && prev.source === 'custom') continue;
+      byLabel.set(label, { label, voiceId, source: source || undefined });
     }
     if (!byLabel.has('1')) byLabel.set('1', { label: '1', voiceId: null });
     if (!byLabel.has('2')) byLabel.set('2', { label: '2', voiceId: null });
-    const merged = ['1', '2', ...[...byLabel.keys()].filter((k) => k !== '1' && k !== '2').sort()]
+    const reserved = ['1', '2'];
+    const rest = [...byLabel.keys()]
+      .filter((k) => !reserved.includes(k))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const merged = [...reserved, ...rest]
       .map((label) => byLabel.get(label))
       .filter(Boolean)
-      .slice(0, 30);
-    const hasAny = merged.some((v) => v.voiceId);
-    if (!hasAny) {
-      return json({
-        ok: false,
-        error: 'no_xai_voices',
-        message:
-          'xAI returned no custom voices for the worker OAuth team. Paste Voice IDs from console (⋯ → Copy Voice ID) for voices 1 and 2.',
-        voices: merged,
-        xaiCount: remote.length,
-      }, 400);
+      .slice(0, 40);
+    const withIds = merged.filter((v) => v.voiceId);
+    if (!withIds.length) {
+      return json(
+        {
+          ok: false,
+          error: 'no_xai_voices',
+          message:
+            'Grok/xAI auth returned no voice IDs. Check SuperGrok login on the worker, then retry Import.',
+          voices: merged,
+          xaiCount: remote.length,
+          customCount: xai.data?.customCount ?? null,
+          builtInCount: xai.data?.builtInCount ?? null,
+        },
+        400,
+      );
     }
-    const save = await setVoiceCatalog(
-      env,
-      merged.filter((v) => v.voiceId),
-    );
+    const save = await setVoiceCatalog(env, withIds);
     if (!save.ok) {
       return json({ ok: false, error: 'set_voice_catalog_failed', message: save.error }, 400);
     }
-    return json({ ...save, xaiCount: remote.length, imported: remote.length });
+    return json({
+      ...save,
+      xaiCount: remote.length,
+      imported: withIds.length,
+      customCount: xai.data?.customCount ?? null,
+      builtInCount: xai.data?.builtInCount ?? null,
+      customTotal: xai.data?.customTotal ?? null,
+      customCap: xai.data?.customCap ?? null,
+    });
   }
 
   return json({ ok: false, error: 'unknown_action', message: 'Unknown action.' }, 400);
