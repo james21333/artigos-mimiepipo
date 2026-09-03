@@ -488,9 +488,13 @@
     if (data?.scenes) renderScenes(data);
     const errEl = card.querySelector('.result-error');
     if (errEl) {
-      if (stage === 'error' || data?.error) {
+      if (stage === 'error' || stage === 'provider_give_up' || data?.error) {
         errEl.hidden = false;
         errEl.textContent = data?.message || data?.error || 'Failed';
+      } else {
+        // Clear stale errors after requeue / resume (e.g. Codex venv fixed mid-batch).
+        errEl.hidden = true;
+        errEl.textContent = '';
       }
     }
     if (stage === 'error') setError(data?.message || data?.error || 'Job failed');
@@ -705,8 +709,10 @@
       startPoll();
       setStatus(`Resuming ${batchJobs.length} test job(s)…`);
     } else if (cfg.autogen) {
+      syncBatchActionsVisibility();
       setStatus('Ready — Autogenerate leftovers above, or paste URLs / run a manual Stub Fix.');
     } else {
+      syncBatchActionsVisibility();
       setStatus('Ready — uses the account character + the TikTok URL, then shows the video below.');
     }
   }
