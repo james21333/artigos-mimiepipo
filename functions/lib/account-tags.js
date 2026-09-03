@@ -226,10 +226,16 @@ function normalizeVoiceCatalog(raw) {
   for (const row of voices) {
     if (!row || typeof row !== 'object') continue;
     const label = String(row.label || '').trim();
-    const voiceId = String(row.voiceId || '').trim() || null;
+    const voiceIdRaw = String(row.voiceId || '').trim();
+    const voiceId = voiceIdRaw && VOICE_ID_RE.test(voiceIdRaw) ? voiceIdRaw.toLowerCase() : null;
     if (!label || seen.has(label)) continue;
     seen.add(label);
-    out.push({ label, voiceId: voiceId && VOICE_ID_RE.test(voiceId) ? voiceId.toLowerCase() : null });
+    const entry = { label, voiceId };
+    const source = String(row.source || '').trim();
+    if (source) entry.source = source;
+    const gender = String(row.gender || '').trim();
+    if (gender) entry.gender = gender;
+    out.push(entry);
     if (out.length >= MAX_CUSTOM_VOICES) break;
   }
   return out;
@@ -255,10 +261,9 @@ export async function setVoiceCatalog(env, voicesRaw) {
   if (!voices.length) {
     return { ok: false, error: 'Add at least one voice label + voice_id.' };
   }
-  for (const v of voices) {
-    if (!v.voiceId) {
-      return { ok: false, error: `Voice “${v.label}” is missing a valid voice_id.` };
-    }
+  const withIds = voices.filter((v) => v.voiceId);
+  if (!withIds.length) {
+    return { ok: false, error: 'Add at least one voice with a valid voice_id.' };
   }
   await writeJson(bucket, VOICES_CATALOG_KEY, {
     voices,

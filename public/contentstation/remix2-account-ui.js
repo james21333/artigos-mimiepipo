@@ -263,14 +263,27 @@
       });
     }
 
+    function catalogCustomRows() {
+      const fromCatalog = voiceCatalog.filter(
+        (v) => v.source === 'custom' || (/^\d+$/.test(String(v.label || '')) && v.source !== 'built_in'),
+      );
+      const byLabel = new Map(fromCatalog.map((v) => [String(v.label), v]));
+      const rows = [];
+      for (let n = 1; n <= 20; n += 1) {
+        const label = String(n);
+        rows.push(byLabel.get(label) || { label, voiceId: null, source: 'custom' });
+      }
+      return rows;
+    }
+
     function renderVoiceCatalogInputs() {
       if (!els.voiceCatalogInputs) return;
       els.voiceCatalogInputs.innerHTML = '';
-      const rows = voiceCatalog.length ? voiceCatalog : [{ label: '1', voiceId: '' }, { label: '2', voiceId: '' }];
-      for (const row of rows.slice(0, 30)) {
+      const customRows = catalogCustomRows();
+      for (const row of customRows) {
         const field = document.createElement('label');
         field.className = 'voice-catalog-field';
-        field.innerHTML = `<span class="voice-catalog-label">${row.label}</span>`;
+        field.innerHTML = `<span class="voice-catalog-label">${row.label} (custom)</span>`;
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'voice-catalog-id';
@@ -293,8 +306,8 @@
       none.value = '';
       none.textContent = '— Pick voice —';
       els.voiceLockSelect.appendChild(none);
-      const customs = voiceCatalog.filter((v) => v.source === 'custom' || (!v.source && v.label));
-      const builtIns = voiceCatalog.filter((v) => v.source === 'built_in');
+      const customs = catalogCustomRows().filter((v) => v.voiceId);
+      const builtIns = voiceCatalog.filter((v) => v.source === 'built_in' && v.voiceId);
       if (customs.length) {
         const grp = document.createElement('optgroup');
         grp.label = 'Custom voices';
@@ -403,7 +416,10 @@
         const label = String(input.dataset.label || '').trim();
         const voiceIdVal = String(input.value || '').trim().toLowerCase();
         if (!label) continue;
-        voices.push({ label, voiceId: voiceIdVal || null });
+        voices.push({ label, voiceId: voiceIdVal || null, source: 'custom' });
+      }
+      for (const v of voiceCatalog) {
+        if (v.source === 'built_in' && v.voiceId) voices.push({ ...v });
       }
       const { ok, data } = await api('/api/contentstation/accounts', {
         method: 'POST',

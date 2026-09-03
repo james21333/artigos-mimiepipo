@@ -409,28 +409,41 @@ export async function onRequestPost(context) {
     const remote = Array.isArray(xai.data?.voices) ? xai.data.voices : [];
     const current = await getVoiceCatalog(env);
     const byLabel = new Map((current.voices || []).map((v) => [v.label, { ...v }]));
-    // Keep reserved slots 1/2 for your clones; fill from custom names when present.
+
+    // Preserve known custom slots 1–30 (paste targets for console clones).
+    for (let n = 1; n <= 30; n += 1) {
+      const label = String(n);
+      if (!byLabel.has(label)) byLabel.set(label, { label, voiceId: null, source: 'custom' });
+    }
+
     for (const row of remote) {
       const source = String(row?.source || '').trim();
       const label = String(row?.name || '').trim();
       const voiceId = String(row?.voice_id || '').trim().toLowerCase();
       if (!label || !voiceId) continue;
-      // Prefer custom over built-in when names collide.
+      const gender = String(row?.gender || '').trim() || undefined;
+      if (source === 'built_in') {
+        // Stock Grok voices — female only for lock dropdown.
+        if (gender && gender !== 'female') continue;
+        byLabel.set(label, { label, voiceId, source: 'built_in', gender });
+        continue;
+      }
+      // Custom clone from xAI team (names like 1, 2, 3…).
       const prev = byLabel.get(label);
       if (prev?.voiceId && source !== 'custom' && prev.source === 'custom') continue;
-      const gender = String(row?.gender || '').trim() || undefined;
-      byLabel.set(label, { label, voiceId, source: source || undefined, gender });
+      byLabel.set(label, { label, voiceId, source: 'custom', gender });
     }
-    if (!byLabel.has('1')) byLabel.set('1', { label: '1', voiceId: null });
-    if (!byLabel.has('2')) byLabel.set('2', { label: '2', voiceId: null });
-    const reserved = ['1', '2'];
-    const rest = [...byLabel.keys()]
-      .filter((k) => !reserved.includes(k))
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    const merged = [...reserved, ...rest]
-      .map((label) => byLabel.get(label))
-      .filter(Boolean)
-      .slice(0, 40);
+
+    const customSlots = [];
+    for (let n = 1; n <= 30; n += 1) {
+      const label = String(n);
+      const row = byLabel.get(label) || { label, voiceId: null, source: 'custom' };
+      customSlots.push({ ...row, label, source: 'custom' });
+    }
+    const builtIns = [...byLabel.values()]
+      .filter((v) => v.source === 'built_in' && v.voiceId)
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+    const merged = [...customSlots, ...builtIns].slice(0, 40);
     const withIds = merged.filter((v) => v.voiceId);
     if (!withIds.length) {
       return json(
@@ -447,7 +460,7 @@ export async function onRequestPost(context) {
         400,
       );
     }
-    const save = await setVoiceCatalog(env, withIds);
+    const save = await setVoiceCatalog(env, merged);
     if (!save.ok) {
       return json({ ok: false, error: 'set_voice_catalog_failed', message: save.error }, 400);
     }
