@@ -369,7 +369,8 @@
   function syncBatchActionsVisibility() {
     const hasCards = Boolean(batchList && batchList.children.length);
     if (batchList) batchList.hidden = !hasCards;
-    if (batchActions) batchActions.hidden = !hasCards;
+    // Keep clear button visible whenever the control exists (empty clear is a no-op message).
+    if (batchActions) batchActions.hidden = false;
     if (outputGallery && !outputGallery.children.length) outputGallery.hidden = true;
   }
 
