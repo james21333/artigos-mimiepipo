@@ -488,16 +488,19 @@
     if (data?.scenes) renderScenes(data);
     const errEl = card.querySelector('.result-error');
     if (errEl) {
-      if (stage === 'error' || stage === 'provider_give_up' || data?.error) {
+      // Only keep the red error line for terminal failure stages.
+      // Requeued jobs often still have a stale errEl from before resume.
+      if (stage === 'error' || stage === 'provider_give_up') {
         errEl.hidden = false;
         errEl.textContent = data?.message || data?.error || 'Failed';
       } else {
-        // Clear stale errors after requeue / resume (e.g. Codex venv fixed mid-batch).
         errEl.hidden = true;
         errEl.textContent = '';
       }
     }
-    if (stage === 'error') setError(data?.message || data?.error || 'Job failed');
+    if (stage === 'error' || stage === 'provider_give_up') {
+      setError(data?.message || data?.error || 'Job failed');
+    }
     if (data?.outputUrl) job.outputUrl = data.outputUrl;
     if (data?.output_url) job.outputUrl = data.output_url;
     if (data?.stage) job.stage = data.stage;
