@@ -310,20 +310,20 @@
       const builtIns = voiceCatalog.filter((v) => v.source === 'built_in' && v.voiceId);
       if (customs.length) {
         const grp = document.createElement('optgroup');
-        grp.label = 'Custom voices';
+        grp.label = 'Custom voices (console only — not enabled for Grok video yet)';
         for (const v of customs) {
           if (!v.label) continue;
           const opt = document.createElement('option');
           opt.value = v.label;
-          opt.textContent = v.label + (v.voiceId ? '' : ' (no id)');
-          opt.disabled = !v.voiceId;
+          opt.textContent = `${v.label} (unavailable for Imagine)`;
+          opt.disabled = true;
           grp.appendChild(opt);
         }
         els.voiceLockSelect.appendChild(grp);
       }
       if (builtIns.length) {
         const grp = document.createElement('optgroup');
-        grp.label = 'Built-in voices';
+        grp.label = 'Built-in voices (Grok lock works)';
         for (const v of builtIns) {
           if (!v.label) continue;
           const opt = document.createElement('option');
