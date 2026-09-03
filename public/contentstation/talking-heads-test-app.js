@@ -49,6 +49,8 @@
   const scenesEl = document.getElementById('scenes-box');
   const outputGallery = document.getElementById('output-gallery');
   const batchList = document.getElementById('batch-list');
+  const batchActions = document.getElementById('batch-actions');
+  const clearFinishedBtn = document.getElementById('clear-finished-btn');
 
   let publicBaseUrl = '';
   let accountsCache = [];
@@ -364,9 +366,46 @@
     }
   }
 
+  function syncBatchActionsVisibility() {
+    const hasCards = Boolean(batchList && batchList.children.length);
+    if (batchList) batchList.hidden = !hasCards;
+    if (batchActions) batchActions.hidden = !hasCards;
+    if (outputGallery && !outputGallery.children.length) outputGallery.hidden = true;
+  }
+
+  function isTerminalStage(stage) {
+    return stage === 'stitched' || stage === 'error' || stage === 'provider_give_up';
+  }
+
+  function isTerminalJob(job) {
+    if (!job) return false;
+    const id = String(job.jobId || '');
+    if (id.startsWith('fail-') || id.startsWith('submit-failed-')) return true;
+    // Keep mid post-clean Voice Mod jobs on the list.
+    if (
+      POST_CLEAN_OPTS &&
+      (job.postCleanStarted || job.postCleanWorkId) &&
+      !job.postCleanDone &&
+      !job.postCleanError
+    ) {
+      return false;
+    }
+    if (isTerminalStage(job.stage)) return true;
+    if (!job.stage && job.outputUrl) return true;
+    return false;
+  }
+
+  function removeJobCard(jobId) {
+    const id = String(jobId || '');
+    if (!id) return;
+    batchList?.querySelector(`[data-job-id="${id}"]`)?.remove();
+    outputGallery?.querySelector(`[data-final-job="${id}"]`)?.remove();
+  }
+
   function ensureCard(job) {
     if (!batchList) return;
     batchList.hidden = false;
+    if (batchActions) batchActions.hidden = false;
     let card = batchList.querySelector(`[data-job-id="${job.jobId}"]`);
     if (card) return card;
     card = document.createElement('article');
@@ -377,6 +416,65 @@
       <p class="result-error error" hidden></p>`;
     batchList.appendChild(card);
     return card;
+  }
+
+  async function refreshJobStages() {
+    await Promise.all(
+      batchJobs.map(async (job) => {
+        if (!job?.jobId || isTerminalJob(job)) return;
+        try {
+          const { ok, data } = await api(
+            `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
+          );
+          if (ok && data?.stage) {
+            job.stage = data.stage;
+            if (data.stage === 'stitched') {
+              const finalUrl = resolveFinalUrl(job, data);
+              if (finalUrl) job.outputUrl = finalUrl;
+            }
+            updateCard(job, data);
+          }
+        } catch {
+          /* ignore refresh flake */
+        }
+      }),
+    );
+  }
+
+  async function clearFinishedFromList() {
+    setError('');
+    await refreshJobStages();
+    const finished = batchJobs.filter(isTerminalJob);
+    const orphanFailCards = batchList
+      ? Array.from(batchList.querySelectorAll('.download-result-card')).filter((card) => {
+          const id = String(card.dataset.jobId || '');
+          return id.startsWith('fail-') || id.startsWith('submit-failed-');
+        })
+      : [];
+    if (!finished.length && !orphanFailCards.length) {
+      setStatus('No finished jobs to clear.', 'In-flight and queued jobs stay on this list.');
+      return;
+    }
+    const ok = confirm(
+      `Clear ${finished.length + orphanFailCards.length} finished / errored job(s) from this list?\n\nIn-flight and queued jobs stay. Does not delete R2 files or Ready For Upload tags.`,
+    );
+    if (!ok) return;
+
+    const keep = [];
+    for (const job of batchJobs) {
+      if (isTerminalJob(job)) removeJobCard(job.jobId);
+      else keep.push(job);
+    }
+    batchJobs = keep;
+    for (const card of orphanFailCards) card.remove();
+    saveBatch();
+    syncBatchActionsVisibility();
+    setStatus(
+      keep.length
+        ? `Cleared finished / errors · ${keep.length} still on list`
+        : 'Cleared finished / errors from this list.',
+      'R2 finals and Ready For Upload tags are unchanged.',
+    );
   }
 
   function updateCard(job, data) {
@@ -443,6 +541,10 @@
       pollTimer = null;
     }
   }
+
+  clearFinishedBtn?.addEventListener('click', () => {
+    clearFinishedFromList().catch((err) => setError(err?.message || String(err)));
+  });
 
   runBtn?.addEventListener('click', async () => {
     setError('');
@@ -598,6 +700,7 @@
     }
     if (batchJobs.length) {
       for (const job of batchJobs) ensureCard(job);
+      syncBatchActionsVisibility();
       startPoll();
       setStatus(`Resuming ${batchJobs.length} test job(s)…`);
     } else if (cfg.autogen) {
