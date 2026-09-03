@@ -40,7 +40,7 @@ import {
   workerFetch,
   remix2R2Payload,
 } from '../../lib/character-remix-2-og.js';
-import { downloadTikTokToR2, looksLikeTikTokUrl } from '../../lib/tiktok-download.js';
+import { downloadTikTokToR2, looksLikeTikTokUrl, expandTikTokUrl } from '../../lib/tiktok-download.js';
 import { flattenPostMetaForStorage } from '../../lib/tiktok-post-info.js';
 import { getTagForKey, resolveAccountVoice, sanitizeAccountName, setVideoAccount } from '../../lib/account-tags.js';
 import {
@@ -278,7 +278,14 @@ export async function onRequest(context) {
     if (!remix2WorkerConfigured(env)) {
       return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
     }
-    const tiktokUrl = String(body.tiktokUrl || body.url || '').trim();
+    const tiktokUrlRaw = String(body.tiktokUrl || body.url || '').trim();
+    let tiktokUrl = tiktokUrlRaw;
+    try {
+      const expanded = await expandTikTokUrl(tiktokUrlRaw);
+      if (expanded) tiktokUrl = expanded;
+    } catch {
+      tiktokUrl = tiktokUrlRaw;
+    }
     const characterKey = body.characterKey || null;
     const versionRaw = String(body.version || 'v1').trim().toLowerCase();
     const remixVariantRaw = String(body.remixVariant || '').trim().toLowerCase().replace(/_/g, '-');

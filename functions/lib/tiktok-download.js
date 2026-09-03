@@ -22,10 +22,167 @@ import { extractMusicFromProvider, flattenPostMetaForStorage } from './tiktok-po
 const TIKLIVE_DOWNLOAD = 'https://api.tikliveapi.com/download-video/';
 const TIKLIVE_POST_DETAIL = 'https://api.tikliveapi.com/post-detail/';
 const LEGACY_RESOLVE_BASE = 'https://www.tikwm.com/api/';
+/** Pointer to newest R2 tiktok/*.mp4 for a video id (reuse when API flakes). */
+const CACHE_PREFIX = 'tiktok/_cache/';
 /** HD over this → fall back to no HD. */
 const MAX_HD_BYTES = 20 * 1024 * 1024;
 /** No HD (standard) hard cap — reject if still too big. */
 const MAX_SD_BYTES = 40 * 1024 * 1024;
+
+const BROWSER_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function cacheMarkerKey(tiktokId) {
+  const id = String(tiktokId || '')
+    .replace(/[^\d]/g, '')
+    .slice(0, 40);
+  if (!id) return null;
+  return `${CACHE_PREFIX}${id}.json`;
+}
+
+/**
+ * Expand /t/…, vm., vt. short links to a canonical /@user/video/{id} URL when possible.
+ * extractTikTokVideoId cannot read short paths, so this is required for cache + duplicate checks.
+ */
+export async function expandTikTokUrl(raw) {
+  const url = String(raw || '').trim();
+  if (!url || !looksLikeTikTokUrl(url)) return url;
+  try {
+    const u = new URL(url);
+    if (/\/(?:video|photo)\/\d{5,}/i.test(u.pathname)) {
+      u.search = '';
+      u.hash = '';
+      return u.toString();
+    }
+    const res = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'User-Agent': BROWSER_UA,
+      },
+    });
+    const finalUrl = String(res?.url || '').trim();
+    if (!finalUrl || !looksLikeTikTokUrl(finalUrl)) return url;
+    const f = new URL(finalUrl);
+    if (!/\/(?:video|photo)\/\d{5,}/i.test(f.pathname)) return url;
+    f.search = '';
+    f.hash = '';
+    return f.toString();
+  } catch {
+    return url;
+  }
+}
+
+async function writeCachePointer(bucket, tiktokId, mediaKey, meta = {}) {
+  const marker = cacheMarkerKey(tiktokId);
+  if (!bucket || !marker || !mediaKey) return;
+  try {
+    await bucket.put(
+      marker,
+      JSON.stringify({
+        tiktokId: String(tiktokId || '').replace(/[^\d]/g, ''),
+        key: String(mediaKey).slice(0, 300),
+        tiktokUrl: String(meta.tiktokUrl || '').slice(0, 400),
+        author: String(meta.author || '').slice(0, 80),
+        title: String(meta.title || '').slice(0, 200),
+        updatedAt: new Date().toISOString(),
+      }),
+      { httpMetadata: { contentType: 'application/json' } },
+    );
+  } catch {
+    /* ignore cache write failures */
+  }
+}
+
+async function findTikTokMp4ById(bucket, tiktokId) {
+  const id = String(tiktokId || '').replace(/[^\d]/g, '');
+  if (!bucket || !id) return null;
+  const needle = `_${id}_`;
+  let cursor;
+  let best = null;
+  do {
+    const listed = await bucket.list({ prefix: 'tiktok/', limit: 500, cursor });
+    for (const obj of listed.objects || []) {
+      const k = String(obj.key || '');
+      if (!k.endsWith('.mp4') || k.startsWith('tiktok/_') || !k.includes(needle)) continue;
+      if (!best || (obj.uploaded && (!best.uploaded || obj.uploaded > best.uploaded))) {
+        best = obj;
+      }
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+  return best;
+}
+
+/**
+ * Reuse a prior tiktok/{author}_{id}_{ts}.mp4 when TikLive/tikwm cannot resolve again.
+ * Not the same as tiktok/_used (clean blocklist) — Johnny/remix may re-use freely.
+ */
+async function resolveCachedDownload(bucket, tiktokId, tiktokUrl) {
+  const id = String(tiktokId || '').replace(/[^\d]/g, '');
+  if (!bucket || !id) return null;
+
+  let mediaKey = null;
+  let head = null;
+  const marker = cacheMarkerKey(id);
+  if (marker) {
+    try {
+      const obj = await bucket.get(marker);
+      if (obj) {
+        const data = JSON.parse(await obj.text());
+        const key = String(data?.key || '').trim();
+        if (key) {
+          head = await bucket.head(key);
+          if (head) mediaKey = key;
+        }
+      }
+    } catch {
+      /* fall through to list scan */
+    }
+  }
+
+  if (!mediaKey) {
+    const found = await findTikTokMp4ById(bucket, id);
+    if (found?.key) {
+      try {
+        head = await bucket.head(found.key);
+        if (head) mediaKey = found.key;
+      } catch {
+        mediaKey = null;
+      }
+    }
+  }
+  if (!mediaKey || !head) return null;
+
+  const cm = head.customMetadata || {};
+  const meta = {
+    id,
+    title: cm.title || '',
+    author: cm.author || '',
+    tiktokUrl: cm.tiktokUrl || cm.tiktokurl || String(tiktokUrl || '').trim(),
+    musicId: cm.musicId || cm.musicid || '',
+    musicTitle: cm.musicTitle || cm.musictitle || '',
+    musicAuthor: cm.musicAuthor || cm.musicauthor || '',
+    musicOriginal: cm.musicOriginal || cm.musicoriginal || '',
+    quality: cm.quality || 'standard',
+    size: head.size ?? null,
+  };
+  await writeCachePointer(bucket, id, mediaKey, meta);
+  return {
+    ok: true,
+    key: mediaKey,
+    size: head.size ?? null,
+    contentType: head.httpMetadata?.contentType || 'video/mp4',
+    downloadPath: `/api/contentstation/media?action=get&key=${encodeURIComponent(mediaKey)}`,
+    quality: meta.quality,
+    meta,
+    provider: 'r2_cache',
+    reused: true,
+    tikliveBalanceExhausted: false,
+    warning: null,
+  };
+}
 
 function sizeTooBigResult(bytes) {
   const mb = Math.round(Number(bytes) / (1024 * 1024));
@@ -121,7 +278,9 @@ async function resolveViaTikLive(env, tiktokUrl, { preferHd = true } = {}) {
     const detail =
       typeof apiMessage === 'string' && apiMessage.trim()
         ? apiMessage.trim()
-        : 'No downloadable video URL returned';
+        : d && typeof d === 'object' && ('video' in d || 'video_hd' in d)
+          ? 'TikLive returned empty video URLs (clip may be unavailable to the API)'
+          : 'No downloadable video URL returned';
     const exhausted = /balance|exhausted|purchase|credit|quota|limit/i.test(detail);
     return {
       ok: false,
@@ -405,23 +564,49 @@ async function fetchBytesViaCloudConvert(env, playUrl, filename) {
 export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   let preferHd = opts.preferHd !== false;
   const skipIfSeen = Boolean(opts.skipIfSeen);
+  const forceRedownload = Boolean(opts.forceRedownload);
+
+  // Short links (/t/…, vm.) must expand before id extract / TikLive — otherwise API + cache miss.
+  const expandedUrl = await expandTikTokUrl(tiktokUrl);
+  const workingUrl = expandedUrl || String(tiktokUrl || '').trim();
+  const idFromUrl = extractTikTokVideoId(workingUrl) || extractTikTokVideoId(tiktokUrl);
 
   if (skipIfSeen && bucket) {
     await ensureTikTokSeenIndex(bucket);
-    const idFromUrl = extractTikTokVideoId(tiktokUrl);
     if (idFromUrl) {
       const seen = await getSeenRecord(bucket, idFromUrl);
       if (seen) return alreadyDownloadedResult(seen);
     }
   }
 
-  let resolved = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd });
-  if (!resolved.ok) return resolved;
+  // Remix / Johnny: reuse prior R2 download when present (API often flakes on old clips).
+  // Download-page skipIfSeen path above still blocks cleaned/used videos.
+  if (!forceRedownload && !skipIfSeen && bucket && idFromUrl) {
+    const cached = await resolveCachedDownload(bucket, idFromUrl, workingUrl);
+    if (cached?.ok) return cached;
+  }
+
+  let resolved = await resolveTikTokPlayUrl(env, workingUrl, { preferHd });
+  if (!resolved.ok) {
+    if (!forceRedownload && bucket && idFromUrl) {
+      const cached = await resolveCachedDownload(bucket, idFromUrl, workingUrl);
+      if (cached?.ok) {
+        return {
+          ...cached,
+          warning: `Download API failed (${resolved.error || 'unknown'}); reused prior R2 copy.`,
+          primaryError: resolved.error || null,
+          primaryDetail: resolved.detail || null,
+        };
+      }
+    }
+    return resolved;
+  }
 
   if (skipIfSeen && bucket) {
     const id =
       String(resolved.meta?.id || resolved.meta?.tiktokId || '').replace(/[^\d]/g, '') ||
-      extractTikTokVideoId(tiktokUrl);
+      idFromUrl ||
+      extractTikTokVideoId(workingUrl);
     if (id) {
       const seen = await getSeenRecord(bucket, id);
       if (seen) return alreadyDownloadedResult(seen);
@@ -437,12 +622,12 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   if (preferHd && metaSize != null && metaSize >= MAX_HD_BYTES) {
     if (metaSize >= MAX_SD_BYTES) {
       // Known size already over the no-HD cap — only continue if a smaller stream exists.
-      const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+      const sd = await resolveTikTokPlayUrl(env, workingUrl, { preferHd: false });
       if (!sd.ok) return sizeTooBigResult(metaSize);
       resolved = sd;
       preferHd = false;
     } else {
-      const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+      const sd = await resolveTikTokPlayUrl(env, workingUrl, { preferHd: false });
       if (sd.ok) resolved = sd;
       // Under 40MB: allow download even if no separate SD stream (same URL as HD).
       preferHd = false;
@@ -459,16 +644,32 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
     return sizeTooBigResult(sdMetaSize);
   }
 
-  const idPart = sanitizeFilenamePart(resolved.meta.id || 'video');
+  const idPart = sanitizeFilenamePart(resolved.meta.id || idFromUrl || 'video');
   const authorPart = sanitizeFilenamePart(resolved.meta.author || 'tiktok');
   const filename = `${authorPart}_${idPart}.mp4`;
 
   let transferred = await fetchBytesViaCloudConvert(env, resolved.playUrl, filename);
-  if (!transferred.ok) return transferred;
+  if (!transferred.ok) {
+    // Transfer failed — still try R2 cache before giving up.
+    if (!forceRedownload && bucket && (resolved.meta?.id || idFromUrl)) {
+      const cached = await resolveCachedDownload(
+        bucket,
+        resolved.meta?.id || idFromUrl,
+        workingUrl,
+      );
+      if (cached?.ok) {
+        return {
+          ...cached,
+          warning: `Byte transfer failed (${transferred.error || 'unknown'}); reused prior R2 copy.`,
+        };
+      }
+    }
+    return transferred;
+  }
 
   // Meta size missing: HD came back ≥20MB → try a smaller stream once, then allow up to 40MB.
   if (preferHd && transferred.bytes.byteLength >= MAX_HD_BYTES) {
-    const sd = await resolveTikTokPlayUrl(env, tiktokUrl, { preferHd: false });
+    const sd = await resolveTikTokPlayUrl(env, workingUrl, { preferHd: false });
     if (sd.ok && sd.playUrl && sd.playUrl !== resolved.playUrl) {
       const retry = await fetchBytesViaCloudConvert(env, sd.playUrl, filename);
       if (!retry.ok) return retry;
@@ -487,7 +688,7 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   }
 
   const key = `tiktok/${authorPart}_${idPart}_${Date.now()}.mp4`;
-  const postFlat = flattenPostMetaForStorage(resolved.meta, tiktokUrl);
+  const postFlat = flattenPostMetaForStorage(resolved.meta, workingUrl);
 
   try {
     await bucket.put(key, transferred.bytes, {
@@ -501,7 +702,7 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
         title: postFlat.title || '',
         author: postFlat.author || authorPart,
         quality: preferHd ? 'hd' : 'standard',
-        tiktokUrl: postFlat.tiktokUrl || String(tiktokUrl || '').trim().slice(0, 400),
+        tiktokUrl: postFlat.tiktokUrl || String(workingUrl || '').trim().slice(0, 400),
         musicId: postFlat.musicId || '',
         musicTitle: postFlat.musicTitle || '',
         musicAuthor: postFlat.musicAuthor || '',
@@ -513,6 +714,10 @@ export async function downloadTikTokToR2(env, bucket, tiktokUrl, opts = {}) {
   }
 
   // Do not mark as "used" here — only a successful clean/archive blocks re-download.
+  await writeCachePointer(bucket, postFlat.tiktokId || idPart, key, {
+    ...postFlat,
+    author: postFlat.author || authorPart,
+  });
 
   const meta = {
     ...resolved.meta,
