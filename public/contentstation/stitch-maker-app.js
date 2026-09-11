@@ -117,9 +117,9 @@
   }
 
   /**
-   * ~30s silent stitch-reactor beats: point up + reaction faces, character small in
-   * landscape frame. Backgrounds are randomly diverse (space, car, plane, etc.) —
-   * not locked to the halo from REF_URL; that clip is vibe-only.
+   * ~30s silent stitch-reactor beats: point up + reaction faces, tight landscape
+   * framing (final deliverable is a zoomed ~16:4.5 strip with finger near the top).
+   * Backgrounds are randomly diverse — not locked to the halo from REF_URL.
    */
   const STITCH_BACKGROUNDS = [
     'Deep space: swirling stars, colorful nebulae, and planets exploding / cracking apart behind the character — cinematic cosmic chaos, eye-catching.',
@@ -162,14 +162,15 @@
   function buildStitchScenes(notes) {
     const noteBit = notes ? ` Extra direction: ${notes}` : '';
     const framing =
-      'Wide landscape 16:9 UGC reaction shot of THIS EXACT uploaded character only (match face + hair + body from the character reference image). ' +
-      'CRITICAL FRAMING: character must be SMALL in frame — about half the usual close-up size, roughly 40% of frame height. ' +
-      'Medium-wide / pull-back: full head, shoulders, and pointing arm fully visible with large empty margins on left/right and above the head. ' +
-      'Do NOT tight-crop the face. Do NOT fill the frame. Nothing cut off at edges. ' +
-      'Character faces camera. Right or left index finger pointing STRAIGHT UP toward the top of frame (calling out a stitch above) — whole hand and arm in frame. ' +
+      'Landscape UGC reaction shot of THIS EXACT uploaded character only (match face + hair + body from the character reference image). ' +
+      'CRITICAL FRAMING: tight / zoomed CapCut stitch strip — character is LARGE in frame (head + raised pointing arm fill most of the height). ' +
+      'Compose for a short ultra-wide crop (~16:4.5): raised index finger tip sits near the TOP edge of the frame (calling out a stitch above). ' +
+      'Face centered lower in the strip; minimal empty sky above the finger; do NOT pull back to tiny-in-frame with huge margins. ' +
+      'Keep full head and pointing hand visible — nothing important cut off. ' +
+      'Character faces camera. Right or left index finger pointing STRAIGHT UP. ' +
       'The upward point is the hero pose: arm raised and finger up in the still (Grok must hold this for almost the whole clip). ' +
       'Big expressive reaction faces — amused, shocked, skeptical. Silent — no talking, mouth mostly closed, not lip-sync. Single person only. No on-screen text. ' +
-      'Background must be vivid, detailed, and eye-catching — fill the space behind the character; keep the character sharp and readable in front.';
+      'Background must be vivid and eye-catching behind the character; keep the character sharp and readable in front.';
     // Scene ids MUST be scene_NN — Codex prompt parser only accepts ## scene_* headings.
     const holdPoint =
       'KEEP pointing straight UP the whole time — arm stays raised; never drop the point. Only tiny jab pulses while still pointing up.';
