@@ -1,6 +1,7 @@
 (function () {
   const MAX_URLS = 20;
   const POLL_MS = 180000;
+  const POLL_ACTIVE_MS = 20000;
   const ACTIVE_STORAGE_KEY = 'cs_remix2_v2_music_only_batch_v1';
 
   const gate = document.getElementById('gate');
@@ -707,15 +708,15 @@
     if (stage === 'queued' && pos) {
       label = `Queued — #${pos}${depth ? ` of ${depth}` : ''}`;
     } else if (stage === 'running_first_frames') {
-      label = 'Codex first frames…';
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Codex first frames…';
     } else if (stage === 'analyzing_beats') {
-      label = 'Analyzing beats…';
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Analyzing beats…';
     } else if (stage === 'running_videos') {
-      label = 'Grok videos…';
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Grok videos…';
     } else if (stage === 'stitching') {
-      label = 'Stitching…';
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Stitching…';
     } else if (stage === 'restoring_overlays') {
-      label = 'Restoring on-screen text…';
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Restoring on-screen text…';
     } else if (stage === 'waiting_provider' || stage === 'provider_cooldown') {
       const provider = data?.provider || '';
       const hours = data?.providerWaitEstimateHours;
@@ -824,11 +825,40 @@
     return Boolean(job?.jobId) && !isPlaceholderJobId(job.jobId) && !isTerminalStage(job.stage);
   }
 
+  function jobIsActivelyRunning(job) {
+    const stage = String(job?.stage || '');
+    return [
+      'preparing',
+      'analyzing',
+      'analyzing_beats',
+      'running_first_frames',
+      'running_videos',
+      'stitching',
+      'restoring_overlays',
+      'deriving_character',
+    ].includes(stage);
+  }
+
+  function pollIntervalMs() {
+    return batchJobs.some(jobIsActivelyRunning) ? POLL_ACTIVE_MS : POLL_MS;
+  }
+
   function stopPoll() {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
+  }
+
+  function scheduleNextPoll() {
+    if (pollTimer) clearInterval(pollTimer);
+    if (!batchJobs.some(jobNeedsPoll)) {
+      pollTimer = null;
+      return;
+    }
+    pollTimer = setInterval(() => {
+      pollBatch();
+    }, pollIntervalMs());
   }
 
   async function pollBatch() {
@@ -875,7 +905,9 @@
     if (active === 0 && !submitting) {
       stopPoll();
       if (runBtn) runBtn.disabled = false;
+      return;
     }
+    scheduleNextPoll();
   }
 
   function startPoll() {
@@ -883,8 +915,7 @@
       stopPoll();
       return;
     }
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollBatch, POLL_MS);
+    scheduleNextPoll();
     if (!document.hidden) pollBatch();
   }
 
