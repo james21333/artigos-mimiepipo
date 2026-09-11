@@ -46,24 +46,27 @@
       <section class="hero-flow">
         <h1>Stitch Creator</h1>
         <p class="lede">
-          Pick a Stitch Maker B-roll for the <strong>bottom 25%</strong>, paste a TikTok URL for the
-          <strong>top 75%</strong>. We download → strip metadata → GhostCut Basic Video Remix, then
-          ffmpeg-stack (no AI for the stack). Bottom starts at a random point and loops if short.
+          Pick a Stitch Maker B-roll for the <strong>bottom 25%</strong>, paste up to
+          <strong>3 TikTok URLs</strong> for the <strong>top 75%</strong>. Each URL is
+          downloaded → metadata stripped → GhostCut Basic Video Remix, then ffmpeg-stacked
+          (no AI for the stack). Bottom starts at a random point per video and loops if short.
           Finals go only to the
           <a class="btn-link" href="./stitch-creator-videos.html">Stitch Creator gallery</a>
           (not Ready).
         </p>
 
         <label for="account-select">Account label (optional)</label>
-        <p class="muted-line">Organizes the final in the gallery only — does not send to Ready.</p>
+        <p class="muted-line">Organizes finals in the gallery only — does not send to Ready.</p>
         <select id="account-select" class="account-select">
           <option value="">— None —</option>
         </select>
 
-        <label for="tiktok-url">TikTok URL (top)</label>
-        <input id="tiktok-url" type="url" placeholder="https://www.tiktok.com/@…/video/…" autocomplete="off">
+        <label for="tiktok-urls">TikTok URLs (top) · max 3</label>
+        <p class="muted-line">One URL per line. All listed videos will be processed.</p>
+        <textarea id="tiktok-urls" rows="4" placeholder="https://www.tiktok.com/@…/video/…&#10;https://vm.tiktok.com/…&#10;https://www.tiktok.com/t/…" autocomplete="off"></textarea>
+        <p id="url-count" class="muted-line">0 / 3 URLs</p>
 
-        <label for="title-input">Title (optional)</label>
+        <label for="title-input">Title prefix (optional)</label>
         <input id="title-input" type="text" placeholder="Stitch Creator clip" maxlength="120">
 
         <div class="row filter-row" style="align-items:end;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
@@ -80,19 +83,18 @@
         <div id="stitch-pick-grid" class="gallery-grid stitch-videos-grid" hidden></div>
 
         <div class="row" style="margin-top:1rem;gap:0.75rem;flex-wrap:wrap;">
-          <button type="button" id="run-btn">Create stitch video</button>
+          <button type="button" id="run-btn">Create stitch videos</button>
         </div>
 
         <p id="status-line" class="status" aria-live="polite" hidden></p>
         <p id="status-detail" class="muted-line" hidden></p>
         <p id="run-error" class="error" hidden></p>
 
-        <div id="result-panel" class="panel" hidden style="margin-top:1rem;">
-          <h2 class="ready-counts-title">Done</h2>
-          <p id="result-meta" class="muted-line"></p>
-          <video id="result-video" controls playsinline preload="metadata" style="width:100%;max-height:28rem;background:#111;"></video>
+        <div id="results-panel" class="panel" hidden style="margin-top:1rem;">
+          <h2 class="ready-counts-title">Results</h2>
+          <p id="results-summary" class="muted-line"></p>
+          <div id="results-list" class="download-results"></div>
           <p class="row" style="gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
-            <a id="result-download" href="#" target="_blank" rel="noopener">Open / download</a>
             <a href="./stitch-creator-videos.html">Gallery</a>
           </p>
         </div>
@@ -101,6 +103,6 @@
   </main>
 
   <script src="./auth-gate.js?v=kenneth5"></script>
-  <script src="./stitch-creator-app.js?v=1"></script>
+  <script src="./stitch-creator-app.js?v=2"></script>
 </body>
 </html>

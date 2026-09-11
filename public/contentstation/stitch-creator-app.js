@@ -1,6 +1,7 @@
 (function () {
   const POLL_MS = 4000;
   const MAX_POLL_ERRORS = 10;
+  const MAX_URLS = 3;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -10,7 +11,8 @@
   const sessionMeta = document.getElementById('session-meta');
   const logoutBtn = document.getElementById('logout-btn');
   const accountSelect = document.getElementById('account-select');
-  const tiktokUrlInput = document.getElementById('tiktok-url');
+  const tiktokUrlsInput = document.getElementById('tiktok-urls');
+  const urlCountEl = document.getElementById('url-count');
   const titleInput = document.getElementById('title-input');
   const stitchAccountFilter = document.getElementById('stitch-account-filter');
   const refreshStitchesBtn = document.getElementById('refresh-stitches-btn');
@@ -20,10 +22,9 @@
   const statusLine = document.getElementById('status-line');
   const statusDetail = document.getElementById('status-detail');
   const runError = document.getElementById('run-error');
-  const resultPanel = document.getElementById('result-panel');
-  const resultMeta = document.getElementById('result-meta');
-  const resultVideo = document.getElementById('result-video');
-  const resultDownload = document.getElementById('result-download');
+  const resultsPanel = document.getElementById('results-panel');
+  const resultsSummary = document.getElementById('results-summary');
+  const resultsList = document.getElementById('results-list');
 
   /** @type {Array<{key:string,jobId?:string,account?:string|null,downloadPath?:string,uploaded?:string}>} */
   let stitchObjects = [];
@@ -76,6 +77,41 @@
 
   function accountLabel(acct) {
     return String(acct || '').trim() || 'Unassigned';
+  }
+
+  function parseUrls(raw) {
+    const text = String(raw || '');
+    const found = [];
+    const seen = new Set();
+    const parts = text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+    for (const part of parts) {
+      let u = part;
+      if (!/^https?:\/\//i.test(u) && /tiktok\.com|vm\.tiktok\.com/i.test(u)) {
+        u = `https://${u.replace(/^\/+/, '')}`;
+      }
+      if (!/^https?:\/\//i.test(u)) continue;
+      if (!/tiktok\.com/i.test(u)) continue;
+      const key = u.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push(u);
+      if (found.length >= MAX_URLS) break;
+    }
+    return found;
+  }
+
+  function updateUrlCount() {
+    const urls = parseUrls(tiktokUrlsInput?.value || '');
+    const lines = String(tiktokUrlsInput?.value || '')
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (urlCountEl) {
+      const over = lines.length > MAX_URLS;
+      urlCountEl.textContent = over
+        ? `${urls.length} / ${MAX_URLS} URLs (only the first ${MAX_URLS} will run)`
+        : `${urls.length} / ${MAX_URLS} URLs`;
+    }
   }
 
   async function loadAccounts() {
@@ -224,9 +260,9 @@
    * GhostCut Basic Video Remix + metadata strip (same “light remix” as the Clean tool).
    * No account → cleaned file is not Ready-tagged.
    */
-  async function lightRemix(sourceKey) {
+  async function lightRemix(sourceKey, statusPrefix) {
     const videoUrl = await resolveFetchUrl(sourceKey);
-    setStatus('Light remix…', 'GhostCut Basic Video Remix + metadata strip');
+    setStatus(`${statusPrefix}Light remix…`, 'GhostCut Basic Video Remix + metadata strip');
     const { ok, data } = await api('/api/contentstation/clean', {
       method: 'POST',
       body: JSON.stringify({
@@ -277,7 +313,7 @@
         st.data.progress != null && st.data.progress !== ''
           ? ` · ${st.data.progress}%`
           : '';
-      setStatus('Light remix…', `${label}${prog}`);
+      setStatus(`${statusPrefix}Light remix…`, `${label}${prog}`);
 
       if (state === 'failed') {
         throw new Error(st.data.error || st.data.message || 'Light remix failed.');
@@ -287,7 +323,7 @@
       }
       if (state === 'ready' && st.data.downloadUrl && !archiveNudged) {
         archiveNudged = true;
-        setStatus('Light remix…', 'Saving cleaned file to library…');
+        setStatus(`${statusPrefix}Light remix…`, 'Saving cleaned file to library…');
         const arch = await api('/api/contentstation/clean', {
           method: 'POST',
           body: JSON.stringify({
@@ -301,13 +337,13 @@
           return arch.data.cleanedKey;
         }
       } else if (state === 'ready' && st.data.savingToLibrary) {
-        setStatus('Light remix…', 'Saving cleaned file to library…');
+        setStatus(`${statusPrefix}Light remix…`, 'Saving cleaned file to library…');
       }
     }
   }
 
-  async function downloadTikTok(url) {
-    setStatus('Downloading TikTok…', url);
+  async function downloadTikTok(url, statusPrefix) {
+    setStatus(`${statusPrefix}Downloading TikTok…`, url);
     const { ok, data } = await api('/api/contentstation/tiktok-download', {
       method: 'POST',
       body: JSON.stringify({ url, smallerFile: false, allowDuplicate: true }),
@@ -318,8 +354,11 @@
     return data.key;
   }
 
-  async function compose(topKey, bottomKey) {
-    setStatus('Stacking…', 'ffmpeg 75% top / 25% bottom · random stitch start · loop if short');
+  async function compose(topKey, bottomKey, { tiktokUrl, title }, statusPrefix) {
+    setStatus(
+      `${statusPrefix}Stacking…`,
+      'ffmpeg 75% top / 25% bottom · random stitch start · loop if short',
+    );
     const { ok, data } = await api('/api/contentstation/stitch-creator', {
       method: 'POST',
       body: JSON.stringify({
@@ -327,8 +366,8 @@
         topKey,
         bottomKey,
         account: accountSelect?.value || undefined,
-        tiktokUrl: tiktokUrlInput?.value?.trim() || undefined,
-        title: titleInput?.value?.trim() || undefined,
+        tiktokUrl: tiktokUrl || undefined,
+        title: title || undefined,
       }),
     });
     if (!ok) {
@@ -337,33 +376,78 @@
     return data;
   }
 
-  function showResult(data) {
-    if (!resultPanel) return;
-    resultPanel.hidden = false;
+  function clearResults() {
+    if (resultsPanel) resultsPanel.hidden = true;
+    if (resultsList) resultsList.innerHTML = '';
+    if (resultsSummary) resultsSummary.textContent = '';
+  }
+
+  function ensureResultsPanel() {
+    if (resultsPanel) resultsPanel.hidden = false;
+  }
+
+  function addResultCard({ index, url, ok, data, error }) {
+    ensureResultsPanel();
+    if (!resultsList) return;
+    const card = document.createElement('article');
+    card.className = 'result-card';
+    const shortUrl = url.length > 64 ? `${url.slice(0, 61)}…` : url;
+    if (!ok) {
+      card.innerHTML = `
+        <p class="gallery-card-title">#${index} · Failed</p>
+        <p class="muted-line">${shortUrl}</p>
+        <p class="error">${error || 'Unknown error'}</p>
+      `;
+      resultsList.appendChild(card);
+      return;
+    }
     const href = data.downloadPath || (data.key ? mediaGet(data.key) : '#');
-    if (resultVideo) resultVideo.src = href;
-    if (resultDownload) {
-      resultDownload.href = href;
-    }
-    if (resultMeta) {
-      const bits = [
-        data.jobId ? `job ${data.jobId}` : null,
-        data.account ? data.account : null,
-        data.stitchStartSec != null ? `bottom start ${data.stitchStartSec}s` : null,
-        data.durationSec != null ? `${data.durationSec}s` : null,
-      ].filter(Boolean);
-      resultMeta.textContent = bits.join(' · ');
-    }
+    const bits = [
+      data.jobId ? `job ${data.jobId}` : null,
+      data.account || null,
+      data.stitchStartSec != null ? `bottom @ ${data.stitchStartSec}s` : null,
+      data.durationSec != null ? `${data.durationSec}s` : null,
+    ].filter(Boolean);
+    card.innerHTML = `
+      <p class="gallery-card-title">#${index} · Done</p>
+      <p class="muted-line">${shortUrl}</p>
+      <p class="muted-line">${bits.join(' · ')}</p>
+      <video controls playsinline preload="metadata" src="${href}" style="width:100%;max-height:22rem;background:#111;margin-top:0.5rem;"></video>
+      <p class="row" style="gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
+        <a href="${href}" target="_blank" rel="noopener">Open / download</a>
+      </p>
+    `;
+    resultsList.appendChild(card);
+  }
+
+  async function runOne(url, index, total) {
+    const prefix = total > 1 ? `[${index}/${total}] ` : '';
+    const baseTitle = String(titleInput?.value || '').trim();
+    const title =
+      total > 1
+        ? baseTitle
+          ? `${baseTitle} · ${index}/${total}`
+          : `Stitch Creator ${index}/${total}`
+        : baseTitle || undefined;
+
+    const tiktokKey = await downloadTikTok(url, prefix);
+    const cleanedKey = await lightRemix(tiktokKey, prefix);
+    return compose(
+      cleanedKey,
+      selectedBottomKey,
+      { tiktokUrl: url, title },
+      prefix,
+    );
   }
 
   async function run() {
     if (running) return;
     setError('');
-    if (resultPanel) resultPanel.hidden = true;
+    clearResults();
 
-    const url = String(tiktokUrlInput?.value || '').trim();
-    if (!url) {
-      setError('Paste a TikTok URL for the top clip.');
+    const urls = parseUrls(tiktokUrlsInput?.value || '');
+    if (!urls.length) {
+      setError(`Paste 1–${MAX_URLS} TikTok URLs (one per line).`);
       return;
     }
     if (!selectedBottomKey) {
@@ -373,15 +457,39 @@
 
     running = true;
     if (runBtn) runBtn.disabled = true;
+    let okCount = 0;
+    let failCount = 0;
     try {
-      const tiktokKey = await downloadTikTok(url);
-      const cleanedKey = await lightRemix(tiktokKey);
-      const composed = await compose(cleanedKey, selectedBottomKey);
-      setStatus('Done', composed.message || 'Stitch creator final ready.');
-      showResult(composed);
-    } catch (err) {
-      setError(err?.message || String(err));
-      setStatus('Failed', '');
+      for (let i = 0; i < urls.length; i += 1) {
+        const url = urls[i];
+        const n = i + 1;
+        setStatus(`Working ${n} / ${urls.length}…`, url);
+        try {
+          const composed = await runOne(url, n, urls.length);
+          okCount += 1;
+          addResultCard({ index: n, url, ok: true, data: composed });
+        } catch (err) {
+          failCount += 1;
+          addResultCard({
+            index: n,
+            url,
+            ok: false,
+            error: err?.message || String(err),
+          });
+        }
+      }
+      if (resultsSummary) {
+        resultsSummary.textContent = `${okCount} done · ${failCount} failed · ${urls.length} total`;
+      }
+      if (failCount && !okCount) {
+        setError('All videos failed — see results below.');
+        setStatus('Failed', `${failCount} failed`);
+      } else if (failCount) {
+        setError(`${failCount} failed — others succeeded. See results below.`);
+        setStatus('Done with errors', `${okCount} ok · ${failCount} failed`);
+      } else {
+        setStatus('Done', `${okCount} stitch video${okCount === 1 ? '' : 's'} ready.`);
+      }
     } finally {
       running = false;
       if (runBtn) runBtn.disabled = false;
@@ -435,6 +543,8 @@
   });
 
   stitchAccountFilter?.addEventListener('change', () => renderStitchPicker());
+  tiktokUrlsInput?.addEventListener('input', updateUrlCount);
+  updateUrlCount();
 
   async function boot() {
     const { ok, data } = await api('/api/contentstation/session');
