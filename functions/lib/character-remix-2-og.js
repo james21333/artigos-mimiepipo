@@ -286,6 +286,7 @@ export async function listRemix2Finals(env, opts = {}) {
             if (json.remixVariant) {
               meta.remixVariant = String(json.remixVariant);
             }
+            if (json.account) meta.account = String(json.account);
             if (json.tiktokUrl) meta.tiktokUrl = String(json.tiktokUrl);
             if (json.title) meta.title = String(json.title);
             if (json.audioMode) meta.audioMode = String(json.audioMode);
@@ -323,6 +324,7 @@ export async function listRemix2Finals(env, opts = {}) {
         remixVariant: remixVariant || null,
         tiktokUrl: meta.tiktokUrl || meta.tiktokurl || null,
         title: meta.title || null,
+        account: meta.account || meta.Account || null,
         customMetadata: meta,
       });
     }

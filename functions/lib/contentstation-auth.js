@@ -53,6 +53,8 @@ const ROLE_PAGES = Object.freeze({
     '/kenneth.html',
     '/stitch-maker.html',
     '/stitch-videos.html',
+    '/stitch-creator.html',
+    '/stitch-creator-videos.html',
     '/old213223523.html',
   ],
   [ROLES.DOWNLOAD]: ['/tiktok-download.html'],
@@ -63,6 +65,8 @@ const ROLE_PAGES = Object.freeze({
     '/tiktok-download-character-remix-2-og-v2-music.html',
     '/stitch-maker.html',
     '/stitch-videos.html',
+    '/stitch-creator.html',
+    '/stitch-creator-videos.html',
     '/ready.html',
     '/ready-account.html',
     '/ready-archived.html',
@@ -80,6 +84,7 @@ const KENNETH_WRITE_PREFIXES = [
   'account-characters/',
   'characters/',
   'stitch-maker/',
+  'stitch-creator/',
 ];
 
 export function json(data, status = 200, extraHeaders = {}) {
@@ -352,6 +357,8 @@ export function roleMayAccessPage(role, pageId) {
     kenneth: ['/kenneth.html'],
     'stitch-maker': ['/stitch-maker.html'],
     'stitch-videos': ['/stitch-videos.html'],
+    'stitch-creator': ['/stitch-creator.html'],
+    'stitch-creator-videos': ['/stitch-creator-videos.html'],
     old: ['/old213223523.html'],
   };
   const targets = map[pageId] || [];
@@ -365,6 +372,7 @@ function kennethKeyAllowed(key) {
   if (key.startsWith('account-characters/')) return true;
   if (key.startsWith('characters/')) return true;
   if (key.startsWith('stitch-maker/')) return true;
+  if (key.startsWith('stitch-creator/')) return true;
   if (key.startsWith('facefusion-remix/')) return true;
   if (/^character-remix-2-og\/[^/]+\/(final\.mp4|character\.jpg|frames\/)/i.test(key)) return true;
   if (/^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)) return true;
@@ -384,6 +392,8 @@ function kennethPrefixAllowed(prefix) {
     p.startsWith('characters/') ||
     p === 'stitch-maker/' ||
     p.startsWith('stitch-maker/') ||
+    p === 'stitch-creator/' ||
+    p.startsWith('stitch-creator/') ||
     p === 'character-remix-2-og/' ||
     p.startsWith('character-remix-2-og/') ||
     p === 'facefusion-remix/' ||

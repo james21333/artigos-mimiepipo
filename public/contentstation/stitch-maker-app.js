@@ -418,8 +418,8 @@
         viralSceneChat: false,
         writeFromScratch: false,
         autoRun: true,
-        // Never Ready-tag stitch clips — library only (stitch-maker + stitch-videos).
-        account: undefined,
+        // Library-only account label (ready.json) — never Ready-tags stitch-maker.
+        account: account || undefined,
         title,
         scenes,
         tiktokUrl: REF_URL,

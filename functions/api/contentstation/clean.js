@@ -1119,7 +1119,7 @@ async function uploadThenSubmit(env, file, options) {
 }
 
 export async function onRequestPost(context) {
-  const auth = await requireRole(context, [ROLES.ADMIN]);
+  const auth = await requireRole(context, [ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;

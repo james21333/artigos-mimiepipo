@@ -189,13 +189,14 @@ export async function onRequest(context) {
     }
     if (action === 'list') {
       const pageLimit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50) || 50));
+      const wantAccount = String(url.searchParams.get('account') || '').trim();
       const wantVariant = String(url.searchParams.get('variant') || 'all')
         .trim()
         .toLowerCase()
         .replace(/_/g, '-');
-      // Pull a wider R2 window when filtering so Music-Only still fills after enrichment.
+      // Pull a wider R2 window when filtering so Music-Only / stitch still fills after enrichment.
       const scanLimit =
-        wantVariant === 'all' || wantVariant === '' ? pageLimit : Math.min(200, pageLimit * 3);
+        wantVariant === 'all' || wantVariant === '' ? pageLimit : Math.min(200, pageLimit * 4);
 
       const result = await listRemix2Finals(env, {
         limit: scanLimit,
@@ -232,13 +233,31 @@ export async function onRequest(context) {
           if (isMusic || !isTalking) {
             continue;
           }
+        } else if (
+          wantVariant === 'stitch-maker' ||
+          wantVariant === 'stitchmaker' ||
+          wantVariant === 'stitch'
+        ) {
+          const v = String(remixVariant || '').toLowerCase();
+          if (v !== 'stitch-maker' && v !== 'stitchmaker' && v !== 'stitch') {
+            continue;
+          }
         }
 
+        const taggedAccount = await getTagForKey(env, obj.key);
+        let account = taggedAccount || obj.account || null;
+        if (!account && obj.title) {
+          const m = /^Stitch Maker\s*·\s*(.+)$/i.exec(String(obj.title));
+          if (m) account = m[1].trim();
+        }
+        if (wantAccount && String(account || '') !== wantAccount) {
+          continue;
+        }
         objects.push({
           ...obj,
           musicLock,
           remixVariant: remixVariant || null,
-          account: await getTagForKey(env, obj.key),
+          account: account || null,
         });
       }
 

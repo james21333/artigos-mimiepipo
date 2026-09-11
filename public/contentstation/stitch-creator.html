@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kenneth's Content Tools | Stitch Creator</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Stack a light-remixed TikTok over a Stitch Maker B-roll clip (75/25).">
+  <link rel="stylesheet" href="./styles.css?v=kenneth2">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Kenneth tools">
+        <a href="./kenneth.html">Home</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./stitch-maker.html">Stitch Maker with Character</a>
+        <a href="./stitch-videos.html">Stitch videos</a>
+        <a href="./stitch-creator.html" aria-current="page">Stitch Creator</a>
+        <a href="./stitch-creator-videos.html">Stitch Creator gallery</a>
+        <a href="./ready.html">Ready For Upload</a>
+        <a href="./ready-archived.html">Archived accounts</a>
+      </nav>
+      <p class="brand">Kenneth's Content Tools</p>
+      <p class="sub">Stitch Creator</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Kenneth's Content Tools — password required.</p>
+      <form id="login-form">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Stitch Creator</h1>
+        <p class="lede">
+          Pick a Stitch Maker B-roll for the <strong>bottom 25%</strong>, paste a TikTok URL for the
+          <strong>top 75%</strong>. We download → strip metadata → GhostCut Basic Video Remix, then
+          ffmpeg-stack (no AI for the stack). Bottom starts at a random point and loops if short.
+          Finals go only to the
+          <a class="btn-link" href="./stitch-creator-videos.html">Stitch Creator gallery</a>
+          (not Ready).
+        </p>
+
+        <label for="account-select">Account label (optional)</label>
+        <p class="muted-line">Organizes the final in the gallery only — does not send to Ready.</p>
+        <select id="account-select" class="account-select">
+          <option value="">— None —</option>
+        </select>
+
+        <label for="tiktok-url">TikTok URL (top)</label>
+        <input id="tiktok-url" type="url" placeholder="https://www.tiktok.com/@…/video/…" autocomplete="off">
+
+        <label for="title-input">Title (optional)</label>
+        <input id="title-input" type="text" placeholder="Stitch Creator clip" maxlength="120">
+
+        <div class="row filter-row" style="align-items:end;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
+          <label for="stitch-account-filter">
+            Stitch library filter
+            <select id="stitch-account-filter" class="account-select">
+              <option value="">All accounts</option>
+            </select>
+          </label>
+          <button type="button" id="refresh-stitches-btn" class="ghost">Refresh stitches</button>
+        </div>
+
+        <p id="stitch-pick-status" class="muted-line">Loading stitch clips…</p>
+        <div id="stitch-pick-grid" class="gallery-grid stitch-videos-grid" hidden></div>
+
+        <div class="row" style="margin-top:1rem;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" id="run-btn">Create stitch video</button>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite" hidden></p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="run-error" class="error" hidden></p>
+
+        <div id="result-panel" class="panel" hidden style="margin-top:1rem;">
+          <h2 class="ready-counts-title">Done</h2>
+          <p id="result-meta" class="muted-line"></p>
+          <video id="result-video" controls playsinline preload="metadata" style="width:100%;max-height:28rem;background:#111;"></video>
+          <p class="row" style="gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
+            <a id="result-download" href="#" target="_blank" rel="noopener">Open / download</a>
+            <a href="./stitch-creator-videos.html">Gallery</a>
+          </p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="./auth-gate.js?v=kenneth5"></script>
+  <script src="./stitch-creator-app.js?v=1"></script>
+</body>
+</html>

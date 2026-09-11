@@ -33,6 +33,16 @@
     },
     { href: './stitch-videos.html', label: 'Stitch videos', page: 'stitch-videos.html' },
     {
+      href: './stitch-creator.html',
+      label: 'Stitch Creator',
+      page: 'stitch-creator.html',
+    },
+    {
+      href: './stitch-creator-videos.html',
+      label: 'Stitch Creator gallery',
+      page: 'stitch-creator-videos.html',
+    },
+    {
       href: './ready.html',
       label: 'Ready For Upload',
       page: 'ready.html',
@@ -45,11 +55,27 @@
     },
   ];
 
+  /**
+   * Injected onto every admin top-nav so Stitch tools are reachable from all pages
+   * without editing each HTML file.
+   */
+  const ADMIN_SHARED_LINKS = [
+    { href: './stitch-videos.html', label: 'Stitch videos', page: 'stitch-videos.html' },
+    { href: './stitch-creator.html', label: 'Stitch Creator', page: 'stitch-creator.html' },
+    {
+      href: './stitch-creator-videos.html',
+      label: 'Stitch Creator gallery',
+      page: 'stitch-creator-videos.html',
+    },
+  ];
+
   /** Nav link href → roles that may see it (admin always sees all). */
   const NAV_BY_HREF = [
     { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-maker\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-videos\.html/, roles: ['kenneth', 'admin'] },
+    { match: /stitch-creator\.html/, roles: ['kenneth', 'admin'] },
+    { match: /stitch-creator-videos\.html/, roles: ['kenneth', 'admin'] },
     { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ['admin', 'kenneth'] },
     { match: /(?:^|\/)(?:index\.html)?$/, roles: ['admin'], label: 'Clean' },
     { match: /cleaned\.html/, roles: ['admin'] },
@@ -103,6 +129,8 @@
     kenneth: ['admin', 'kenneth'],
     'stitch-maker': ['admin', 'kenneth'],
     'stitch-videos': ['admin', 'kenneth'],
+    'stitch-creator': ['admin', 'kenneth'],
+    'stitch-creator-videos': ['admin', 'kenneth'],
     old: ['admin'],
   };
 
@@ -159,6 +187,14 @@
     }
   }
 
+  function hrefMatchesPage(href, page) {
+    const leaf = String(href || '')
+      .split('/')
+      .filter(Boolean)
+      .pop();
+    return leaf === page || (page === 'index.html' && (leaf === '' || leaf === 'index.html'));
+  }
+
   /** Replace top-nav with Kenneth-only links on every shared page he can open. */
   function applyKennethNav() {
     const page = currentPageFile();
@@ -193,6 +229,27 @@
     });
   }
 
+  /** Ensure Stitch videos / Creator links exist on admin top-navs. */
+  function ensureAdminSharedLinks() {
+    const page = currentPageFile();
+    document.querySelectorAll('nav.top-nav').forEach((nav) => {
+      for (const item of ADMIN_SHARED_LINKS) {
+        const existing = [...nav.querySelectorAll('a')].find((a) =>
+          hrefMatchesPage(a.getAttribute('href') || '', item.page),
+        );
+        if (existing) {
+          if (page === item.page) existing.setAttribute('aria-current', 'page');
+          continue;
+        }
+        const a = document.createElement('a');
+        a.href = item.href;
+        a.textContent = item.label;
+        if (page === item.page) a.setAttribute('aria-current', 'page');
+        nav.appendChild(a);
+      }
+    });
+  }
+
   function applyNav(role) {
     const r = role || 'admin';
     if (r === 'kenneth') {
@@ -213,6 +270,7 @@
         a.removeAttribute('tabIndex');
       }
     });
+    if (r === 'admin') ensureAdminSharedLinks();
     applyBrand(r);
   }
 

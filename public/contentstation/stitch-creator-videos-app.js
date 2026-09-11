@@ -13,7 +13,7 @@
   const refreshBtn = document.getElementById('refresh-btn');
   const accountFilter = document.getElementById('account-filter');
 
-  /** @type {Array<{key:string,jobId?:string,account?:string|null,uploaded?:string,size?:number,downloadPath?:string}>} */
+  /** @type {Array<{key:string,jobId?:string,account?:string|null,uploaded?:string,size?:number,downloadPath?:string,title?:string,stitchStartSec?:number}>} */
   let allObjects = [];
 
   async function api(path, options = {}) {
@@ -114,16 +114,15 @@
       if (galleryEmpty) galleryEmpty.hidden = false;
       if (galleryStatus) {
         galleryStatus.textContent = allObjects.length
-          ? 'No stitch videos for this account'
-          : 'No stitch videos yet';
+          ? 'No finals for this account'
+          : 'No Stitch Creator finals yet';
       }
       return;
     }
     if (galleryEmpty) galleryEmpty.hidden = true;
     galleryGrid.hidden = false;
     if (galleryStatus) {
-      const filterNote = accountFilter?.value ? ` · filtered` : '';
-      galleryStatus.textContent = `${objects.length} stitch video${objects.length === 1 ? '' : 's'}${filterNote} (${allObjects.length} total)`;
+      galleryStatus.textContent = `${objects.length} final${objects.length === 1 ? '' : 's'} (${allObjects.length} total)`;
     }
 
     let lastGroup = null;
@@ -142,6 +141,11 @@
       const key = obj.key;
       const jobId = obj.jobId || String(key || '').split('/')[1] || '';
       const href = obj.downloadPath || mediaGet(key);
+      const title = obj.title || `Stitch Creator · ${jobId.slice(0, 10)}`;
+      const start =
+        obj.stitchStartSec != null && Number.isFinite(Number(obj.stitchStartSec))
+          ? ` · bottom @ ${Number(obj.stitchStartSec).toFixed(1)}s`
+          : '';
       const card = document.createElement('article');
       card.className = 'gallery-card stitch-video-card';
       card.innerHTML = `
@@ -149,8 +153,8 @@
           <video controls playsinline preload="metadata" src="${href}"></video>
         </div>
         <div class="gallery-card-meta stitch-video-meta">
-          <p class="gallery-card-title">${acct} · ${jobId.slice(0, 10)}</p>
-          <p class="muted-line">${formatWhen(obj.uploaded)} · ${formatBytes(obj.size)}</p>
+          <p class="gallery-card-title">${title}</p>
+          <p class="muted-line">${acct} · ${formatWhen(obj.uploaded)} · ${formatBytes(obj.size)}${start}</p>
           <p class="row" style="gap:0.75rem;flex-wrap:wrap;">
             <a href="${href}" target="_blank" rel="noopener">Open / download</a>
           </p>
@@ -167,11 +171,9 @@
   async function load() {
     setError('');
     if (galleryStatus) galleryStatus.textContent = 'Loading…';
-    const { ok, data } = await api(
-      '/api/contentstation/character-remix-2-og?action=list&variant=stitch-maker&limit=100',
-    );
+    const { ok, data } = await api('/api/contentstation/stitch-creator?action=list&limit=100');
     if (!ok) {
-      setError(data?.message || data?.error || 'Could not load stitch videos');
+      setError(data?.message || data?.error || 'Could not load gallery');
       if (galleryStatus) galleryStatus.textContent = 'Load failed';
       return;
     }
@@ -207,7 +209,7 @@
       }
       return;
     }
-    if (window.CSAuth && !window.CSAuth.gatePage(data, 'stitch-videos')) return;
+    if (window.CSAuth && !window.CSAuth.gatePage(data, 'stitch-creator-videos')) return;
     location.reload();
   });
 
@@ -228,7 +230,7 @@
       showGate();
       return;
     }
-    if (window.CSAuth && !window.CSAuth.gatePage(data, 'stitch-videos')) return;
+    if (window.CSAuth && !window.CSAuth.gatePage(data, 'stitch-creator-videos')) return;
     showApp(data);
     await load();
   }
