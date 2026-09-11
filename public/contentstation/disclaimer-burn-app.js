@@ -32,13 +32,26 @@
         ...(opts.headers || {}),
       },
     });
+    const text = await res.text();
     let data = null;
     try {
-      data = await res.json();
+      data = text ? JSON.parse(text) : null;
     } catch {
-      data = null;
+      data = { raw: text?.slice?.(0, 240) || text };
     }
     return { ok: res.ok, status: res.status, data };
+  }
+
+  function errMessage(data, fallback) {
+    if (!data) return fallback;
+    if (typeof data.message === 'string' && data.message.trim()) return data.message.trim();
+    if (typeof data.error === 'string' && data.error.trim() && data.error !== 'burn_failed') {
+      return data.error.trim();
+    }
+    if (typeof data.raw === 'string' && data.raw.trim()) {
+      return `HTTP error: ${data.raw.replace(/\s+/g, ' ').trim().slice(0, 180)}`;
+    }
+    return fallback;
   }
 
   function setError(msg) {
@@ -76,7 +89,7 @@
         }),
       });
       if (!ok || !data?.url || !data?.key) {
-        throw new Error((data && data.message) || 'Could not prepare large upload.');
+        throw new Error(errMessage(data, 'Could not prepare large upload.'));
       }
       const putRes = await fetch(data.url, {
         method: 'PUT',
@@ -96,7 +109,7 @@
       headers: {},
     });
     if (!ok || !data?.object?.key) {
-      throw new Error((data && data.message) || 'Upload failed.');
+      throw new Error(errMessage(data, 'Upload failed.'));
     }
     return String(data.object.key);
   }
@@ -112,6 +125,64 @@
     } catch {
       /* best-effort */
     }
+  }
+
+  async function pollJob(jobId) {
+    const started = Date.now();
+    while (Date.now() - started < 10 * 60 * 1000) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const { ok, data, status } = await api(
+        `/api/contentstation/disclaimer-burn?jobId=${encodeURIComponent(jobId)}`,
+      );
+      if (!ok) {
+        throw new Error(errMessage(data, `Status failed (HTTP ${status}).`));
+      }
+      const stage = String(data?.stage || '');
+      setStatus(data?.message || `Burning… (${stage || 'running'})`);
+      if (stage === 'done' && data?.outputKey) return data;
+      if (stage === 'error' || data?.ok === false) {
+        throw new Error(errMessage(data, 'Burn failed on worker.'));
+      }
+    }
+    throw new Error('Burn timed out after 10 minutes.');
+  }
+
+  async function finishDownload(data, prior) {
+    if (data.outputKey) tmpKeys.push(data.outputKey);
+    const path =
+      data.downloadPath ||
+      `/api/contentstation/media?action=get&key=${encodeURIComponent(data.outputKey)}`;
+    setStatus('Fetching burned video…');
+    const res = await fetch(path, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    if (downloadLink) {
+      downloadLink.href = objUrl;
+      downloadLink.hidden = false;
+      downloadLink.download = 'disclaimer-burned.mp4';
+    }
+    if (eventsPreview && Array.isArray(data.events) && data.events.length) {
+      eventsPreview.hidden = false;
+      eventsPreview.textContent =
+        'Burned: ' +
+        data.events
+          .map(
+            (e) =>
+              `"${String(e.text || '').slice(0, 80)}" @ ${e.position || 'bottom'} ${e.startMs || 0}–${e.endMs || '?'}ms`,
+          )
+          .join(' · ');
+    }
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = 'disclaimer-burned.mp4';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    await cleanupKeys([...prior, ...tmpKeys]);
+    tmpKeys = [];
+    setStatus('Done. Temp uploads cleaned — re-use the download link if needed (local copy).');
+    setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
   }
 
   async function burn() {
@@ -145,50 +216,24 @@
       const sourceKey = await uploadVideo(file);
       tmpKeys.push(sourceKey);
 
-      setStatus('Burning disclaimer (Codex text + ffmpeg)…');
-      const { ok, data } = await api('/api/contentstation/disclaimer-burn', {
+      setStatus('Starting burn…');
+      const { ok, data, status } = await api('/api/contentstation/disclaimer-burn', {
         method: 'POST',
         body: JSON.stringify({ action: 'burn', sourceKey, prompt }),
       });
-      if (!ok || !data?.outputKey) {
-        throw new Error((data && data.message) || (data && data.error) || 'Burn failed.');
-      }
-      tmpKeys.push(data.outputKey);
-
-      const path = data.downloadPath || `/api/contentstation/media?action=get&key=${encodeURIComponent(data.outputKey)}`;
-      setStatus('Fetching burned video…');
-      const res = await fetch(path, { credentials: 'include' });
-      if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`);
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      if (downloadLink) {
-        downloadLink.href = objUrl;
-        downloadLink.hidden = false;
-        downloadLink.download = 'disclaimer-burned.mp4';
-      }
-      if (eventsPreview && Array.isArray(data.events) && data.events.length) {
-        eventsPreview.hidden = false;
-        eventsPreview.textContent =
-          'Burned: ' +
-          data.events
-            .map(
-              (e) =>
-                `"${String(e.text || '').slice(0, 80)}" @ ${e.position || 'bottom'} ${e.startMs || 0}–${e.endMs || '?'}ms`,
-            )
-            .join(' · ');
+      if (!ok) {
+        throw new Error(errMessage(data, `Burn failed (HTTP ${status}).`));
       }
 
-      // Local blob download, then wipe temp R2 keys (download-only — no library).
-      const a = document.createElement('a');
-      a.href = objUrl;
-      a.download = 'disclaimer-burned.mp4';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      await cleanupKeys([...prior, ...tmpKeys]);
-      tmpKeys = [];
-      setStatus('Done. Temp uploads cleaned — use the download link again if needed (local copy).');
-      setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+      let result = data;
+      if (data?.started && data?.jobId) {
+        setStatus('Burning disclaimer (Codex + ffmpeg)…');
+        result = await pollJob(data.jobId);
+      } else if (!data?.outputKey) {
+        throw new Error(errMessage(data, 'Burn failed — no output.'));
+      }
+
+      await finishDownload(result, prior);
     } catch (err) {
       setError(err?.message || String(err));
       setStatus('Failed.');

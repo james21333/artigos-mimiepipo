@@ -36,18 +36,42 @@ export async function onRequest(context) {
     return new Response(null, {
       status: 204,
       headers: {
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
     });
   }
 
+  const auth = await requireRole(context, [ROLES.ADMIN]);
+  if (!auth.ok) return auth.response;
+
+  if (method === 'GET') {
+    const url = new URL(request.url);
+    const jobId = String(url.searchParams.get('jobId') || '').trim();
+    if (!jobId) return json({ error: 'missing_jobId' }, 400);
+    if (!remix2WorkerConfigured(env)) {
+      return json({ error: 'remix2_unconfigured' }, 503);
+    }
+    const { ok, status, data } = await workerFetch(env, `/disclaimer-burn/${encodeURIComponent(jobId)}`, {
+      method: 'GET',
+      timeoutMs: 15000,
+    });
+    if (!ok) {
+      return json(
+        {
+          error: data?.error || 'status_failed',
+          message: describeWorkerFailure(status, data, 'Disclaimer burn status failed'),
+          detail: data,
+        },
+        status >= 400 && status < 600 ? status : 502,
+      );
+    }
+    return json({ ok: true, ...data });
+  }
+
   if (method !== 'POST') {
     return json({ error: 'method_not_allowed' }, 405);
   }
-
-  const auth = await requireRole(env, request, [ROLES.ADMIN]);
-  if (auth instanceof Response) return auth;
 
   let body;
   try {
@@ -101,13 +125,15 @@ export async function onRequest(context) {
     return json({ error: 'object_not_found', key: sourceKey }, 404);
   }
 
+  // Start async on Fast Panda (CF Pages can't wait for ffmpeg).
   const { ok, status, data } = await workerFetch(env, '/disclaimer-burn', {
     method: 'POST',
-    timeoutMs: 300000,
+    timeoutMs: 60000,
     body: {
       sourceKey,
       prompt,
       outputPrefix: 'disclaimer-tmp/',
+      async: true,
       r2: remix2R2Payload(env),
     },
   });
@@ -123,19 +149,16 @@ export async function onRequest(context) {
     );
   }
 
-  const outputKey = String(data?.outputKey || '').trim();
-  if (!outputKey) {
-    return json({ error: 'no_output', message: 'Worker returned no outputKey' }, 502);
+  const jobId = String(data?.jobId || '').trim();
+  if (!jobId) {
+    return json({ error: 'no_job', message: 'Worker returned no jobId' }, 502);
   }
 
   return json({
     ok: true,
-    outputKey,
+    started: true,
+    jobId,
     sourceKey,
-    jobId: data?.jobId || null,
-    durationMs: data?.durationMs || null,
-    events: data?.events || [],
-    downloadPath: downloadPath(outputKey),
-    publicUrl: data?.publicUrl || null,
+    stage: data?.stage || 'running',
   });
 }
