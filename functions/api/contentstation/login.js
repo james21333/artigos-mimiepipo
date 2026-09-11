@@ -4,6 +4,7 @@ import {
   json,
   sessionCookieHeader,
   anyPasswordConfigured,
+  homePathForRole,
 } from '../../lib/contentstation-auth.js';
 
 export async function onRequestPost(context) {
@@ -33,7 +34,12 @@ export async function onRequestPost(context) {
 
   const token = await createSessionToken(context.env, role);
   return json(
-    { ok: true, role },
+    {
+      ok: true,
+      authenticated: true,
+      role,
+      homePath: homePathForRole(role),
+    },
     200,
     { 'Set-Cookie': sessionCookieHeader(token) },
   );
