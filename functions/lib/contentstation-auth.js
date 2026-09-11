@@ -40,6 +40,7 @@ const ROLE_PAGES = Object.freeze({
     '/johnny-jolly-voice-mod.html',
     '/tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod.html',
     '/tiktok-url-lists.html',
+    '/disclaimer-burn.html',
     '/tiktok-download-facefusion-remix.html',
     '/facefusion-remixes.html',
     '/character-remixes.html',

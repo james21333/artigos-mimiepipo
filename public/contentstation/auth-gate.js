@@ -28,6 +28,7 @@
     { match: /tiktok-download-character-remix-2-og-talking-johnny\.html/, roles: ['admin'] },
 
     { match: /tiktok-url-lists\.html/, roles: ['admin'] },
+    { match: /disclaimer-burn\.html/, roles: ['admin'] },
     { match: /viral-video-builder\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og(?:-v1)?\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix\.html/, roles: ['admin'] },
@@ -57,6 +58,7 @@
 
     'tiktok-download-character-remix-2-og-v2-music': ['admin'],
     'tiktok-url-lists': ['admin'],
+    'disclaimer-burn': ['admin'],
     'viral-video-builder': ['admin'],
     'character-remixes': ['admin'],
     'remix2-ready': ['admin'],

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Disclaimer burn</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Upload an ad video and burn disclaimer text from a freeform prompt. ffmpeg only — no video gen.">
+  <link rel="stylesheet" href="./styles.css?v=disclaimer1">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./johnny-jolly-voice-mod.html">Johnny Jolly Voice Mod</a>
+        <a href="./tiktok-url-lists.html">TikTok URL lists</a>
+        <a href="./disclaimer-burn.html" aria-current="page">Disclaimer burn</a>
+        <a href="./viral-video-builder.html">Viral Video Builder</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">Disclaimer burn</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow">
+        <h1>Disclaimer burn</h1>
+        <p class="lede">
+          Upload an ad, write one prompt that includes the disclaimer wording
+          <em>and</em> how to place it. We parse that with a cheap ChatGPT text call,
+          then burn ASS text with ffmpeg. Download the result — nothing goes to Ready.
+        </p>
+
+        <label for="video-file">Video</label>
+        <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/*">
+
+        <label for="prompt">Prompt</label>
+        <textarea id="prompt" rows="6" autocomplete="off"
+          placeholder='Small white disclaimer at the bottom for the whole video: "Results not typical. Consult your doctor."'></textarea>
+
+        <div class="row">
+          <button type="button" id="burn-btn">Burn disclaimer</button>
+          <a id="download-link" class="ghost" hidden download>Download burned video</a>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="events-preview" class="muted-line" hidden></p>
+        <p id="burn-error" class="error" hidden></p>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+      ·
+      <a href="./">Clean video</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./disclaimer-burn-app.js?v=1"></script>
+</body>
+</html>
