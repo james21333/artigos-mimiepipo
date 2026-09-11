@@ -1,5 +1,6 @@
 (function () {
   const POLL_MS = 180000;
+  const POLL_ACTIVE_MS = 20000;
   const REF_URL = 'https://www.tiktok.com/@chakrabatiofficial/video/7402918578707565866';
 
   const gate = document.getElementById('gate');
@@ -273,7 +274,7 @@
     card.dataset.jobId = job.jobId;
     card.innerHTML = `
       <p class="result-url muted-line"></p>
-      <p class="result-status status">Queued…</p>
+      <p class="result-status status">Starting…</p>
       <p class="muted-line result-jobid"></p>
       <div class="result-outputs" hidden></div>
       <p class="error result-error" hidden></p>
@@ -296,11 +297,21 @@
     let label = stage;
     if (stage === 'queued' && data?.queuePosition) {
       label = `Queued — #${data.queuePosition}${data.queueDepth ? ` of ${data.queueDepth}` : ''}`;
-    } else if (stage === 'running_first_frames') label = 'Codex first frames…';
-    else if (stage === 'running_videos') label = 'Grok videos…';
-    else if (stage === 'stitching') label = 'Stitching…';
-    else if (stage === 'stitched') label = 'Done (~30s clip)';
+    } else if (stage === 'queued') {
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Starting…';
+    } else if (stage === 'preparing') {
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Preparing…';
+    } else if (stage === 'running_first_frames') {
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Codex first frames…';
+    } else if (stage === 'running_videos') {
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Grok videos…';
+    } else if (stage === 'stitching') {
+      label = (typeof data?.message === 'string' && data.message.trim()) || 'Stitching…';
+    } else if (stage === 'stitched') label = 'Done (~30s clip)';
     else if (stage === 'error') label = 'Error';
+    else if (typeof data?.message === 'string' && data.message.trim()) {
+      label = data.message.trim();
+    }
     if (statusEl) statusEl.textContent = label;
 
     const errEl = card.querySelector('.result-error');
@@ -327,6 +338,21 @@
     }
   }
 
+  function jobIsActivelyRunning(job) {
+    const stage = String(job?.stage || '');
+    return [
+      'preparing',
+      'running_first_frames',
+      'running_videos',
+      'stitching',
+      'deriving_character',
+    ].includes(stage);
+  }
+
+  function pollIntervalMs() {
+    return batchJobs.some(jobIsActivelyRunning) ? POLL_ACTIVE_MS : POLL_MS;
+  }
+
   function stopPoll() {
     if (pollTimer) {
       clearInterval(pollTimer);
@@ -334,9 +360,19 @@
     }
   }
 
-  function startPoll() {
+  function scheduleNextPoll() {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollBatch, POLL_MS);
+    if (!batchJobs.some(jobNeedsPoll)) {
+      pollTimer = null;
+      return;
+    }
+    pollTimer = setInterval(() => {
+      pollBatch();
+    }, pollIntervalMs());
+  }
+
+  function startPoll() {
+    scheduleNextPoll();
     pollBatch();
   }
 
@@ -355,7 +391,11 @@
       // Intentionally no Ready For Upload tagging for stitch clips.
     }
     saveBatch();
-    if (!batchJobs.some(jobNeedsPoll)) stopPoll();
+    if (!batchJobs.some(jobNeedsPoll)) {
+      stopPoll();
+      return;
+    }
+    scheduleNextPoll();
   }
 
   async function createStitchJob({ account, characterKey }) {
@@ -432,7 +472,7 @@
     setStatus('Creating stitch job…', account || 'no account tag');
     try {
       await enqueueOne(account);
-      setStatus('Job queued on Fast Panda.', 'Silent ~30s clip · CapCut-ready');
+      setStatus('Running on Fast Panda…', 'Silent ~30s clip · CapCut-ready');
       startPoll();
     } catch (err) {
       setError(err?.message || String(err));
@@ -500,8 +540,8 @@
     saveBatch();
     syncBatchActionsVisibility();
     setStatus(
-      `Queued ${done} job(s)${failed ? ` · ${failed} failed` : ''}.`,
-      'Pipeline runs one at a time on Fast Panda.',
+      `Started ${done} job(s)${failed ? ` · ${failed} failed` : ''}.`,
+      'One pipeline at a time on Fast Panda — status updates while they run.',
     );
     startPoll();
     submitting = false;
