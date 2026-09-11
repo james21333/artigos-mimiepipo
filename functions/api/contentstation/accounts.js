@@ -31,7 +31,7 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  * Roles:
  *   admin    → all actions
  *   download → list, tag, create, rename (account picker on TikTok download)
- *   kenneth  → same as download for account picker + characters (Music-Only / Stitch)
+ *   kenneth  → Ready-equivalent account ops + Music-Only / Stitch / download pickers
  *   ready    → list, tags, videos, tag, posted, create, rename, archive, delete, info
  *
  * GET  ?action=list              → active accounts + counts (+ character defaults)
@@ -147,9 +147,9 @@ function forbidden(role) {
   return json({ ok: false, error: 'forbidden', role }, 403);
 }
 
-/** Download + Kenneth: account picker / characters only — not Ready gallery ops. */
+/** Download-only: account picker basics — not Ready gallery ops. Kenneth has full Ready access. */
 function isLimitedAccountRole(role) {
-  return role === ROLES.DOWNLOAD || role === ROLES.KENNETH;
+  return role === ROLES.DOWNLOAD;
 }
 
 export async function onRequestGet(context) {

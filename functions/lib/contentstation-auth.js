@@ -63,6 +63,9 @@ const ROLE_PAGES = Object.freeze({
     '/tiktok-download-character-remix-2-og-v2-music.html',
     '/stitch-maker.html',
     '/stitch-videos.html',
+    '/ready.html',
+    '/ready-account.html',
+    '/ready-archived.html',
   ],
 });
 
@@ -358,9 +361,11 @@ export function roleMayAccessPage(role, pageId) {
 function kennethKeyAllowed(key) {
   if (!key || typeof key !== 'string') return false;
   if (key.startsWith('tiktok/')) return true;
+  if (key.startsWith('cleaned/')) return true;
   if (key.startsWith('account-characters/')) return true;
   if (key.startsWith('characters/')) return true;
   if (key.startsWith('stitch-maker/')) return true;
+  if (key.startsWith('facefusion-remix/')) return true;
   if (/^character-remix-2-og\/[^/]+\/(final\.mp4|character\.jpg|frames\/)/i.test(key)) return true;
   if (/^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)) return true;
   return false;
@@ -371,6 +376,8 @@ function kennethPrefixAllowed(prefix) {
   return (
     p === 'tiktok/' ||
     p.startsWith('tiktok/') ||
+    p === 'cleaned/' ||
+    p.startsWith('cleaned/') ||
     p === 'account-characters/' ||
     p.startsWith('account-characters/') ||
     p === 'characters/' ||
@@ -378,7 +385,9 @@ function kennethPrefixAllowed(prefix) {
     p === 'stitch-maker/' ||
     p.startsWith('stitch-maker/') ||
     p === 'character-remix-2-og/' ||
-    p.startsWith('character-remix-2-og/')
+    p.startsWith('character-remix-2-og/') ||
+    p === 'facefusion-remix/' ||
+    p.startsWith('facefusion-remix/')
   );
 }
 
@@ -386,7 +395,7 @@ function kennethPrefixAllowed(prefix) {
  * Media key/prefix access by role.
  * download → tiktok/ read
  * ready → cleaned/ + Remix 2 finals + FaceFusion remixes read
- * kenneth → tiktok + characters + remix2 finals/frames + stitch-maker
+ * kenneth → ready media + tiktok + characters + stitch-maker + remix2 frames
  * admin → all
  */
 export function mediaKeyAllowed(role, key) {

@@ -32,6 +32,17 @@
       page: 'stitch-maker.html',
     },
     { href: './stitch-videos.html', label: 'Stitch videos', page: 'stitch-videos.html' },
+    {
+      href: './ready.html',
+      label: 'Ready For Upload',
+      page: 'ready.html',
+      alsoCurrent: ['ready-account.html', 'ready-archived.html'],
+    },
+    {
+      href: './ready-archived.html',
+      label: 'Archived accounts',
+      page: 'ready-archived.html',
+    },
   ];
 
   /** Nav link href → roles that may see it (admin always sees all). */
@@ -60,7 +71,7 @@
     { match: /character-remixes\.html/, roles: ['admin'] },
     { match: /tiktok-download\.html/, roles: ['admin', 'download', 'kenneth'] },
     { match: /downloaded\.html/, roles: ['admin'] },
-    { match: /ready(?:-account|-archived)?\.html/, roles: ['admin', 'ready'] },
+    { match: /ready(?:-account|-archived)?\.html/, roles: ['admin', 'ready', 'kenneth'] },
   ];
 
   const PAGE_ROLES = {
@@ -86,9 +97,9 @@
     'viral-video-builder': ['admin'],
     'character-remixes': ['admin'],
     'remix2-ready': ['admin'],
-    ready: ['admin', 'ready'],
-    'ready-account': ['admin', 'ready'],
-    'ready-archived': ['admin', 'ready'],
+    ready: ['admin', 'ready', 'kenneth'],
+    'ready-account': ['admin', 'ready', 'kenneth'],
+    'ready-archived': ['admin', 'ready', 'kenneth'],
     kenneth: ['admin', 'kenneth'],
     'stitch-maker': ['admin', 'kenneth'],
     'stitch-videos': ['admin', 'kenneth'],
@@ -158,7 +169,12 @@
         const a = document.createElement('a');
         a.href = item.href;
         a.textContent = item.label;
-        if (page === item.page) a.setAttribute('aria-current', 'page');
+        if (
+          page === item.page ||
+          (Array.isArray(item.alsoCurrent) && item.alsoCurrent.includes(page))
+        ) {
+          a.setAttribute('aria-current', 'page');
+        }
         nav.appendChild(a);
       }
     });
