@@ -31,6 +31,7 @@ import { resolvePostInfoForKey } from '../../lib/tiktok-post-info.js';
  * Roles:
  *   admin    → all actions
  *   download → list, tag, create, rename (account picker on TikTok download)
+ *   kenneth  → same as download for account picker + characters (Music-Only / Stitch)
  *   ready    → list, tags, videos, tag, posted, create, rename, archive, delete, info
  *
  * GET  ?action=list              → active accounts + counts (+ character defaults)
@@ -146,8 +147,13 @@ function forbidden(role) {
   return json({ ok: false, error: 'forbidden', role }, 403);
 }
 
+/** Download + Kenneth: account picker / characters only — not Ready gallery ops. */
+function isLimitedAccountRole(role) {
+  return role === ROLES.DOWNLOAD || role === ROLES.KENNETH;
+}
+
 export async function onRequestGet(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
@@ -161,20 +167,20 @@ export async function onRequestGet(context) {
   }
 
   if (action === 'archived') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const accounts = await archivedAccountSummaries(env);
     return json({ ok: true, accounts, archived: true });
   }
 
   if (action === 'tags') {
     // Full tag map is used by cleaned gallery (admin) and ready flows.
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const tags = await readTagsMap(env);
     return json({ ok: true, tags });
   }
 
   if (action === 'videos') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const account = sanitizeAccountName(url.searchParams.get('account'));
     if (!account) {
       return json({ ok: false, error: 'missing_account', message: 'Account name required.' }, 400);
@@ -191,7 +197,7 @@ export async function onRequestGet(context) {
   }
 
   if (action === 'info') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const key = url.searchParams.get('key');
     if (!key || typeof key !== 'string') {
       return json({ ok: false, error: 'missing_key', message: 'Video key required.' }, 400);
@@ -237,7 +243,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { env, request } = context;
@@ -280,7 +286,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'archive') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const result = await archiveAccount(env, body.name || body.account);
     if (!result.ok) {
       return json({ ok: false, error: 'archive_failed', message: result.error }, 400);
@@ -294,7 +300,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'unarchive') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const result = await unarchiveAccount(env, body.name || body.account);
     if (!result.ok) {
       return json({ ok: false, error: 'unarchive_failed', message: result.error }, 400);
@@ -308,7 +314,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'delete') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const result = await deleteAccount(env, body.name || body.account);
     if (!result.ok) {
       return json({ ok: false, error: 'delete_failed', message: result.error }, 400);
@@ -336,7 +342,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'posted') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     if (typeof body.posted !== 'boolean') {
       return json(
         { ok: false, error: 'invalid_posted', message: 'posted must be true or false.' },
@@ -384,7 +390,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'set-voice-catalog') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const result = await setVoiceCatalog(env, body.voices);
     if (!result.ok) {
       return json({ ok: false, error: 'set_voice_catalog_failed', message: result.error }, 400);
@@ -393,7 +399,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'pull-xai-voices') {
-    if (role === ROLES.DOWNLOAD) return forbidden(role);
+    if (isLimitedAccountRole(role)) return forbidden(role);
     const xai = await workerFetch(env, '/xai/custom-voices', { timeoutMs: 20000 });
     if (!xai.ok) {
       const d = xai.data || {};

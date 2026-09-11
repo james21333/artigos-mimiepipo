@@ -67,9 +67,9 @@
     return (accountSelect && accountSelect.value ? accountSelect.value : '').trim();
   }
 
-  /** Admin always cleans after download; download-only role never does. */
+  /** Admin always cleans after download; download/kenneth never do (no Cleaned access). */
   function shouldAutoClean() {
-    return sessionRole !== 'download';
+    return sessionRole === 'admin';
   }
 
   function setAccountError(msg) {
@@ -221,7 +221,12 @@
     if (app) app.hidden = false;
     sessionRole = (session && session.role) || 'admin';
     if (sessionMeta) {
-      sessionMeta.textContent = sessionRole === 'download' ? 'Download access' : 'Signed in';
+      sessionMeta.textContent =
+        sessionRole === 'download'
+          ? 'Download access'
+          : sessionRole === 'kenneth'
+            ? "Kenneth's Content Tools"
+            : 'Signed in';
     }
     syncDuplicateOverrideUi();
   }

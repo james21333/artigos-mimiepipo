@@ -1,5 +1,6 @@
 /**
- * Character Remix 2 - OG (admin).
+ * Character Remix 2 - OG (admin + kenneth).
+ * Kenneth uses this for V2 Music-Only + Stitch Maker; page gate limits the UIs.
  *
  * GET  ?action=config
  * GET  ?action=status&jobId=…
@@ -92,7 +93,7 @@ export async function onRequest(context) {
     }
   }
 
-  const auth = await requireRole(context, [ROLES.ADMIN]);
+  const auth = await requireRole(context, [ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   if (method === 'OPTIONS') {

@@ -5,6 +5,7 @@ import {
   mediaKeyAllowed,
   mediaPrefixAllowed,
   mediaWriteAllowed,
+  mediaWriteKeyAllowed,
 } from '../../lib/contentstation-auth.js';
 import { createR2PresignedPut, createR2PresignedGet } from '../../lib/r2-presign.js';
 import { readCleanSourceMap, removeCleanedFromSourceMap } from '../../lib/clean-source-map.js';
@@ -155,9 +156,10 @@ async function streamGet(bucket, url) {
   return new Response(obj.body, { status: 200, headers });
 }
 
-async function deleteKey(env, bucket, key) {
+async function deleteKey(env, bucket, key, role = ROLES.ADMIN) {
   const safe = sanitizeKey(key);
   if (!safe) return json({ error: 'invalid_key' }, 400);
+  if (!mediaWriteKeyAllowed(role, safe)) return forbidMedia(role);
   await bucket.delete(safe);
 
   const extras = [];
@@ -198,7 +200,7 @@ async function deleteKey(env, bucket, key) {
   });
 }
 
-async function uploadForm(env, bucket, request) {
+async function uploadForm(env, bucket, request, role = ROLES.ADMIN) {
   const ct = request.headers.get('Content-Type') || '';
   if (!ct.includes('multipart/form-data')) {
     return json(
@@ -244,6 +246,7 @@ async function uploadForm(env, bucket, request) {
     key = sanitizeKey(`${prefix.replace(/\/?$/, '/')}${stamp}_${name}`);
   }
   if (!key) return json({ error: 'invalid_key' }, 400);
+  if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
 
   const contentType = file.type || 'application/octet-stream';
   const put = await bucket.put(key, file.stream(), {
@@ -266,7 +269,7 @@ async function uploadForm(env, bucket, request) {
   });
 }
 
-async function handleJson(env, bucket, request) {
+async function handleJson(env, bucket, request, role = ROLES.ADMIN) {
   let body;
   try {
     body = await request.json();
@@ -276,7 +279,7 @@ async function handleJson(env, bucket, request) {
   const action = body.action || 'delete';
 
   if (action === 'delete') {
-    return deleteKey(env, bucket, body.key);
+    return deleteKey(env, bucket, body.key, role);
   }
 
   if (action === 'sign-put') {
@@ -291,6 +294,7 @@ async function handleJson(env, bucket, request) {
       key = sanitizeKey(`${prefix.replace(/\/?$/, '/')}${stamp}_${name}`);
     }
     if (!key) return json({ error: 'invalid_key' }, 400);
+    if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
     const signed = await createR2PresignedPut(env, {
       key,
       contentType: body.contentType || 'application/octet-stream',
@@ -312,6 +316,7 @@ async function handleJson(env, bucket, request) {
   if (action === 'sign-get') {
     const key = sanitizeKey(body.key);
     if (!key) return json({ error: 'invalid_key' }, 400);
+    if (!mediaKeyAllowed(role, key)) return forbidMedia(role);
     const fetchable = await fetchableUrl(env, key);
     if (!fetchable.url) {
       return json(fetchable.error || { error: 'sign_get_failed', message: 'Could not create fetch URL.' }, 503);
@@ -329,6 +334,7 @@ async function handleJson(env, bucket, request) {
   if (action === 'multipart-init') {
     const key = sanitizeKey(body.key);
     if (!key) return json({ error: 'invalid_key' }, 400);
+    if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
     const contentType = body.contentType || 'application/octet-stream';
     const multipart = await bucket.createMultipartUpload(key, {
       httpMetadata: { contentType },
@@ -351,6 +357,7 @@ async function handleJson(env, bucket, request) {
     if (!key || !uploadId || !Array.isArray(parts) || !parts.length) {
       return json({ error: 'invalid_multipart_complete' }, 400);
     }
+    if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
     const multipart = bucket.resumeMultipartUpload(key, uploadId);
     const obj = await multipart.complete(
       parts.map((p) => ({ partNumber: p.partNumber, etag: p.etag })),
@@ -362,6 +369,7 @@ async function handleJson(env, bucket, request) {
     const key = sanitizeKey(body.key);
     const uploadId = body.uploadId;
     if (!key || !uploadId) return json({ error: 'invalid_multipart_abort' }, 400);
+    if (!mediaWriteKeyAllowed(role, key)) return forbidMedia(role);
     const multipart = bucket.resumeMultipartUpload(key, uploadId);
     await multipart.abort();
     return json({ status: 'ok', aborted: true, key, uploadId });
@@ -388,7 +396,7 @@ function forbidMedia(role) {
 
 export async function onRequest(context) {
   // All authenticated roles may hit media; action/key checks narrow further.
-  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const bucket = getBucket(context.env);
@@ -447,23 +455,25 @@ export async function onRequest(context) {
       return listObjects(env, bucket, url);
     }
 
-    // Writes (upload / delete / multipart / sign-put) are admin-only.
+    // Writes: admin all keys; kenneth only character / stitch prefixes.
     if (!mediaWriteAllowed(role)) return forbidMedia(role);
 
     if (method === 'DELETE') {
-      return deleteKey(env, bucket, url.searchParams.get('key'));
+      return deleteKey(env, bucket, url.searchParams.get('key'), role);
     }
 
     if (method === 'PUT' && action === 'multipart-part') {
+      const partKey = sanitizeKey(url.searchParams.get('key'));
+      if (!mediaWriteKeyAllowed(role, partKey)) return forbidMedia(role);
       return uploadPart(bucket, request, url);
     }
 
     if (method === 'POST') {
       const ct = request.headers.get('Content-Type') || '';
       if (ct.includes('application/json')) {
-        return handleJson(env, bucket, request);
+        return handleJson(env, bucket, request, role);
       }
-      return uploadForm(env, bucket, request);
+      return uploadForm(env, bucket, request, role);
     }
 
     return json({ error: 'method_not_allowed' }, 405);

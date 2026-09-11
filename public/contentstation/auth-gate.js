@@ -17,6 +17,23 @@
     kenneth: './kenneth.html',
   };
 
+  /** Full Kenneth top-nav (rebuilt on shared pages so he never sees admin links). */
+  const KENNETH_NAV = [
+    { href: './kenneth.html', label: 'Home', page: 'kenneth.html' },
+    {
+      href: './tiktok-download-character-remix-2-og-v2-music.html',
+      label: 'V2 Music-Only',
+      page: 'tiktok-download-character-remix-2-og-v2-music.html',
+    },
+    { href: './tiktok-download.html', label: 'TikTok download', page: 'tiktok-download.html' },
+    {
+      href: './stitch-maker.html',
+      label: 'Stitch Maker with Character',
+      page: 'stitch-maker.html',
+    },
+    { href: './stitch-videos.html', label: 'Stitch videos', page: 'stitch-videos.html' },
+  ];
+
   /** Nav link href → roles that may see it (admin always sees all). */
   const NAV_BY_HREF = [
     { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
@@ -121,8 +138,52 @@
     return false;
   }
 
+  function currentPageFile() {
+    try {
+      const path = String(global.location?.pathname || '');
+      const leaf = path.split('/').filter(Boolean).pop() || '';
+      return leaf || 'index.html';
+    } catch {
+      return '';
+    }
+  }
+
+  /** Replace top-nav with Kenneth-only links on every shared page he can open. */
+  function applyKennethNav() {
+    const page = currentPageFile();
+    document.querySelectorAll('nav.top-nav').forEach((nav) => {
+      nav.setAttribute('aria-label', 'Kenneth tools');
+      nav.replaceChildren();
+      for (const item of KENNETH_NAV) {
+        const a = document.createElement('a');
+        a.href = item.href;
+        a.textContent = item.label;
+        if (page === item.page) a.setAttribute('aria-current', 'page');
+        nav.appendChild(a);
+      }
+    });
+    // Hide leftover footer / secondary links that aren't in Kenneth's set.
+    document.querySelectorAll('footer a, .site-footer a').forEach((a) => {
+      const href = a.getAttribute('href') || '';
+      const allowed = hrefAllowedForRole(href, 'kenneth');
+      a.hidden = !allowed;
+      if (!allowed) {
+        a.setAttribute('aria-hidden', 'true');
+        a.tabIndex = -1;
+      } else {
+        a.removeAttribute('aria-hidden');
+        a.removeAttribute('tabIndex');
+      }
+    });
+  }
+
   function applyNav(role) {
     const r = role || 'admin';
+    if (r === 'kenneth') {
+      applyKennethNav();
+      applyBrand(r);
+      return;
+    }
     const navs = document.querySelectorAll('nav.top-nav a, footer a, .site-footer a');
     navs.forEach((a) => {
       const href = a.getAttribute('href') || '';
@@ -157,6 +218,7 @@
     applyNav,
     applyBrand,
     PAGE_ROLES,
+    KENNETH_NAV,
     BRAND_KENNETH,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
