@@ -42,7 +42,11 @@
     gate.hidden = true;
     app.hidden = false;
     sessionMeta.textContent =
-      session && session.role === 'ready' ? 'Ready For Upload access' : 'Signed in';
+      session && session.role === 'ready'
+        ? 'Ready For Upload access'
+        : session && session.role === 'kenneth'
+          ? "Kenneth's Content Tools"
+          : 'Signed in';
     window.__csRole = (session && session.role) || 'admin';
   }
 
