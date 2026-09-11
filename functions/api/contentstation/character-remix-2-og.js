@@ -175,6 +175,17 @@ export async function onRequest(context) {
       });
       return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
     }
+    if (action === 'prompt-talking-status') {
+      const planId = url.searchParams.get('planId');
+      if (!planId) return json({ error: 'missing_planId' }, 400);
+      if (!remix2WorkerConfigured(env)) {
+        return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+      }
+      const result = await workerFetch(env, `/prompt-talking/${encodeURIComponent(planId)}`, {
+        timeoutMs: 15000,
+      });
+      return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
+    }
     if (action === 'list') {
       const pageLimit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50) || 50));
       const wantVariant = String(url.searchParams.get('variant') || 'all')
@@ -272,6 +283,47 @@ export async function onRequest(context) {
       timeoutMs: 15000,
     });
     return json(result.data || { ok: false, error: 'worker_error' }, result.ok ? 200 : result.status || 502);
+  }
+
+  if (action === 'prompt-talking') {
+    if (!remix2WorkerConfigured(env)) {
+      return json({ error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+    }
+    const masterPrompt = String(body.masterPrompt || body.prompt || '').trim();
+    if (!masterPrompt) return json({ error: 'missing_masterPrompt' }, 400);
+    if (masterPrompt.length > 12000) return json({ error: 'masterPrompt_too_long' }, 400);
+    const title = String(body.title || '').trim().slice(0, 120);
+    const account = String(body.account || '').trim() || null;
+    const voiceId = String(body.voiceId || '').trim() || null;
+    const voiceLabel = String(body.voiceLabel || '').trim() || null;
+    const result = await workerFetch(env, '/prompt-talking/run', {
+      method: 'POST',
+      body: {
+        masterPrompt,
+        title: title || undefined,
+        account,
+        voiceId,
+        voiceLabel,
+        autoRun: body.autoRun !== false,
+        r2,
+      },
+      timeoutMs: 30000,
+    });
+    if (!result.ok) {
+      return json(
+        {
+          error: result.data?.error || 'prompt_talking_failed',
+          message: describeWorkerFailure(
+            result.status,
+            result.data,
+            'Prompt talking start failed',
+          ),
+          detail: result.data,
+        },
+        result.status >= 400 && result.status < 600 ? result.status : 502,
+      );
+    }
+    return json({ ok: true, ...(result.data || {}) }, 200);
   }
 
   if (action === 'from-tiktok') {

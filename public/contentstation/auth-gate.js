@@ -27,6 +27,7 @@
     { match: /tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-talking-johnny\.html/, roles: ['admin'] },
 
+    { match: /prompt-talking\.html/, roles: ['admin'] },
     { match: /tiktok-url-lists\.html/, roles: ['admin'] },
     { match: /disclaimer-burn\.html/, roles: ['admin'] },
     { match: /viral-video-builder\.html/, roles: ['admin'] },
@@ -57,6 +58,7 @@
     'tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod': ['admin'],
 
     'tiktok-download-character-remix-2-og-v2-music': ['admin'],
+    'prompt-talking': ['admin'],
     'tiktok-url-lists': ['admin'],
     'disclaimer-burn': ['admin'],
     'viral-video-builder': ['admin'],

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Prompt talking</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Prompt-first talking / animation remix — Codex plans scenes, Grok Imagine generates clips.">
+  <link rel="stylesheet" href="./styles.css?v=grokquota1">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download-character-remix-2-og-talking-johnny.html">Talking Johnny</a>
+        <a href="./prompt-talking.html" aria-current="page">Prompt talking</a>
+        <a href="./disclaimer-burn.html">Disclaimer burn</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">Prompt talking — invent scenes from a master prompt (people + animation)</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <div id="grok-quota-banner"></div>
+
+      <section class="hero-flow">
+        <h1>Prompt talking</h1>
+        <p class="lede">
+          Write one master prompt. Codex splits it into timed scenes (talking people
+          <em>and</em> product / animation / B-roll beats). Optional character stills
+          lock faces across scenes. Then Codex first frames → Grok Imagine clips → stitch.
+          No TikTok source.
+        </p>
+
+        <section class="account-picker" id="account-picker">
+          <label for="account-select">Ready For Upload account</label>
+          <div class="row account-select-row">
+            <select id="account-select" class="account-select">
+              <option value="">— Pick account —</option>
+            </select>
+          </div>
+          <form id="create-account-form" class="account-create-row" hidden>
+            <label for="new-account-name">Create account</label>
+            <div class="row">
+              <input id="new-account-name" type="text" maxlength="80">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+        </section>
+
+        <label for="job-title">Title (optional)</label>
+        <input id="job-title" type="text" placeholder="Codex will invent one if blank" maxlength="120">
+
+        <label for="master-prompt">Master prompt</label>
+        <textarea id="master-prompt" rows="12" autocomplete="off"
+          placeholder="Describe the full short. Example: A friendly doctor in a white coat explains a GLP-1 tip, then cut to a product bottle spinning on a kitchen counter, then back to the doctor with a closing line…"></textarea>
+
+        <div class="row">
+          <button type="button" id="run-btn">Generate from prompt</button>
+        </div>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="prompt-talking-error" class="error" hidden></p>
+
+        <h2>Plan</h2>
+        <pre id="plan-box" class="transcript-box" hidden></pre>
+
+        <h2>Jobs</h2>
+        <div id="batch-list" class="download-results" hidden></div>
+
+        <h2>Finished video</h2>
+        <div id="output-gallery" class="download-results" hidden></div>
+      </section>
+    </section>
+  </main>
+  <script src="./auth-gate.js"></script>
+  <script src="./grok-quota-banner.js?v=3"></script>
+  <script src="./remix2-account-ui.js?v=voice6"></script>
+  <script src="./prompt-talking-app.js?v=1"></script>
+</body>
+</html>
