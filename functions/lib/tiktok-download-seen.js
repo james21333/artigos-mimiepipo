@@ -28,6 +28,19 @@ export function extractTikTokVideoId(raw) {
   return loose ? loose[1] : '';
 }
 
+/** TikTok photo / slideshow posts — no real video keyframes for Music-Only remakes. */
+export function isTikTokPhotoUrl(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return false;
+  try {
+    const u = new URL(s.includes('://') ? s : `https://${s.replace(/^\/+/, '')}`);
+    if (/\/photo\/\d+/i.test(u.pathname || '')) return true;
+  } catch {
+    /* fall through */
+  }
+  return /(?:^|[^\w])photo\/\d{5,}/i.test(s) || /tiktok\.com\/@[^/]+\/photo\//i.test(s);
+}
+
 export function seenMarkerKey(tiktokId) {
   const id = String(tiktokId || '').replace(/[^\d]/g, '').slice(0, 40);
   if (!id) return null;

@@ -18,6 +18,7 @@ import {
   extractTikTokVideoId,
   listRemixUsedIds,
 } from './remix2-account-used.js';
+import { isTikTokPhotoUrl } from './tiktok-download-seen.js';
 
 export async function listRemixSourcePools(env, listIdRaw) {
   const bucket = env?.MEDIA_BUCKET;
@@ -29,6 +30,8 @@ export async function listRemixSourcePools(env, listIdRaw) {
   }
   const list = listRes.list;
   const items = Array.isArray(list.items) ? list.items : [];
+  // Photo/slideshow URLs are not remixable — hide from Autogenerate leftovers.
+  const videoItems = items.filter((item) => item?.url && !isTikTokPhotoUrl(item.url));
 
   const names = await listAccounts(env);
   const characters = await listAccountCharacters(env);
@@ -41,7 +44,7 @@ export async function listRemixSourcePools(env, listIdRaw) {
     const usedIds = await listRemixUsedIds(env, account);
     const leftover = [];
     const remixed = [];
-    for (const item of items) {
+    for (const item of videoItems) {
       const id =
         String(item.tiktokId || '').replace(/[^\d]/g, '') || extractTikTokVideoId(item.url);
       const rec = { url: item.url, tiktokId: id || null };
@@ -56,7 +59,7 @@ export async function listRemixSourcePools(env, listIdRaw) {
       voiceId: char.voiceLocked !== false ? char.voiceId || null : null,
       voiceLabel: char.voiceLocked !== false ? char.voiceLabel || null : null,
       voiceLocked: char.voiceLocked !== false && Boolean(char.voiceId),
-      poolCount: items.length,
+      poolCount: videoItems.length,
       leftoverCount: leftover.length,
       remixedCount: remixed.length,
       leftover,
@@ -69,7 +72,8 @@ export async function listRemixSourcePools(env, listIdRaw) {
     ok: true,
     listId: list.id,
     listName: list.name,
-    listCount: items.length,
+    listCount: videoItems.length,
+    photoSkipped: Math.max(0, items.length - videoItems.length),
     accounts: out,
   };
 }

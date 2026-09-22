@@ -289,6 +289,7 @@
       return (
         err === 'file_too_large' ||
         err === 'source_is_speech' ||
+        err === 'source_is_photo' ||
         err === 'too_many_scenes' ||
         err === 'resolve_rejected' ||
         err === 'resolve_rate_limited' ||
@@ -307,6 +308,9 @@
       }
       if (err === 'source_is_speech') {
         return 'Spoken dialogue — moved to GLP-1 Speech audio list';
+      }
+      if (err === 'source_is_photo') {
+        return 'Photo/slideshow post — removed + blocklisted';
       }
       if (err === 'too_many_scenes') {
         const n = Number(data?.shotCount);
