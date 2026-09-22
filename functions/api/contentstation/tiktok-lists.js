@@ -5,8 +5,10 @@ import {
   DEFAULT_LIST_ID,
   getUrlList,
   listUrlLists,
+  purgePhotoUrlsFromAllLists,
   removeUrlsFromList,
 } from '../../lib/tiktok-url-lists.js';
+import { isTikTokPhotoUrl } from '../../lib/tiktok-download-seen.js';
 
 /**
  * Named TikTok URL lists (GLP-1 List, etc.)
@@ -15,6 +17,7 @@ import {
  * POST { action: "create", name }
  * POST { action: "add", listId, urls: string[] | url: string }
  * POST { action: "remove", listId, urls: string[] | url: string }
+ * POST { action: "purge-photos" } — strip TikTok /photo/ items from every list
  */
 export async function onRequest(context) {
   const auth = await requireRole(context, [ROLES.ADMIN, ROLES.DOWNLOAD, ROLES.KENNETH]);
@@ -88,6 +91,12 @@ export async function onRequest(context) {
     const urls = Array.isArray(body.urls) ? body.urls : body.url ? [body.url] : [];
     const result = await removeUrlsFromList(env, body.listId || DEFAULT_LIST_ID, urls);
     if (!result.ok) return json(result, result.error === 'list_not_found' ? 404 : 400);
+    return json(result);
+  }
+
+  if (action === 'purge-photos') {
+    const result = await purgePhotoUrlsFromAllLists(env, isTikTokPhotoUrl);
+    if (!result.ok) return json(result, 503);
     return json(result);
   }
 

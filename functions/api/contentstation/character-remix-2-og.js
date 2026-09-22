@@ -56,7 +56,6 @@ import {
   addUrlsToList,
   DEFAULT_LIST_ID,
   moveUrlsToSpeechAudioList,
-  purgePhotoUrlsFromAllLists,
   removeUrlsFromAllLists,
   removeUrlsFromList,
 } from '../../lib/tiktok-url-lists.js';
