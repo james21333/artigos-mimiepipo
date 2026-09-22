@@ -253,6 +253,83 @@ export async function removeUrlsFromList(env, listIdRaw, urls) {
   };
 }
 
+/** Drop the same URL(s) from every named list (photo / bad-source cleanup). */
+export async function removeUrlsFromAllLists(env, urls) {
+  const bucket = env?.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'no_bucket' };
+  const ensured = await ensureUrlLists(env);
+  if (!ensured.ok) return ensured;
+  const drop = new Set();
+  for (const raw of Array.isArray(urls) ? urls : [urls]) {
+    const item = normalizeItem(raw);
+    if (!item) continue;
+    drop.add(itemKey(item));
+  }
+  if (!drop.size) {
+    return { ok: true, removed: 0, byList: [], lists: ensured.lists.map(summarizeList) };
+  }
+  let removed = 0;
+  const byList = [];
+  for (const list of ensured.lists) {
+    if (!Array.isArray(list.items)) list.items = [];
+    const before = list.items.length;
+    list.items = list.items.filter((it) => !drop.has(itemKey(it)));
+    const n = before - list.items.length;
+    if (n) {
+      removed += n;
+      byList.push({ listId: list.id, name: list.name, removed: n });
+    }
+  }
+  if (removed) await writeStore(bucket, { lists: ensured.lists });
+  return {
+    ok: true,
+    removed,
+    byList,
+    lists: ensured.lists.map(summarizeList),
+  };
+}
+
+/**
+ * Strip every TikTok /photo/ slideshow item from all lists.
+ * Used after hard-reject so Autogenerate leftovers stay video-only.
+ */
+export async function purgePhotoUrlsFromAllLists(env, isPhotoUrl) {
+  const bucket = env?.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'no_bucket' };
+  if (typeof isPhotoUrl !== 'function') return { ok: false, error: 'missing_predicate' };
+  const ensured = await ensureUrlLists(env);
+  if (!ensured.ok) return ensured;
+  let removed = 0;
+  const byList = [];
+  const sample = [];
+  for (const list of ensured.lists) {
+    if (!Array.isArray(list.items)) list.items = [];
+    const kept = [];
+    let n = 0;
+    for (const it of list.items) {
+      if (it?.url && isPhotoUrl(it.url)) {
+        n += 1;
+        if (sample.length < 20) sample.push({ listId: list.id, url: it.url });
+      } else {
+        kept.push(it);
+      }
+    }
+    if (n) {
+      list.items = kept;
+      removed += n;
+      byList.push({ listId: list.id, name: list.name, removed: n });
+    }
+  }
+  if (removed) await writeStore(bucket, { lists: ensured.lists });
+  return {
+    ok: true,
+    removed,
+    byList,
+    sample,
+    lists: ensured.lists.map(summarizeList),
+  };
+}
+
 /**
  * Move TikTok URL(s) onto the Speech audio list and off a source list (Music leftovers).
  */

@@ -52,7 +52,14 @@ import {
   markRemixUsed,
 } from '../../lib/remix2-account-used.js';
 import { listRemixSourcePools } from '../../lib/remix2-source-pool.js';
-import { addUrlsToList, DEFAULT_LIST_ID, moveUrlsToSpeechAudioList, removeUrlsFromList } from '../../lib/tiktok-url-lists.js';
+import {
+  addUrlsToList,
+  DEFAULT_LIST_ID,
+  moveUrlsToSpeechAudioList,
+  purgePhotoUrlsFromAllLists,
+  removeUrlsFromAllLists,
+  removeUrlsFromList,
+} from '../../lib/tiktok-url-lists.js';
 import { isTikTokPhotoUrl, markTikTokSeen } from '../../lib/tiktok-download-seen.js';
 
 async function resolveKey(env, key) {
@@ -448,42 +455,42 @@ export async function onRequest(context) {
     }
 
     // Photo / slideshow posts have no usable video keyframes — reject before download.
-    // Music-Only Autogenerate treats this as replaceable (remove + blocklist → next leftover).
+    // Always strip from every URL list + blocklist so Autogenerate never picks them again.
     if (isTikTokPhotoUrl(tiktokUrl)) {
       const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
       let removed = null;
       let blocklisted = false;
-      if (musicLock && !writeFromScratch) {
-        try {
-          removed = await removeUrlsFromList(env, fromListId, [tiktokUrl]);
-        } catch {
-          removed = null;
+      try {
+        removed = await removeUrlsFromAllLists(env, [tiktokUrl]);
+      } catch {
+        removed = null;
+      }
+      try {
+        const id = extractTikTokVideoId(tiktokUrl);
+        const bucket = env.MEDIA_BUCKET;
+        if (bucket && id) {
+          const marked = await markTikTokSeen(bucket, {
+            tiktokId: id,
+            tiktokUrl,
+            key: '',
+            author: '',
+            title: '',
+            account: sanitizeAccountName(body.account) || '',
+            source: 'music-only-photo-post',
+          });
+          blocklisted = Boolean(marked?.ok);
         }
-        try {
-          const id = extractTikTokVideoId(tiktokUrl);
-          const bucket = env.MEDIA_BUCKET;
-          if (bucket && id) {
-            const marked = await markTikTokSeen(bucket, {
-              tiktokId: id,
-              tiktokUrl,
-              key: '',
-              author: '',
-              title: '',
-              account: sanitizeAccountName(body.account) || '',
-              source: 'music-only-photo-post',
-            });
-            blocklisted = Boolean(marked?.ok);
-          }
-        } catch {
-          blocklisted = false;
-        }
+      } catch {
+        blocklisted = false;
       }
       return json(
         {
           error: 'source_is_photo',
           message:
-            'TikTok photo/slideshow posts cannot be remixed (no video keyframes). Removed from list + blocklisted. Autogenerate will try another leftover.',
+            'TikTok photo/slideshow posts cannot be remixed (no video keyframes). Removed from all lists + blocklisted. Autogenerate will try another leftover.',
           removedFromList: Boolean(removed?.ok && (removed.removed || 0) > 0),
+          removedCount: Number(removed?.removed || 0),
+          removedByList: removed?.byList || [],
           blocklisted,
           listId: fromListId,
         },
