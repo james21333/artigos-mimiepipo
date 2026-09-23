@@ -884,14 +884,28 @@
         else done += 1;
         continue;
       }
-      const { ok, data } = await api(
+      const { ok, data, status } = await api(
         `/api/contentstation/character-remix-2-og?action=status&jobId=${encodeURIComponent(job.jobId)}`,
       );
       if (!ok) {
         ensureBatchCard(job);
         const card = batchList?.querySelector(`[data-job-id="${job.jobId}"]`);
         const statusEl = card?.querySelector('.result-status');
-        if (statusEl) statusEl.textContent = 'Worker unreachable — retrying';
+        if (statusEl) {
+          const detail =
+            (typeof data?.message === 'string' && data.message.trim()) ||
+            (typeof data?.error === 'string' && data.error.trim()) ||
+            '';
+          if (status === 401 || status === 403) {
+            statusEl.textContent = 'Session expired — sign in again to refresh status';
+          } else if (status === 504 || data?.error === 'worker_timeout') {
+            statusEl.textContent = 'Worker timed out — retrying';
+          } else if (detail) {
+            statusEl.textContent = `Status failed — retrying (${detail.slice(0, 80)})`;
+          } else {
+            statusEl.textContent = `Status failed (HTTP ${status || '?'}) — retrying`;
+          }
+        }
         active += 1;
         continue;
       }
