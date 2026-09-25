@@ -61,6 +61,7 @@ const ROLE_PAGES = Object.freeze({
   [ROLES.READY]: ['/ready.html', '/ready-account.html', '/ready-archived.html'],
   [ROLES.KENNETH]: [
     '/kenneth.html',
+    '/views-tracker.html',
     '/tiktok-download.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
     '/stitch-maker.html',
@@ -355,6 +356,7 @@ export function roleMayAccessPage(role, pageId) {
     'ready-archived': ['/ready-archived.html'],
     'viral-video-builder': ['/viral-video-builder.html'],
     kenneth: ['/kenneth.html'],
+    'views-tracker': ['/views-tracker.html'],
     'stitch-maker': ['/stitch-maker.html'],
     'stitch-videos': ['/stitch-videos.html'],
     'stitch-creator': ['/stitch-creator.html'],

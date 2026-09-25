@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kenneth's Content Tools | Views &amp; URLs</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Live TikTok / YouTube stats and URL tabs from the Social Media Marketing Tracker.">
+  <link rel="stylesheet" href="./styles.css?v=kenneth2">
+</head>
+<body>
+  <main class="download-main views-tracker-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Kenneth tools">
+        <a href="./kenneth.html">Home</a>
+        <a href="./views-tracker.html" aria-current="page">Views &amp; URLs</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./stitch-maker.html">Stitch Maker with Character</a>
+        <a href="./stitch-videos.html">Stitch videos</a>
+        <a href="./stitch-creator.html">Stitch Creator</a>
+        <a href="./stitch-creator-videos.html">Stitch Creator gallery</a>
+        <a href="./ready.html">Ready For Upload</a>
+        <a href="./ready-archived.html">Archived accounts</a>
+      </nav>
+      <p class="brand">Kenneth's Content Tools</p>
+      <p class="sub">Views &amp; URLs</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Kenneth's Content Tools — password required.</p>
+      <form id="login-form">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <section class="hero-flow views-tracker-hero">
+        <h1>Views &amp; URLs</h1>
+        <p class="lede">
+          Live view of the Social Media Marketing Tracker — the same sheet another teammate updates.
+          View counts and URLs change there in real time; this page reloads the live sheet every 60s
+          (and when you come back to the tab). Nothing here is a frozen snapshot.
+        </p>
+
+        <div class="views-tab-bar" role="tablist" aria-label="Tracker tabs">
+          <button type="button" class="views-tab" role="tab" data-tab="yt" aria-selected="true">YT STATS</button>
+          <button type="button" class="views-tab" role="tab" data-tab="tiktok" aria-selected="false">TIKTOK STATS</button>
+          <button type="button" class="views-tab" role="tab" data-tab="urls" aria-selected="false">URL-YT/TIKTOK</button>
+        </div>
+
+        <div class="views-frame-toolbar">
+          <a id="open-sheet-link" class="btn-link" href="#" target="_blank" rel="noopener noreferrer">Open this tab in Google Sheets</a>
+          <button type="button" id="reload-sheet-btn" class="ghost">Reload now</button>
+          <p id="refresh-hint" class="muted-line" aria-live="polite">Live sheet</p>
+        </div>
+
+        <div class="views-frame-wrap">
+          <iframe
+            id="sheet-frame"
+            title="Social Media Marketing Tracker"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <style>
+    .views-tracker-main .views-tracker-hero {
+      max-width: none;
+    }
+    .views-tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin: 0.75rem 0 0.5rem;
+    }
+    .views-tab {
+      appearance: none;
+      border: 1px solid var(--rule);
+      background: var(--panel);
+      color: inherit;
+      padding: 0.45rem 0.85rem;
+      border-radius: 2px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .views-tab[aria-selected="true"] {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .views-frame-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin: 0.35rem 0 0.75rem;
+    }
+    .views-frame-wrap {
+      border: 1px solid var(--rule);
+      background: var(--panel);
+      min-height: 70vh;
+      height: calc(100vh - 14rem);
+    }
+    .views-frame-wrap iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+  </style>
+
+  <script src="./auth-gate.js?v=kenneth6"></script>
+  <script src="./views-tracker-app.js?v=2"></script>
+</body>
+</html>

@@ -21,6 +21,11 @@
   const KENNETH_NAV = [
     { href: './kenneth.html', label: 'Home', page: 'kenneth.html' },
     {
+      href: './views-tracker.html',
+      label: 'Views & URLs',
+      page: 'views-tracker.html',
+    },
+    {
       href: './tiktok-download-character-remix-2-og-v2-music.html',
       label: 'V2 Music-Only',
       page: 'tiktok-download-character-remix-2-og-v2-music.html',
@@ -72,6 +77,7 @@
   /** Nav link href → roles that may see it (admin always sees all). */
   const NAV_BY_HREF = [
     { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
+    { match: /views-tracker\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-maker\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-videos\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-creator\.html/, roles: ['kenneth', 'admin'] },
@@ -127,6 +133,7 @@
     'ready-account': ['admin', 'ready', 'kenneth'],
     'ready-archived': ['admin', 'ready', 'kenneth'],
     kenneth: ['admin', 'kenneth'],
+    'views-tracker': ['admin', 'kenneth'],
     'stitch-maker': ['admin', 'kenneth'],
     'stitch-videos': ['admin', 'kenneth'],
     'stitch-creator': ['admin', 'kenneth'],
