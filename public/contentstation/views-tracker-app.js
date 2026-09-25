@@ -1,5 +1,6 @@
 (function () {
   const SHEET_ID = '1DEGGxGD2ERkMy_iVPOdE4AF7oPgrHaKmr0LXULk7s74';
+  /** Tab ids are fixed Google Sheet handles — the cell values inside stay live. */
   const TABS = {
     yt: {
       label: 'YT STATS',
@@ -14,6 +15,8 @@
       gid: '69408482',
     },
   };
+  /** Re-load the live sheet embed so employee updates show up without a full page refresh. */
+  const AUTO_REFRESH_MS = 60 * 1000;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -25,9 +28,13 @@
   const sheetFrame = document.getElementById('sheet-frame');
   const openSheetLink = document.getElementById('open-sheet-link');
   const reloadBtn = document.getElementById('reload-sheet-btn');
+  const refreshHint = document.getElementById('refresh-hint');
   const tabButtons = Array.from(document.querySelectorAll('.views-tab'));
 
   let activeTab = 'yt';
+  let refreshTimer = null;
+  let hintTimer = null;
+  let lastLoadedAt = 0;
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -53,14 +60,17 @@
     return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${gid}#gid=${gid}`;
   }
 
-  function sheetEmbedUrl(gid) {
-    // Shared “anyone with the link” sheet — embed a single tab for Kenneth.
-    return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlembed?gid=${gid}&widget=true&chrome=false&single=true`;
+  function sheetEmbedUrl(gid, bustCache) {
+    // Live shared sheet — not a snapshot. Cache-bust so embeds pick up new cell values.
+    let url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlembed?gid=${gid}&widget=true&chrome=false&single=true`;
+    if (bustCache) url += `&t=${Date.now()}`;
+    return url;
   }
 
   function showGate() {
     if (gate) gate.hidden = false;
     if (app) app.hidden = true;
+    stopAutoRefresh();
   }
 
   function showApp(session) {
@@ -71,37 +81,74 @@
     }
     if (window.CSAuth) window.CSAuth.applyNav(session.role || 'kenneth');
     if (window.CSAuth) window.CSAuth.applyBrand(session.role || 'kenneth');
-    selectTab(activeTab);
+    selectTab(activeTab, true);
+    startAutoRefresh();
   }
 
-  function selectTab(tabKey) {
+  function updateRefreshHint() {
+    if (!refreshHint) return;
+    if (!lastLoadedAt) {
+      refreshHint.textContent = 'Live sheet · updates when the other employee edits it';
+      return;
+    }
+    const ago = Math.max(0, Math.round((Date.now() - lastLoadedAt) / 1000));
+    refreshHint.textContent =
+      ago < 5
+        ? 'Live sheet · just refreshed'
+        : `Live sheet · last refreshed ${ago}s ago · auto-refresh every 60s`;
+  }
+
+  function loadFrame(bustCache) {
+    const tab = TABS[activeTab] || TABS.yt;
+    if (!sheetFrame) return;
+    sheetFrame.title = `${tab.label} — Social Media Marketing Tracker`;
+    sheetFrame.src = sheetEmbedUrl(tab.gid, bustCache);
+    lastLoadedAt = Date.now();
+    updateRefreshHint();
+  }
+
+  function selectTab(tabKey, bustCache) {
     const tab = TABS[tabKey] || TABS.yt;
     activeTab = tabKey in TABS ? tabKey : 'yt';
     for (const btn of tabButtons) {
       const on = btn.dataset.tab === activeTab;
       btn.setAttribute('aria-selected', on ? 'true' : 'false');
     }
-    const embed = sheetEmbedUrl(tab.gid);
-    const edit = sheetEditUrl(tab.gid);
-    if (sheetFrame) {
-      sheetFrame.title = `${tab.label} — Social Media Marketing Tracker`;
-      if (sheetFrame.src !== embed) sheetFrame.src = embed;
-    }
     if (openSheetLink) {
-      openSheetLink.href = edit;
+      openSheetLink.href = sheetEditUrl(tab.gid);
       openSheetLink.textContent = `Open ${tab.label} in Google Sheets`;
+    }
+    loadFrame(bustCache !== false);
+  }
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    refreshTimer = setInterval(() => {
+      if (document.hidden) return;
+      loadFrame(true);
+    }, AUTO_REFRESH_MS);
+    hintTimer = setInterval(updateRefreshHint, 5000);
+  }
+
+  function stopAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+    if (hintTimer) {
+      clearInterval(hintTimer);
+      hintTimer = null;
     }
   }
 
   for (const btn of tabButtons) {
-    btn.addEventListener('click', () => selectTab(btn.dataset.tab || 'yt'));
+    btn.addEventListener('click', () => selectTab(btn.dataset.tab || 'yt', true));
   }
 
-  reloadBtn?.addEventListener('click', () => {
-    const tab = TABS[activeTab] || TABS.yt;
-    if (!sheetFrame) return;
-    // Bust cache so Kenneth sees the latest employee updates.
-    sheetFrame.src = `${sheetEmbedUrl(tab.gid)}&t=${Date.now()}`;
+  reloadBtn?.addEventListener('click', () => loadFrame(true));
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && app && !app.hidden) loadFrame(true);
   });
 
   loginForm?.addEventListener('submit', async (e) => {
@@ -123,6 +170,7 @@
   });
 
   logoutBtn?.addEventListener('click', async () => {
+    stopAutoRefresh();
     await api('/api/contentstation/logout', { method: 'POST', body: '{}' });
     location.reload();
   });
