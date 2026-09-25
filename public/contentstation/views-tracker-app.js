@@ -15,8 +15,8 @@
       gid: '69408482',
     },
   };
-  /** Re-load the live sheet embed so employee updates show up without a full page refresh. */
-  const AUTO_REFRESH_MS = 60 * 1000;
+  /** Re-load the live sheet embed so employee updates show up (not a server cron). */
+  const AUTO_REFRESH_MS = 12 * 60 * 60 * 1000;
 
   const gate = document.getElementById('gate');
   const app = document.getElementById('app');
@@ -93,9 +93,11 @@
     }
     const ago = Math.max(0, Math.round((Date.now() - lastLoadedAt) / 1000));
     refreshHint.textContent =
-      ago < 5
+      ago < 60
         ? 'Live sheet · just refreshed'
-        : `Live sheet · last refreshed ${ago}s ago · auto-refresh every 60s`;
+        : ago < 3600
+          ? `Live sheet · last refreshed ${Math.round(ago / 60)}m ago · auto-refresh every 12h`
+          : `Live sheet · last refreshed ${Math.round(ago / 3600)}h ago · auto-refresh every 12h`;
   }
 
   function loadFrame(bustCache) {
@@ -147,9 +149,7 @@
 
   reloadBtn?.addEventListener('click', () => loadFrame(true));
 
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && app && !app.hidden) loadFrame(true);
-  });
+  // No refresh-on-tab-focus — auto-refresh is 12h only; use Reload now if needed.
 
   loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();

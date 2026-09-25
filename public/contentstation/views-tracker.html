@@ -48,8 +48,8 @@
         <h1>Views &amp; URLs</h1>
         <p class="lede">
           Live view of the Social Media Marketing Tracker — the same sheet another teammate updates.
-          View counts and URLs change there in real time; this page reloads the live sheet every 60s
-          (and when you come back to the tab). Nothing here is a frozen snapshot.
+          This page embeds that sheet (no cron scrape). It auto-reloads once every 12 hours; use
+          <strong>Reload now</strong> anytime you need fresher numbers.
         </p>
 
         <div class="views-tab-bar" role="tablist" aria-label="Tracker tabs">
@@ -126,6 +126,6 @@
   </style>
 
   <script src="./auth-gate.js?v=kenneth6"></script>
-  <script src="./views-tracker-app.js?v=2"></script>
+  <script src="./views-tracker-app.js?v=3"></script>
 </body>
 </html>
