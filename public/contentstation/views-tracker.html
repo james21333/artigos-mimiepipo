@@ -61,10 +61,11 @@
         <div class="views-frame-toolbar">
           <a id="open-sheet-link" class="btn-link" href="#" target="_blank" rel="noopener noreferrer">Open this tab in Google Sheets</a>
           <button type="button" id="reload-sheet-btn" class="ghost">Reload now</button>
+          <button type="button" id="fullscreen-sheet-btn" class="ghost" aria-pressed="false">Full browser size</button>
           <p id="refresh-hint" class="muted-line" aria-live="polite">Live sheet</p>
         </div>
 
-        <div class="views-frame-wrap">
+        <div class="views-frame-wrap" id="sheet-frame-wrap">
           <iframe
             id="sheet-frame"
             title="Social Media Marketing Tracker"
@@ -113,8 +114,8 @@
     .views-frame-wrap {
       border: 1px solid var(--rule);
       background: var(--panel);
-      min-height: 70vh;
-      height: calc(100vh - 14rem);
+      min-height: 75vh;
+      height: calc(100vh - 11rem);
     }
     .views-frame-wrap iframe {
       display: block;
@@ -123,9 +124,56 @@
       border: 0;
       background: #fff;
     }
+
+    /* Sheet fills the browser — chrome collapses to a slim bar. */
+    body.views-fullsize {
+      overflow: hidden;
+    }
+    body.views-fullsize .site-header .brand,
+    body.views-fullsize .site-header .sub,
+    body.views-fullsize #app > .toolbar,
+    body.views-fullsize .views-tracker-hero > h1,
+    body.views-fullsize .views-tracker-hero > .lede {
+      display: none !important;
+    }
+    body.views-fullsize .views-tracker-main {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+    body.views-fullsize .site-header {
+      padding: 0.35rem 0.75rem 0;
+      margin: 0;
+    }
+    body.views-fullsize .views-tracker-hero {
+      margin: 0;
+      padding: 0 0.5rem 0.5rem;
+    }
+    body.views-fullsize .views-tab-bar,
+    body.views-fullsize .views-frame-toolbar {
+      margin: 0.25rem 0;
+    }
+    body.views-fullsize .views-frame-wrap {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: 6.5rem;
+      height: auto;
+      min-height: 0;
+      border-left: 0;
+      border-right: 0;
+      border-bottom: 0;
+      z-index: 20;
+    }
+    body.views-fullsize #fullscreen-sheet-btn {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
   </style>
 
   <script src="./auth-gate.js?v=kenneth6"></script>
-  <script src="./views-tracker-app.js?v=3"></script>
+  <script src="./views-tracker-app.js?v=4"></script>
 </body>
 </html>

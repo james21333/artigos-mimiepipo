@@ -28,13 +28,16 @@
   const sheetFrame = document.getElementById('sheet-frame');
   const openSheetLink = document.getElementById('open-sheet-link');
   const reloadBtn = document.getElementById('reload-sheet-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-sheet-btn');
   const refreshHint = document.getElementById('refresh-hint');
   const tabButtons = Array.from(document.querySelectorAll('.views-tab'));
+  const FULLSIZE_KEY = 'cs_views_tracker_fullsize_v1';
 
   let activeTab = 'yt';
   let refreshTimer = null;
   let hintTimer = null;
   let lastLoadedAt = 0;
+  let fullsize = false;
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -82,6 +85,11 @@
     if (window.CSAuth) window.CSAuth.applyNav(session.role || 'kenneth');
     if (window.CSAuth) window.CSAuth.applyBrand(session.role || 'kenneth');
     selectTab(activeTab, true);
+    try {
+      setFullsize(localStorage.getItem(FULLSIZE_KEY) === '1');
+    } catch {
+      setFullsize(false);
+    }
     startAutoRefresh();
   }
 
@@ -123,6 +131,20 @@
     loadFrame(bustCache !== false);
   }
 
+  function setFullsize(on) {
+    fullsize = Boolean(on);
+    document.body.classList.toggle('views-fullsize', fullsize);
+    if (fullscreenBtn) {
+      fullscreenBtn.setAttribute('aria-pressed', fullsize ? 'true' : 'false');
+      fullscreenBtn.textContent = fullsize ? 'Exit full size' : 'Full browser size';
+    }
+    try {
+      localStorage.setItem(FULLSIZE_KEY, fullsize ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
   function startAutoRefresh() {
     stopAutoRefresh();
     refreshTimer = setInterval(() => {
@@ -148,6 +170,12 @@
   }
 
   reloadBtn?.addEventListener('click', () => loadFrame(true));
+
+  fullscreenBtn?.addEventListener('click', () => setFullsize(!fullsize));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && fullsize) setFullsize(false);
+  });
 
   // No refresh-on-tab-focus — auto-refresh is 12h only; use Reload now if needed.
 
