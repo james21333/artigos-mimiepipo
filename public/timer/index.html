@@ -90,7 +90,7 @@ body.over .bg i:nth-child(2){background:radial-gradient(circle,#c0283f 0%,transp
 @keyframes ping{70%{box-shadow:0 0 0 8px rgba(46,230,197,0)}100%{box-shadow:0 0 0 0 rgba(46,230,197,0)}}
 @keyframes ping-red{0%{box-shadow:0 0 0 0 rgba(255,93,115,.6)}70%{box-shadow:0 0 0 9px rgba(255,93,115,0)}}
 .hero-title{margin:0;font-size:clamp(20px,4.4vw,32px);font-weight:800;letter-spacing:-.025em;line-height:1.12;overflow-wrap:anywhere}
-.hero-title.empty{color:var(--muted);font-weight:600}
+.hero-title.is-empty{color:var(--muted);font-weight:600}
 .hero-meta{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hero-meta b{color:var(--text);font-weight:600}
 .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
@@ -239,7 +239,11 @@ body.over .bg i:nth-child(2){background:radial-gradient(circle,#c0283f 0%,transp
 
 /* ---------- mini mode (pop-out window) ---------- */
 body.mini .app{max-width:none;padding:8px;gap:0;min-height:100vh;justify-content:center}
-body.mini .topbar,body.mini .add,body.mini .list-section,body.mini .done,body.mini .kbd-hint{display:none}
+body.mini .topbar,body.mini .list-section,body.mini .done,body.mini .kbd-hint,body.mini .chips{display:none}
+body.mini .add{margin-top:8px;padding:8px;gap:0}
+body.mini .add-row{gap:6px}
+body.mini .add-input{height:36px;font-size:14px}
+body.mini .add .btn{height:36px}
 body.mini .hero{grid-template-columns:auto 1fr;padding:12px 14px;gap:14px;text-align:left;justify-items:stretch}
 body.mini .hero-info{align-items:flex-start;gap:4px}
 body.mini .ring-wrap{width:clamp(70px,26vw,120px)}
@@ -671,7 +675,7 @@ function renderHero() {
   const c = $("controls");
   if (!t) {
     title.textContent = S.done.length ? "All done for now 🎉" : "Add your first task";
-    title.classList.add("empty");
+    title.classList.add("is-empty");
     $("eyebrow").textContent = S.done.length ? "List cleared" : "Ready";
     $("heroMeta").textContent = S.done.length ? `${S.done.length} finished today · ${fmtDur(S.done.reduce((a, x) => a + x.spent, 0))} focused` : "Type a task below and hit Enter.";
     c.innerHTML = "";
@@ -679,7 +683,7 @@ function renderHero() {
     return;
   }
   title.textContent = t.title;
-  title.classList.remove("empty");
+  title.classList.remove("is-empty");
   const i = S.tasks.indexOf(t);
   const nxt = S.tasks[i + 1] || null;
   $("heroMeta").innerHTML = nxt ? `Up next: <b>${esc(nxt.title)}</b>` : (S.tasks.length > 1 ? `Last on the list` : `Only task on the list`);
@@ -825,7 +829,7 @@ $("heroTitle").addEventListener("click", () => { if (active() && !IS_MINI) openT
 $("addForm").addEventListener("submit", (e) => {
   e.preventDefault();
   unlockAudio();
-  const custom = $("addCustom").value;
+  const custom = $("addCustom") ? $("addCustom").value : "";
   let sec = S.addSec;
   if (custom.trim()) {
     const p = parseDur(custom);
@@ -1033,7 +1037,7 @@ async function openMini() {
   const url = location.pathname + "?mini=1";
   if ("documentPictureInPicture" in window) {
     try {
-      const pip = await window.documentPictureInPicture.requestWindow({ width: 400, height: 210 });
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 400, height: 270 });
       pip.document.body.style.cssText = "margin:0;background:#0b0d17";
       const f = pip.document.createElement("iframe");
       f.src = url;
@@ -1043,7 +1047,7 @@ async function openMini() {
       return;
     } catch {}
   }
-  window.open(url, "focus-mini", "popup,width=420,height=240");
+  window.open(url, "focus-mini", "popup,width=420,height=300");
 }
 
 /* ---------------- Content Station login (shared session cookie) ---------------- */
