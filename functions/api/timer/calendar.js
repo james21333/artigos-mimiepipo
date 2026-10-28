@@ -59,7 +59,7 @@ async function gcal(env, path, init = {}) {
   if (r.status === 204) return {};
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const err = new Error((d.error && d.error.message) || `google_${r.status}`);
+    const err = new Error(r.status === 404 ? 'not_shared' : (d.error && d.error.message) || `google_${r.status}`);
     err.status = r.status === 401 || r.status === 403 ? 502 : r.status;
     throw err;
   }

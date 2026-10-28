@@ -1266,7 +1266,7 @@ async function loadCalendar() {
     const d = await r.json().catch(() => ({}));
     CAL.connected = d.connected !== false;
     CAL.events = Array.isArray(d.events) ? d.events : (r.ok ? [] : CAL.events);
-    CAL.error = r.ok ? "" : (d.error === "reconnect_needed" ? "Google Calendar needs reconnecting." : "Couldn't load your calendar.");
+    CAL.error = r.ok ? "" : d.error === "not_shared" ? "Your Google Calendar isn't shared with the timer yet." : d.error === "reconnect_needed" ? "Google Calendar needs reconnecting." : "Couldn't load your calendar.";
     CAL.loadedAt = now();
   } catch {
     CAL.error = "Couldn't load your calendar.";
@@ -1404,7 +1404,7 @@ function openSchedule() {
       loadCalendar();
     } catch (err) {
       btn.disabled = false; btn.textContent = "Add to Google Calendar";
-      toast(err.message === "reconnect_needed" ? "Google Calendar needs reconnecting" : "Couldn't add it — try again");
+      toast(err.message === "not_shared" ? "Share your Google Calendar with the timer first" : err.message === "reconnect_needed" ? "Google Calendar needs reconnecting" : "Couldn't add it — try again");
     }
   };
 }
