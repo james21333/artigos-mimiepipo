@@ -166,6 +166,23 @@ body.over .bg i:nth-child(2){background:radial-gradient(circle,#c0283f 0%,transp
 .mini-btn.del:hover{color:var(--red);background:rgba(255,93,115,.12)}
 .empty{padding:26px 16px;text-align:center;color:var(--faint);border:1px dashed var(--line-2);border-radius:16px;font-size:14px}
 
+/* waiting on */
+.waitbox{padding:12px 12px 10px;display:flex;flex-direction:column;gap:10px;border-color:rgba(255,181,71,.22);background:linear-gradient(180deg,rgba(255,181,71,.06),var(--card) 60%)}
+.waitbox .section-head h2{color:var(--amber)}
+.wait-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.wait-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px;padding:8px 8px 8px 10px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid var(--line)}
+.wait-item:hover{border-color:var(--line-2)}
+.wait-ico{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:rgba(255,181,71,.14);color:var(--amber)}
+.wait-ico svg{width:15px;height:15px}
+.w-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.w-title{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-note{font-size:12.5px;color:var(--muted);cursor:text;overflow-wrap:anywhere;border-radius:6px}
+.w-note:hover{color:var(--text)}
+.w-note.empty-note{color:var(--faint);font-style:italic}
+.w-note .t-edit{height:28px;font-size:13px;font-weight:500}
+.w-since{font-size:12px;color:var(--faint);white-space:nowrap}
+.mini-btn.wait:hover{color:var(--amber);background:rgba(255,181,71,.12)}
+
 /* done */
 .done{padding:4px 14px}
 .done summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;color:var(--muted);font-size:13px;font-weight:600}
@@ -213,7 +230,9 @@ body.over .bg i:nth-child(2){background:radial-gradient(circle,#c0283f 0%,transp
   .btn{padding:0 12px}
   .task{grid-template-columns:auto 1fr auto auto;gap:8px}
   .rank{display:none}
-  .mini-btn.del,.mini-btn.down{display:none}
+  .task .mini-btn.del,.task .mini-btn.down{display:none}
+  .wait-item{grid-template-columns:auto 1fr auto}
+  .w-since{display:none}
   .kbd-hint{display:none}
 }
 @media (max-width:480px){
@@ -356,13 +375,21 @@ body.checking .gate-card form,body.checking .gate-card p{visibility:hidden}
     <div class="empty" id="empty" hidden>Nothing queued. Add a task above — it starts at 15 minutes.</div>
   </section>
 
+  <section class="card waitbox" id="waitBox" hidden>
+    <div class="section-head">
+      <h2>Waiting on</h2>
+      <div class="eta" id="waitCount"></div>
+    </div>
+    <ol class="wait-list" id="waitList"></ol>
+  </section>
+
   <details class="card done" id="doneBox" hidden>
     <summary><span id="doneSummary"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
     <ol class="done-list" id="doneList"></ol>
     <div class="done-foot"><button class="btn ghost" id="clearDone">Clear finished</button></div>
   </details>
 
-  <div class="kbd-hint"><kbd>Space</kbd> start/pause · <kbd>F</kbd> finished · <kbd>N</kbd> next · <kbd>+</kbd> 15 min</div>
+  <div class="kbd-hint"><kbd>Space</kbd> start/pause · <kbd>F</kbd> finished · <kbd>N</kbd> next · <kbd>W</kbd> waiting · <kbd>+</kbd> 15 min</div>
 </main>
 
 <div class="pop" id="pop" hidden></div>
@@ -391,6 +418,8 @@ const ICON = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>',
+  wait: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M6 11l6-6 6 6"/></svg>',
   undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>',
   bellOn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   bellOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7M10.3 21a1.94 1.94 0 0 0 3.4 0M2 2l20 20"/></svg>',
@@ -398,7 +427,7 @@ const ICON = {
 
 /* ---------------- state ---------------- */
 function fresh() {
-  return { tasks: [], done: [], activeId: null, running: false, endAt: null, runStartedAt: null, addSec: STEP, sound: true };
+  return { tasks: [], waiting: [], done: [], activeId: null, running: false, endAt: null, runStartedAt: null, addSec: STEP, sound: true };
 }
 function load() {
   try {
@@ -626,6 +655,10 @@ function undo() {
     S.done = S.done.filter((x) => x.id !== u.task.id);
     delete u.task.doneAt;
   }
+  if (u.kind === "wait") {
+    S.waiting = S.waiting.filter((x) => x.id !== u.task.id);
+    delete u.task.waitingSince;
+  }
   S.tasks.splice(Math.min(u.index, S.tasks.length), 0, u.task);
   if (u.wasActive) setActive(u.task.id, S.running);
   save(); renderAll();
@@ -639,6 +672,72 @@ function restore(id) {
   if (t.remaining <= 0) { t.remaining = STEP; t.allocated = t.allocated + STEP; t.alerted = false; }
   S.tasks.push(t);
   ensureActive();
+  save(); renderAll();
+}
+/* Waiting on: parked tasks with no clock, just a note. */
+function toWaiting(id) {
+  unlockAudio();
+  const t = S.tasks.find((x) => x.id === (id || S.activeId));
+  if (!t) return;
+  const wasActive = t.id === S.activeId;
+  if (wasActive) commit();
+  const i = S.tasks.indexOf(t);
+  S.tasks.splice(i, 1);
+  t.waitingSince = now();
+  S.waiting.unshift(t);
+  if (wasActive) {
+    const nxt = S.tasks[i] || S.tasks[0] || null;
+    const run = S.running;
+    S.activeId = nxt ? nxt.id : null;
+    if (nxt && run) startRun(); else S.running = false;
+  }
+  lastUndo = { kind: "wait", task: t, index: i, wasActive };
+  save(); renderAll();
+  toast(`“${t.title}” is waiting`, true);
+  if (!IS_MINI) {
+    const row = document.querySelector(`.wait-item[data-id="${t.id}"]`);
+    if (row) startNoteEdit(row, t.id);
+  }
+}
+function fromWaiting(id, workNow) {
+  const t = S.waiting.find((x) => x.id === id);
+  if (!t) return;
+  S.waiting = S.waiting.filter((x) => x !== t);
+  delete t.waitingSince;
+  if (t.remaining <= 0) { t.remaining = STEP; t.allocated += STEP; t.alerted = false; }
+  if (workNow) {
+    unlockAudio(); askNotify();
+    S.tasks.unshift(t);
+    setActive(t.id, true);
+  } else {
+    S.tasks.push(t);
+    ensureActive();
+  }
+  save(); renderAll();
+  toast(workNow ? `Now: ${t.title}` : `“${t.title}” is back on the list`);
+}
+function finishWaiting(id) {
+  const t = S.waiting.find((x) => x.id === id);
+  if (!t) return;
+  S.waiting = S.waiting.filter((x) => x !== t);
+  delete t.waitingSince;
+  t.doneAt = now();
+  S.done.unshift(t);
+  save(); renderAll();
+  confetti();
+  toast(`Finished “${t.title}”`);
+}
+function removeWaiting(id) {
+  const t = S.waiting.find((x) => x.id === id);
+  if (!t || !confirm(`Remove “${t.title}”?`)) return;
+  S.waiting = S.waiting.filter((x) => x !== t);
+  save(); renderAll();
+}
+function setNote(id, note) {
+  const t = S.waiting.find((x) => x.id === id);
+  if (!t) return;
+  t.note = note.trim();
+  t.noteAt = now();
   save(); renderAll();
 }
 function rename(id, title) {
@@ -661,6 +760,7 @@ function renderAll() {
   ensureActive();
   renderHero();
   renderList();
+  renderWaiting();
   renderDone();
   renderAddChips();
   $("soundBtn").innerHTML = S.sound ? ICON.bellOn : ICON.bellOff;
@@ -677,7 +777,8 @@ function renderHero() {
     title.textContent = S.done.length ? "All done for now 🎉" : "Add your first task";
     title.classList.add("is-empty");
     $("eyebrow").textContent = S.done.length ? "List cleared" : "Ready";
-    $("heroMeta").textContent = S.done.length ? `${S.done.length} finished today · ${fmtDur(S.done.reduce((a, x) => a + x.spent, 0))} focused` : "Type a task below and hit Enter.";
+    const waitNote = S.waiting.length ? ` · ${S.waiting.length} waiting` : "";
+    $("heroMeta").textContent = (S.done.length ? `${S.done.length} finished today · ${fmtDur(S.done.reduce((a, x) => a + x.spent, 0))} focused` : "Type a task below and hit Enter.") + waitNote;
     c.innerHTML = "";
     hero.className = "card hero";
     return;
@@ -693,6 +794,7 @@ function renderHero() {
     <button class="btn attn" data-h="plus" title="Add 15 minutes">${ICON.plus}<span class="lbl">15 min</span></button>
     <button class="btn attn" data-h="next" title="Switch to the next task (N)" ${S.tasks.length > 1 ? "" : "disabled"}>${ICON.next}<span class="lbl">Next</span></button>
     <button class="btn opt" data-h="down" title="Move this task lower and start the next one" ${i < S.tasks.length - 1 ? "" : "disabled"}>${ICON.down}<span class="lbl">Lower</span></button>
+    <button class="btn opt" data-h="wait" title="Park it while you wait on someone or something (W)">${ICON.wait}<span class="lbl">Waiting</span></button>
     <button class="btn success" data-h="done" title="Mark finished (F)">${ICON.check}<span class="lbl">Finished</span></button>`;
 }
 
@@ -717,6 +819,7 @@ function rowHTML(t, idx) {
       ${isActive ? "" : `<button class="mini-btn" data-act="play" title="Work on this now">${ICON.play}</button>`}
       <button class="mini-btn plus" data-act="plus" title="Add 15 minutes">+15</button>
       <button class="mini-btn down" data-act="down" title="Move lower">${ICON.down}</button>
+      <button class="mini-btn wait" data-act="wait" title="Waiting on something — park it">${ICON.wait}</button>
       <button class="mini-btn ok" data-act="done" title="Finished">${ICON.check}</button>
       <button class="mini-btn del" data-act="del" title="Remove">${ICON.x}</button>
     </div>
@@ -727,6 +830,35 @@ function renderList() {
   if (dragging) return;
   $("list").innerHTML = S.tasks.map(rowHTML).join("");
   $("empty").hidden = S.tasks.length > 0;
+}
+function fmtAgo(ts) {
+  const m = Math.floor((now() - ts) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+function renderWaiting() {
+  if (IS_MINI) return;
+  const box = $("waitBox");
+  box.hidden = S.waiting.length === 0;
+  $("waitCount").textContent = S.waiting.length ? `${S.waiting.length} parked · no timer` : "";
+  $("waitList").innerHTML = S.waiting.map((t) => `
+    <li class="wait-item" data-id="${t.id}">
+      <span class="wait-ico">${ICON.wait}</span>
+      <div class="w-main">
+        <div class="w-title">${esc(t.title)}</div>
+        <div class="w-note${t.note ? "" : " empty-note"}" data-act="note" title="Click to update">${t.note ? esc(t.note) : "Waiting on… (click to add a note)"}</div>
+      </div>
+      <span class="w-since" title="${t.noteAt ? "Note updated " + fmtAgo(t.noteAt) : ""}">${fmtAgo(t.waitingSince || now())}</span>
+      <div class="t-actions">
+        <button class="mini-btn" data-act="now" title="Work on it now (back on the timer)">${ICON.play}</button>
+        <button class="mini-btn" data-act="back" title="Back to the list">${ICON.up}</button>
+        <button class="mini-btn ok" data-act="done" title="Finished">${ICON.check}</button>
+        <button class="mini-btn del" data-act="del" title="Remove">${ICON.x}</button>
+      </div>
+    </li>`).join("");
 }
 function renderDone() {
   if (IS_MINI) return;
@@ -811,6 +943,7 @@ function updateEta() {
   $("eta").innerHTML = `<b>${fmtDur(left)}</b> planned · done by <b>${hhmm}</b>`;
 }
 setInterval(() => tick(false), 250);
+setInterval(() => { if (!document.querySelector("#waitList input")) renderWaiting(); }, 60000);
 document.addEventListener("visibilitychange", () => tick(false));
 
 /* ---------------- events ---------------- */
@@ -822,6 +955,7 @@ $("controls").addEventListener("click", (e) => {
   else if (a === "plus") addTime(S.activeId, STEP);
   else if (a === "next") nextTask();
   else if (a === "down") pushDown();
+  else if (a === "wait") toWaiting();
   else if (a === "done") finish();
 });
 $("heroTitle").addEventListener("click", () => { if (active() && !IS_MINI) openTimePop(active().id, $("clock")); });
@@ -863,11 +997,43 @@ $("list").addEventListener("click", (e) => {
   if (a === "play") { unlockAudio(); askNotify(); setActive(id, true); save(); renderAll(); }
   else if (a === "plus") addTime(id, STEP);
   else if (a === "down") pushDown(id);
+  else if (a === "wait") toWaiting(id);
   else if (a === "done") finish(id);
   else if (a === "del") removeTask(id);
   else if (a === "time") openTimePop(id, b);
   else if (a === "rename") startRename(row, id);
 });
+$("waitList").addEventListener("click", (e) => {
+  const row = e.target.closest(".wait-item");
+  const b = e.target.closest("[data-act]");
+  if (!row || !b) return;
+  const id = row.dataset.id, a = b.dataset.act;
+  if (a === "now") fromWaiting(id, true);
+  else if (a === "back") fromWaiting(id, false);
+  else if (a === "done") finishWaiting(id);
+  else if (a === "del") removeWaiting(id);
+  else if (a === "note") startNoteEdit(row, id);
+});
+function startNoteEdit(row, id) {
+  const holder = row.querySelector(".w-note");
+  const t = S.waiting.find((x) => x.id === id);
+  if (!t || holder.querySelector("input")) return;
+  holder.classList.remove("empty-note");
+  holder.innerHTML = `<input class="t-edit" value="${esc(t.note || "")}" maxlength="200" placeholder="Waiting on who / what?">`;
+  const inp = holder.querySelector("input");
+  inp.focus(); inp.select();
+  let doneEdit = false;
+  const finishEdit = (ok) => {
+    if (doneEdit) return; doneEdit = true;
+    if (ok && inp.value.trim() !== (t.note || "")) setNote(id, inp.value); else renderWaiting();
+  };
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") finishEdit(true);
+    if (e.key === "Escape") finishEdit(false);
+    e.stopPropagation();
+  });
+  inp.addEventListener("blur", () => finishEdit(true));
+}
 $("doneList").addEventListener("click", (e) => {
   const b = e.target.closest("[data-act=restore]");
   if (b) restore(b.closest(".done-item").dataset.id);
@@ -998,6 +1164,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === " ") { e.preventDefault(); toggleRun(); }
   else if (e.key === "f" || e.key === "F") finish();
   else if (e.key === "n" || e.key === "N") nextTask();
+  else if (e.key === "w" || e.key === "W") toWaiting();
   else if (e.key === "+" || e.key === "=") addTime(S.activeId, STEP);
   else if (e.key === "Escape") closePop();
 });
