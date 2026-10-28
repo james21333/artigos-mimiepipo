@@ -3,7 +3,7 @@ import { json, requireRole } from '../../lib/contentstation-auth.js';
 const API = 'https://www.googleapis.com/calendar/v3';
 let cachedToken = null;
 
-/* Service account that Josh's calendar is shared with ("Make changes to events"). */
+/* Service account with domain-wide delegation for komedy.tv; impersonates GOOGLE_CAL_SUBJECT. */
 function configured(env) {
   return Boolean(env.GOOGLE_CAL_SA_EMAIL && env.GOOGLE_CAL_SA_KEY && env.GOOGLE_CAL_ID);
 }
@@ -23,6 +23,7 @@ async function signJwt(env) {
     iss: env.GOOGLE_CAL_SA_EMAIL,
     scope: 'https://www.googleapis.com/auth/calendar.events',
     aud: 'https://oauth2.googleapis.com/token',
+    ...(env.GOOGLE_CAL_SUBJECT ? { sub: env.GOOGLE_CAL_SUBJECT } : {}),
     iat,
     exp: iat + 3600,
   }))}`;
