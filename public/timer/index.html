@@ -166,6 +166,32 @@ body.over .bg i:nth-child(2){background:radial-gradient(circle,#c0283f 0%,transp
 .mini-btn.del:hover{color:var(--red);background:rgba(255,93,115,.12)}
 .empty{padding:26px 16px;text-align:center;color:var(--faint);border:1px dashed var(--line-2);border-radius:16px;font-size:14px}
 
+/* upcoming (Google Calendar) */
+.upcoming{padding:12px 12px 10px;display:flex;flex-direction:column;gap:8px}
+.sched-btn{height:28px;font-size:12px;padding:0 9px}
+.sched-btn svg{width:14px;height:14px}
+.up-day{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:4px 4px 2px}
+.up-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.up-item{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:10px;padding:7px 10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--line);font-size:14px}
+.up-dot{width:8px;height:8px;border-radius:50%;background:var(--violet)}
+.up-item.block .up-dot{background:var(--amber)}
+.up-time{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.up-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-in{font-size:12px;color:var(--faint);white-space:nowrap}
+.up-item.live{border-color:rgba(255,181,71,.45);background:rgba(255,181,71,.08)}
+.up-item.live .up-in{color:var(--amber);font-weight:700}
+.up-empty{font-size:13px;color:var(--faint);padding:2px 4px 4px}
+.blockline{display:none;align-items:center;gap:8px;padding:7px 10px;border-radius:11px;font-size:13px;font-weight:600;background:rgba(255,181,71,.12);border:1px solid rgba(255,181,71,.35);color:#ffd79a;min-width:0}
+.blockline.on{display:flex}
+.blockline.soon{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.4);color:#d8ccff}
+.blockline span{overflow-wrap:anywhere}
+.blockline svg{width:14px;height:14px;flex:none}
+.pop .row2{display:flex;gap:6px;align-items:center}
+.pop .row2 input{flex:1;min-width:0;height:34px;padding:0 10px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid var(--line);outline:none;font-size:13px;color-scheme:dark}
+.pop .row2 input:focus{border-color:rgba(139,92,246,.7)}
+.pop .row2 .to{color:var(--faint);font-size:12px}
+.pop .sched-go{width:100%;justify-content:center;margin-top:12px;height:38px}
+
 /* waiting on */
 .waitbox{padding:12px 12px 10px;display:flex;flex-direction:column;gap:10px;border-color:rgba(255,181,71,.22);background:linear-gradient(180deg,rgba(255,181,71,.06),var(--card) 60%)}
 .waitbox .section-head h2{color:var(--amber)}
@@ -258,7 +284,7 @@ body.over .bg i:nth-child(2){background:radial-gradient(circle,#c0283f 0%,transp
 
 /* ---------- mini mode (pop-out window) ---------- */
 body.mini .app{max-width:none;padding:8px;gap:0;min-height:100vh;justify-content:center}
-body.mini .topbar,body.mini .list-section,body.mini .done,body.mini .kbd-hint,body.mini .chips{display:none}
+body.mini .topbar,body.mini .list-section,body.mini .upcoming,body.mini .waitbox,body.mini .done,body.mini .kbd-hint,body.mini .chips{display:none}
 body.mini .add{margin-top:8px;padding:8px;gap:0}
 body.mini .add-row{gap:6px}
 body.mini .add-input{height:36px;font-size:14px}
@@ -348,6 +374,7 @@ body.checking .gate-card form,body.checking .gate-card p{visibility:hidden}
       <div class="eyebrow"><span class="dot"></span><span id="eyebrow">Ready</span></div>
       <h1 class="hero-title" id="heroTitle">Add your first task</h1>
       <div class="hero-meta" id="heroMeta"></div>
+      <div class="blockline" id="blockLine"></div>
       <div class="timesup" id="timesup">⏰ Time's up — add time, move on, or mark it finished.</div>
       <div class="controls" id="controls"></div>
     </div>
@@ -364,6 +391,17 @@ body.checking .gate-card form,body.checking .gate-card p{visibility:hidden}
     <div class="chips" id="addChips">
       <span class="chip-label">Time</span>
     </div>
+  </section>
+
+  <section class="card upcoming" id="upBox">
+    <div class="section-head">
+      <h2>Upcoming</h2>
+      <button class="icon-btn sched-btn" id="schedBtn" title="Block off time on your Google Calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>
+        <span>Block time</span>
+      </button>
+    </div>
+    <div id="upList"></div>
   </section>
 
   <section class="list-section">
@@ -1099,7 +1137,7 @@ function openTimePop(id, anchor) {
 }
 function closePop() { $("pop").hidden = true; }
 document.addEventListener("pointerdown", (e) => {
-  if (!$("pop").hidden && !e.target.closest("#pop") && !e.target.closest("[data-act=time]") && !e.target.closest("#heroTitle")) closePop();
+  if (!$("pop").hidden && !e.target.closest("#pop") && !e.target.closest("[data-act=time]") && !e.target.closest("#heroTitle") && !e.target.closest("#schedBtn")) closePop();
 });
 
 /* ---------------- drag & drop (pointer based: mouse + touch) ---------------- */
@@ -1199,6 +1237,179 @@ function confetti() {
   }
 }
 
+/* ---------------- Google Calendar: upcoming + time blocks ---------------- */
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const CAL = { connected: null, events: [], error: "", loadedAt: 0 };
+const startedAlerts = new Set();
+const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const hm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+const fmtTime = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function fmtSpan(ms) {
+  const m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h}h ${r}m` : `${h}h`;
+}
+function evTimes(e) {
+  return e.allDay
+    ? { s: new Date(e.start + "T00:00:00"), en: new Date(e.end + "T00:00:00") }
+    : { s: new Date(e.start), en: new Date(e.end) };
+}
+
+async function loadCalendar() {
+  if (document.body.classList.contains("locked")) return;
+  const from = dayStart(new Date());
+  const to = new Date(from); to.setDate(to.getDate() + 2);
+  try {
+    const r = await fetch(`/api/timer/calendar?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`, { credentials: "same-origin", cache: "no-store" });
+    const d = await r.json().catch(() => ({}));
+    CAL.connected = d.connected !== false;
+    CAL.events = Array.isArray(d.events) ? d.events : (r.ok ? [] : CAL.events);
+    CAL.error = r.ok ? "" : (d.error === "reconnect_needed" ? "Google Calendar needs reconnecting." : "Couldn't load your calendar.");
+    CAL.loadedAt = now();
+  } catch {
+    CAL.error = "Couldn't load your calendar.";
+  }
+  renderUpcoming();
+}
+
+function renderUpcoming() {
+  renderBlockLine();
+  if (IS_MINI) return;
+  const box = $("upList");
+  if (CAL.connected === false) { box.innerHTML = `<div class="up-empty">Google Calendar isn't connected yet.</div>`; return; }
+  if (CAL.connected === null) { box.innerHTML = `<div class="up-empty">Loading your calendar…</div>`; return; }
+  const t = now();
+  const today = dayStart(new Date()), tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(tomorrow); dayAfter.setDate(dayAfter.getDate() + 1);
+  const inDay = (e, day, next, first) => {
+    const { s, en } = evTimes(e);
+    if (en <= t) return false;
+    if (e.allDay) return s <= day && en > day;
+    return s < next && (s >= day || first);
+  };
+  const groups = [
+    { label: "Today", items: CAL.events.filter((e) => inDay(e, today, tomorrow, true)) },
+    { label: "Tomorrow", items: CAL.events.filter((e) => inDay(e, tomorrow, dayAfter, false)) },
+  ];
+  let html = groups.filter((g) => g.items.length).map((g) => `
+    <div class="up-day">${g.label}</div>
+    <ol class="up-list">${g.items.map((e) => {
+      const { s, en } = evTimes(e);
+      const live = !e.allDay && s <= t && en > t;
+      const when = e.allDay ? "All day" : `${fmtTime(s)}–${fmtTime(en)}`;
+      const rel = e.allDay ? "" : live ? `now · ${fmtSpan(en - t)} left` : `in ${fmtSpan(s - t)}`;
+      return `<li class="up-item${e.block ? " block" : ""}${live ? " live" : ""}" title="${e.recurring ? "Repeats" : ""}">
+        <span class="up-dot"></span><span class="up-time">${when}</span>
+        <span class="up-title">${esc(e.title)}</span><span class="up-in">${rel}</span></li>`;
+    }).join("")}</ol>`).join("");
+  if (!html) html = `<div class="up-empty">Nothing on your calendar today or tomorrow.</div>`;
+  if (CAL.error) html += `<div class="up-empty">${esc(CAL.error)}</div>`;
+  box.innerHTML = html;
+}
+
+function renderBlockLine() {
+  const el = $("blockLine");
+  const t = now();
+  const timed = CAL.events.filter((e) => !e.allDay).map((e) => ({ e, ...evTimes(e) }));
+  const live = timed.find((x) => x.s <= t && x.en > t);
+  const soon = !live && timed.find((x) => x.s > t && x.s - t <= 15 * 60000);
+  if (live) {
+    el.className = "blockline on";
+    el.innerHTML = `${ICON.wait}<span>${live.e.block ? "Blocked for" : "Now:"} <b>${esc(live.e.title)}</b> · until ${fmtTime(live.en)} (${fmtSpan(live.en - t)} left)</span>`;
+  } else if (soon) {
+    el.className = "blockline on soon";
+    el.innerHTML = `${ICON.wait}<span><b>${esc(soon.e.title)}</b> starts in ${fmtSpan(soon.s - t)} · ${fmtTime(soon.s)}</span>`;
+  } else {
+    el.className = "blockline";
+    el.innerHTML = "";
+  }
+  if (!IS_MINI) {
+    for (const x of timed) {
+      const key = x.e.id + "@" + x.s.getTime();
+      if (x.s <= t && t - x.s < 90000 && !startedAlerts.has(key)) {
+        startedAlerts.add(key);
+        chime();
+        notify(x.e.block ? "Blocked time" : "Starting now", `${x.e.title} · until ${fmtTime(x.en)}`);
+        toast(`${x.e.title} · until ${fmtTime(x.en)}`);
+      }
+    }
+  }
+}
+setInterval(renderUpcoming, 15000);
+setInterval(loadCalendar, 5 * 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && now() - CAL.loadedAt > 60000) loadCalendar(); });
+
+const REPEATS = [["", "Once"], ["daily", "Every day"], ["everyOtherDay", "Every other day"], ["weekdays", "Weekdays"], ["weekly", "Weekly"]];
+function openSchedule() {
+  if (CAL.connected === false) { toast("Google Calendar isn't connected yet"); return; }
+  const pop = $("pop");
+  const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1);
+  const end = new Date(start); end.setHours(end.getHours() + 2);
+  let day = ymd(start), repeat = "";
+  pop.innerHTML = `
+    <h3>Block off time</h3>
+    <div class="sub">Goes on your Google Calendar</div>
+    <form data-sched style="flex-direction:column;gap:0;margin-top:6px">
+      <input name="what" placeholder="What's this time for? e.g. Gym, bigstage.tv" maxlength="200" aria-label="What's this time for" style="flex:none;width:100%">
+      <div class="grp">Day</div>
+      <div class="chips" data-days>
+        <button type="button" class="chip on" data-day="${ymd(new Date())}">Today</button>
+        <button type="button" class="chip" data-day="${ymd(new Date(now() + 864e5))}">Tomorrow</button>
+        <input type="date" class="chip-input" data-pick value="${day}" style="flex:none;width:136px;height:30px;color-scheme:dark" aria-label="Pick a date">
+      </div>
+      <div class="grp">Time</div>
+      <div class="row2"><input type="time" name="from" value="${hm(start)}" aria-label="From"><span class="to">to</span><input type="time" name="to" value="${hm(end)}" aria-label="To"></div>
+      <div class="grp">Repeat</div>
+      <div class="chips" data-repeats>${REPEATS.map(([v, l]) => `<button type="button" class="chip${v === repeat ? " on" : ""}" data-repeat="${v}">${l}</button>`).join("")}</div>
+      <button class="btn primary sched-go" type="submit">Add to Google Calendar</button>
+    </form>`;
+  pop.hidden = false;
+  const r = $("schedBtn").getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  pop.style.left = Math.min(window.innerWidth - pw - 10, Math.max(10, r.right - pw)) + "px";
+  pop.style.top = (r.bottom + 8 + ph > window.innerHeight - 10 ? Math.max(10, r.top - ph - 8) : r.bottom + 8) + "px";
+  const form = pop.querySelector("[data-sched]");
+  form.what.focus();
+  const pick = pop.querySelector("[data-pick]");
+  day = ymd(new Date());
+  const markDays = () => pop.querySelectorAll("[data-day]").forEach((c) => c.classList.toggle("on", c.dataset.day === day));
+  markDays();
+  pop.onclick = (e) => {
+    const d = e.target.closest("[data-day]"), rp = e.target.closest("[data-repeat]");
+    if (d) { day = d.dataset.day; pick.value = day; markDays(); }
+    if (rp) { repeat = rp.dataset.repeat; pop.querySelectorAll("[data-repeat]").forEach((c) => c.classList.toggle("on", c === rp)); }
+  };
+  pick.onchange = () => { if (pick.value) { day = pick.value; markDays(); } };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const title = form.what.value.trim();
+    if (!title) { form.what.focus(); return; }
+    const from = form.from.value, to = form.to.value;
+    if (!from || !to) { toast("Pick a start and end time"); return; }
+    let endDay = day;
+    if (to <= from) { const n = new Date(day + "T00:00:00"); n.setDate(n.getDate() + 1); endDay = ymd(n); }
+    const btn = form.querySelector(".sched-go");
+    btn.disabled = true; btn.textContent = "Adding…";
+    try {
+      const res = await fetch("/api/timer/calendar", {
+        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, start: `${day}T${from}:00`, end: `${endDay}T${to}:00`, timeZone: TZ, repeat }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "failed");
+      closePop();
+      toast(`Added “${title}” to Google Calendar`);
+      loadCalendar();
+    } catch (err) {
+      btn.disabled = false; btn.textContent = "Add to Google Calendar";
+      toast(err.message === "reconnect_needed" ? "Google Calendar needs reconnecting" : "Couldn't add it — try again");
+    }
+  };
+}
+$("schedBtn").addEventListener("click", () => ($("pop").hidden ? openSchedule() : closePop()));
+
 /* ---------------- mini window ---------------- */
 async function openMini() {
   const url = location.pathname + "?mini=1";
@@ -1221,6 +1432,8 @@ async function openMini() {
 function unlock() {
   document.body.classList.remove("locked", "checking");
   renderAll();
+  renderUpcoming();
+  loadCalendar();
   if (!IS_MINI && !S.tasks.length) $("addTitle").focus();
 }
 function lock(msg) {
