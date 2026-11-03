@@ -1018,7 +1018,20 @@
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
   autogenRandomEl?.addEventListener('change', () => renderAutogen());
+  const REUSE_STORAGE_KEY = 'cs_remix2_v2_music_autogen_reuse_urls';
+  try {
+    if (autogenReuseUrlsEl && localStorage.getItem(REUSE_STORAGE_KEY) === '1') {
+      autogenReuseUrlsEl.checked = true;
+    }
+  } catch {
+    /* ignore */
+  }
   autogenReuseUrlsEl?.addEventListener('change', () => {
+    try {
+      localStorage.setItem(REUSE_STORAGE_KEY, autogenReuseUrlsEl.checked ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
     loadSourcePool().catch(() => {});
   });
   autogenSelectAllBtn?.addEventListener('click', () => selectAllAutogenAccounts());

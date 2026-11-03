@@ -472,14 +472,22 @@ export async function onRequest(context) {
       return json({ error: 'invalid_tiktok_url', message: 'Provide a valid TikTok URL.' }, 400);
     }
 
+    const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+    const reuseListUrls = await skipRemixUsedForJob(env, {
+      listId: fromListId,
+      reuseUrls: body.reuseUrls === true,
+    });
+    /** Music-Only autogenerate with “Reuse URLs”: skip list duration cap + list purge side effects. */
+    const relaxedMusicReuse =
+      reuseListUrls && musicLock && !writeFromScratch && !talkingDialogueVariant;
+
     // Photo / slideshow posts have no usable video keyframes — reject before download.
     // Always strip from every URL list + blocklist so Autogenerate never picks them again.
     if (isTikTokPhotoUrl(tiktokUrl)) {
-      const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
       let removed = null;
       let blocklisted = false;
       try {
-        removed = await removeUrlsFromAllLists(env, [tiktokUrl]);
+        if (!relaxedMusicReuse) removed = await removeUrlsFromAllLists(env, [tiktokUrl]);
       } catch {
         removed = null;
       }
@@ -522,7 +530,7 @@ export async function onRequest(context) {
     } catch {
       durationSec = null;
     }
-    if (isOverMaxListDuration(durationSec)) {
+    if (!relaxedMusicReuse && isOverMaxListDuration(durationSec)) {
       let removed = null;
       try {
         removed = await removeUrlsFromAllLists(env, [tiktokUrl]);
@@ -551,11 +559,6 @@ export async function onRequest(context) {
       /* list write must not block remix */
     }
     const remixAccount = sanitizeAccountName(body.account) || null;
-    const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
-    const reuseListUrls = await skipRemixUsedForJob(env, {
-      listId: fromListId,
-      reuseUrls: body.reuseUrls === true,
-    });
     if (remixAccount && !reuseListUrls) {
       await ensureRemixUsedIndex(env, remixAccount);
       const idFromUrl = extractTikTokVideoId(tiktokUrl);
@@ -614,7 +617,7 @@ export async function onRequest(context) {
     const sourceKey = dl.key;
     const postFlat = flattenPostMetaForStorage(dl.meta || {}, tiktokUrl);
     const downloadedSec = parseTikTokDurationSec(dl.meta?.duration);
-    if (isOverMaxListDuration(downloadedSec)) {
+    if (!relaxedMusicReuse && isOverMaxListDuration(downloadedSec)) {
       let removed = null;
       let deletedSource = false;
       try {
@@ -653,8 +656,7 @@ export async function onRequest(context) {
         timeoutMs: 90000,
       });
       const label = String(gate?.data?.label || '').toUpperCase();
-      if (gate.ok && label === 'SPEECH') {
-        const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+      if (gate.ok && label === 'SPEECH' && !relaxedMusicReuse) {
         let moved = null;
         try {
           moved = await moveUrlsToSpeechAudioList(env, [tiktokUrl], {
@@ -696,8 +698,7 @@ export async function onRequest(context) {
         Number.isFinite(shotCount) &&
         shotCount > 0 &&
         (edlGate.data?.tooMany === true || shotCount > maxScenes);
-      if (tooMany) {
-        const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+      if (tooMany && !relaxedMusicReuse) {
         let removed = null;
         let deletedSource = false;
         let blocklisted = false;
