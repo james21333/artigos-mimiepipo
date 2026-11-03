@@ -12,6 +12,7 @@ import {
 import {
   DEFAULT_LIST_ID,
   getUrlList,
+  listReusesUrls,
 } from './tiktok-url-lists.js';
 import {
   ensureRemixUsedIndex,
@@ -20,7 +21,7 @@ import {
 } from './remix2-account-used.js';
 import { isTikTokPhotoUrl } from './tiktok-download-seen.js';
 
-export async function listRemixSourcePools(env, listIdRaw) {
+export async function listRemixSourcePools(env, listIdRaw, { reuseUrls: reuseUrlsOpt = false } = {}) {
   const bucket = env?.MEDIA_BUCKET;
   if (!bucket) return { ok: false, error: 'no_bucket', accounts: [] };
 
@@ -29,6 +30,7 @@ export async function listRemixSourcePools(env, listIdRaw) {
     return { ok: false, error: listRes.error || 'list_not_found', accounts: [] };
   }
   const list = listRes.list;
+  const reuseUrls = reuseUrlsOpt === true || listReusesUrls(list);
   const items = Array.isArray(list.items) ? list.items : [];
   // Photo/slideshow URLs are not remixable — hide from Autogenerate leftovers.
   const videoItems = items.filter((item) => item?.url && !isTikTokPhotoUrl(item.url));
@@ -41,14 +43,14 @@ export async function listRemixSourcePools(env, listIdRaw) {
     const account = sanitizeAccountName(name);
     if (!account) continue;
     await ensureRemixUsedIndex(env, account);
-    const usedIds = await listRemixUsedIds(env, account);
+    const usedIds = reuseUrls ? new Set() : await listRemixUsedIds(env, account);
     const leftover = [];
     const remixed = [];
     for (const item of videoItems) {
       const id =
         String(item.tiktokId || '').replace(/[^\d]/g, '') || extractTikTokVideoId(item.url);
       const rec = { url: item.url, tiktokId: id || null };
-      if (id && usedIds.has(id)) remixed.push(rec);
+      if (!reuseUrls && id && usedIds.has(id)) remixed.push(rec);
       else leftover.push(rec);
     }
     const char = characters[account] || {};
@@ -72,6 +74,7 @@ export async function listRemixSourcePools(env, listIdRaw) {
     ok: true,
     listId: list.id,
     listName: list.name,
+    reuseUrls,
     listCount: videoItems.length,
     photoSkipped: Math.max(0, items.length - videoItems.length),
     accounts: out,

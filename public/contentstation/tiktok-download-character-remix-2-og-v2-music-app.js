@@ -23,6 +23,7 @@
   const subtleRewriteOverlaysEl = document.getElementById('subtle-rewrite-overlays');
   const viralSceneChatEl = document.getElementById('viral-scene-chat');
   const autogenRandomEl = document.getElementById('autogen-random');
+  const autogenReuseUrlsEl = document.getElementById('autogen-reuse-urls');
   const autogenListEl = document.getElementById('autogen-account-list');
   const autogenEmptyEl = document.getElementById('autogen-empty');
   const autogenSummaryEl = document.getElementById('autogen-summary');
@@ -91,6 +92,14 @@
 
   function selectedListId() {
     return listsUi?.selected?.() || 'glp-1';
+  }
+
+  function autogenReuseUrls() {
+    return Boolean(autogenReuseUrlsEl?.checked);
+  }
+
+  function autogenReuseBody() {
+    return autogenReuseUrls() ? { reuseUrls: true } : {};
   }
 
   const FEATURED_ACCOUNT_RE = /^(1|2|3|6|7|8|10)(\D|$)/;
@@ -429,8 +438,9 @@
 
   async function loadSourcePool() {
     const listId = encodeURIComponent(selectedListId());
+    const reuseQ = autogenReuseUrls() ? '&reuseUrls=1' : '';
     const { ok, data } = await api(
-      `/api/contentstation/character-remix-2-og?action=source-pool&listId=${listId}`,
+      `/api/contentstation/character-remix-2-og?action=source-pool&listId=${listId}${reuseQ}`,
     );
     sourcePool = ok && Array.isArray(data?.accounts) ? data.accounts : [];
     const titleEl = document.getElementById('autogen-title');
@@ -449,6 +459,7 @@
     const err = String(data?.error || '');
     return (
       err === 'file_too_large' ||
+      err === 'source_too_long' ||
       err === 'source_is_speech' ||
       err === 'source_is_photo' ||
       err === 'too_many_scenes' ||
@@ -466,6 +477,12 @@
     const err = String(data?.error || '');
     if (err === 'file_too_large') {
       return detail ? `Too large (${detail})` : 'Too large (over 40MB)';
+    }
+    if (err === 'source_too_long') {
+      const sec = Number(data?.durationSec);
+      const max = Number(data?.maxDurationSec) || 30;
+      if (Number.isFinite(sec) && sec > 0) return `${Math.round(sec)}s (max ${max}) — removed from lists`;
+      return `Longer than ${max}s — removed from lists`;
     }
     if (err === 'source_is_speech') {
       return 'Spoken dialogue — moved to GLP-1 Speech audio list';
@@ -1001,6 +1018,9 @@
 
   tiktokUrls?.addEventListener('input', updateUrlCount);
   autogenRandomEl?.addEventListener('change', () => renderAutogen());
+  autogenReuseUrlsEl?.addEventListener('change', () => {
+    loadSourcePool().catch(() => {});
+  });
   autogenSelectAllBtn?.addEventListener('click', () => selectAllAutogenAccounts());
   autogenSelectNoneBtn?.addEventListener('click', () => selectNoneAutogenAccounts());
 
@@ -1091,9 +1111,10 @@
               listId: selectedListId(),
               title: work.length > 1 ? `${baseTitle} (${item.account})` : baseTitle,
               autoRun: true,
+              ...autogenReuseBody(),
             }),
           });
-          if (data?.error === 'already_remixed_for_account') {
+          if (data?.error === 'already_remixed_for_account' && !autogenReuseUrls()) {
             skipped.push(url);
             setDupBanner(skipped, item.account);
             url = nextLeftoverUrl(item.leftover, tried);
@@ -1210,9 +1231,10 @@
             listId: selectedListId(),
             title: `${baseTitle} (${item.account})`,
             autoRun: true,
+            ...autogenReuseBody(),
           }),
         });
-        if (data?.error === 'already_remixed_for_account') {
+        if (data?.error === 'already_remixed_for_account' && !autogenReuseUrls()) {
           skipped.push(item.url);
           setDupBanner(skipped, item.account);
           continue;

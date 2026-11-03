@@ -12,7 +12,7 @@
     const nameInput = document.getElementById('new-url-list-name');
     const meta = document.getElementById('url-list-meta');
     const errEl = document.getElementById('url-list-error');
-    /** @type {{ id: string, name: string, count: number }[]} */
+    /** @type {{ id: string, name: string, count: number, reuseUrls?: boolean }[]} */
     let lists = [];
 
     function setError(msg) {
@@ -42,16 +42,21 @@
       for (const list of lists) {
         const opt = document.createElement('option');
         opt.value = list.id;
-        opt.textContent = `${list.name} (${list.count})`;
+        opt.textContent = list.reuseUrls
+          ? `${list.name} (${list.count}, reusable)`
+          : `${list.name} (${list.count})`;
         select.appendChild(opt);
       }
       if ([...select.options].some((o) => o.value === keep)) select.value = keep;
       else if ([...select.options].some((o) => o.value === DEFAULT_ID)) select.value = DEFAULT_ID;
       const cur = current();
       if (meta) {
-        meta.textContent = cur
-          ? `${cur.count} video${cur.count === 1 ? '' : 's'} on ${cur.name}`
-          : '';
+        if (!cur) meta.textContent = '';
+        else if (cur.reuseUrls) {
+          meta.textContent = `${cur.count} video${cur.count === 1 ? '' : 's'} on ${cur.name} — reusable (same URL can run again for every account)`;
+        } else {
+          meta.textContent = `${cur.count} video${cur.count === 1 ? '' : 's'} on ${cur.name}`;
+        }
       }
     }
 

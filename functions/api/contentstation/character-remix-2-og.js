@@ -41,7 +41,13 @@ import {
   workerFetch,
   remix2R2Payload,
 } from '../../lib/character-remix-2-og.js';
-import { downloadTikTokToR2, looksLikeTikTokUrl, expandTikTokUrl } from '../../lib/tiktok-download.js';
+import {
+  downloadTikTokToR2,
+  looksLikeTikTokUrl,
+  expandTikTokUrl,
+  lookupTikTokDurationSec,
+} from '../../lib/tiktok-download.js';
+import { isOverMaxListDuration, MAX_LIST_VIDEO_SEC, parseTikTokDurationSec } from '../../lib/tiktok-duration.js';
 import { flattenPostMetaForStorage } from '../../lib/tiktok-post-info.js';
 import { getTagForKey, resolveAccountVoice, sanitizeAccountName, setVideoAccount } from '../../lib/account-tags.js';
 import {
@@ -55,11 +61,21 @@ import { listRemixSourcePools } from '../../lib/remix2-source-pool.js';
 import {
   addUrlsToList,
   DEFAULT_LIST_ID,
+  getUrlList,
+  listReusesUrls,
   moveUrlsToSpeechAudioList,
   removeUrlsFromAllLists,
   removeUrlsFromList,
 } from '../../lib/tiktok-url-lists.js';
 import { isTikTokPhotoUrl, markTikTokSeen } from '../../lib/tiktok-download-seen.js';
+
+async function skipRemixUsedForJob(env, { listId, reuseUrls: reuseUrlsBody } = {}) {
+  if (reuseUrlsBody === true) return true;
+  const id = String(listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+  const res = await getUrlList(env, id);
+  if (!res.ok) return false;
+  return listReusesUrls(res.list);
+}
 
 async function resolveKey(env, key) {
   if (!key || typeof key !== 'string') return { ok: false, error: 'missing_key' };
@@ -162,7 +178,9 @@ export async function onRequest(context) {
     }
     if (action === 'source-pool') {
       const listId = url.searchParams.get('listId') || DEFAULT_LIST_ID;
-      const result = await listRemixSourcePools(env, listId);
+      const reuseParam = String(url.searchParams.get('reuseUrls') || '').toLowerCase();
+      const reuseUrls = reuseParam === '1' || reuseParam === 'true' || reuseParam === 'yes';
+      const result = await listRemixSourcePools(env, listId, { reuseUrls });
       if (!result.ok) {
         return json({ error: result.error || 'pool_failed', accounts: [] }, 503);
       }
@@ -171,6 +189,7 @@ export async function onRequest(context) {
         listId: result.listId,
         listName: result.listName,
         listCount: result.listCount,
+        reuseUrls: result.reuseUrls === true,
         accounts: result.accounts,
       }, 200);
     }
@@ -497,15 +516,47 @@ export async function onRequest(context) {
       );
     }
 
+    let durationSec = null;
+    try {
+      durationSec = await lookupTikTokDurationSec(env, tiktokUrl);
+    } catch {
+      durationSec = null;
+    }
+    if (isOverMaxListDuration(durationSec)) {
+      let removed = null;
+      try {
+        removed = await removeUrlsFromAllLists(env, [tiktokUrl]);
+      } catch {
+        removed = null;
+      }
+      return json(
+        {
+          error: 'source_too_long',
+          message: `Video is longer than ${MAX_LIST_VIDEO_SEC} seconds. Removed from lists. Autogenerate will try another leftover.`,
+          durationSec: Math.round(Number(durationSec) * 10) / 10,
+          maxDurationSec: MAX_LIST_VIDEO_SEC,
+          removedFromList: Boolean(removed?.ok && (removed.removed || 0) > 0),
+          removedCount: Number(removed?.removed || 0),
+        },
+        422,
+      );
+    }
+
     try {
       await addUrlsToList(env, body.listId || DEFAULT_LIST_ID, [tiktokUrl], {
         addedFrom: remixVariant || 'remix2',
+        durationSec,
       });
     } catch {
       /* list write must not block remix */
     }
     const remixAccount = sanitizeAccountName(body.account) || null;
-    if (remixAccount) {
+    const fromListId = String(body.listId || DEFAULT_LIST_ID).trim() || DEFAULT_LIST_ID;
+    const reuseListUrls = await skipRemixUsedForJob(env, {
+      listId: fromListId,
+      reuseUrls: body.reuseUrls === true,
+    });
+    if (remixAccount && !reuseListUrls) {
       await ensureRemixUsedIndex(env, remixAccount);
       const idFromUrl = extractTikTokVideoId(tiktokUrl);
       if (idFromUrl) {
@@ -562,6 +613,36 @@ export async function onRequest(context) {
     }
     const sourceKey = dl.key;
     const postFlat = flattenPostMetaForStorage(dl.meta || {}, tiktokUrl);
+    const downloadedSec = parseTikTokDurationSec(dl.meta?.duration);
+    if (isOverMaxListDuration(downloadedSec)) {
+      let removed = null;
+      let deletedSource = false;
+      try {
+        removed = await removeUrlsFromAllLists(env, [tiktokUrl]);
+      } catch {
+        removed = null;
+      }
+      try {
+        if (sourceKey) {
+          await bucket.delete(sourceKey);
+          deletedSource = true;
+        }
+      } catch {
+        deletedSource = false;
+      }
+      return json(
+        {
+          error: 'source_too_long',
+          message: `Video is longer than ${MAX_LIST_VIDEO_SEC} seconds. Removed from lists. Autogenerate will try another leftover.`,
+          durationSec: Math.round(downloadedSec * 10) / 10,
+          maxDurationSec: MAX_LIST_VIDEO_SEC,
+          removedFromList: Boolean(removed?.ok && (removed.removed || 0) > 0),
+          removedCount: Number(removed?.removed || 0),
+          deletedSource,
+        },
+        422,
+      );
+    }
 
     // Music-Only: cheap ASR + grok-4.3 MUSIC|SPEECH before creating a job.
     // SPEECH → replaceable Autogenerate failure (same pattern as file_too_large).
@@ -670,7 +751,7 @@ export async function onRequest(context) {
       // preview error / missing shotCount → fail-open; worker analyze enforces max
     }
 
-    if (remixAccount) {
+    if (remixAccount && !reuseListUrls) {
       const resolvedId =
         String(postFlat.tiktokId || '').replace(/[^\d]/g, '') ||
         extractTikTokVideoId(postFlat.tiktokUrl || tiktokUrl);
@@ -700,6 +781,7 @@ export async function onRequest(context) {
       method: 'POST',
       body: {
         characterKey: autoSimilar ? null : characterKey,
+        requesterRole: auth.role || 'admin',
         characterMode: autoSimilar ? 'auto-similar' : 'upload',
         deriveCharacterFromSource: autoSimilar,
         version,
@@ -765,7 +847,7 @@ export async function onRequest(context) {
       );
     }
     const created = result.data || {};
-    if (remixAccount && created.jobId) {
+    if (remixAccount && created.jobId && !reuseListUrls) {
       await markRemixUsed(env, {
         tiktokId: postFlat.tiktokId,
         tiktokUrl: postFlat.tiktokUrl || tiktokUrl,
@@ -943,6 +1025,7 @@ export async function onRequest(context) {
       method: 'POST',
       body: {
         characterKey: autoSimilar ? null : characterKey,
+        requesterRole: auth.role || 'admin',
         characterMode: autoSimilar ? 'auto-similar' : 'upload',
         deriveCharacterFromSource: autoSimilar,
         version,

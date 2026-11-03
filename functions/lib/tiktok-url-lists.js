@@ -7,6 +7,7 @@
 
 import { extractTikTokVideoId } from './tiktok-download-seen.js';
 import { GLP1_SEED_URLS } from './tiktok-url-list-seed.js';
+import { isOverMaxListDuration, parseTikTokDurationSec } from './tiktok-duration.js';
 
 const LISTS_KEY = 'meta/tiktok-url-lists.json';
 export const DEFAULT_LIST_ID = 'glp-1';
@@ -70,7 +71,13 @@ function summarizeList(list) {
     id: list.id,
     name: list.name,
     count: Array.isArray(list.items) ? list.items.length : 0,
+    reuseUrls: list.reuseUrls === true,
   };
+}
+
+/** When true, Autogenerate treats every list URL as available (ignore remix2/_used for this list). */
+export function listReusesUrls(list) {
+  return Boolean(list && list.reuseUrls === true);
 }
 
 function seedGlp1() {
@@ -133,7 +140,7 @@ export async function getUrlList(env, listIdRaw) {
   return { ok: true, list };
 }
 
-export async function createUrlList(env, nameRaw) {
+export async function createUrlList(env, nameRaw, { reuseUrls = false } = {}) {
   const bucket = env?.MEDIA_BUCKET;
   if (!bucket) return { ok: false, error: 'no_bucket' };
   const name = String(nameRaw || '')
@@ -153,13 +160,14 @@ export async function createUrlList(env, nameRaw) {
     name,
     createdAt: new Date().toISOString(),
     items: [],
+    ...(reuseUrls ? { reuseUrls: true } : {}),
   };
   const next = { lists: [...ensured.lists, list] };
   await writeStore(bucket, next);
   return { ok: true, list: summarizeList(list), lists: next.lists.map(summarizeList) };
 }
 
-export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId } = {}) {
+export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId, durationSec, durationByUrl } = {}) {
   const bucket = env?.MEDIA_BUCKET;
   if (!bucket) return { ok: false, error: 'no_bucket' };
   const ensured = await ensureUrlLists(env);
@@ -170,13 +178,25 @@ export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId 
   if (!Array.isArray(list.items)) list.items = [];
   const seen = new Set(list.items.map(itemKey));
   const incoming = Array.isArray(urls) ? urls : [urls];
+  const fallbackSec = parseTikTokDurationSec(durationSec);
+  const byUrl = durationByUrl && typeof durationByUrl === 'object' ? durationByUrl : null;
   let added = 0;
+  let rejectedLong = 0;
+  const rejected = [];
   for (const raw of incoming) {
     const item = normalizeItem(raw, {
       addedFrom,
       tiktokId: tiktokId || undefined,
     });
     if (!item) continue;
+    const fromMap = byUrl ? parseTikTokDurationSec(byUrl[item.url] ?? byUrl[String(raw || '').trim()]) : null;
+    const sec = fromMap ?? fallbackSec;
+    if (sec != null) item.durationSec = Math.round(sec * 10) / 10;
+    if (isOverMaxListDuration(sec)) {
+      rejectedLong += 1;
+      if (rejected.length < 20) rejected.push(item.url);
+      continue;
+    }
     const k = itemKey(item);
     if (seen.has(k)) continue;
     seen.add(k);
@@ -188,6 +208,8 @@ export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId 
     ok: true,
     listId: list.id,
     added,
+    rejectedLong,
+    rejected,
     count: list.items.length,
     lists: ensured.lists.map(summarizeList),
   };
@@ -324,6 +346,67 @@ export async function purgePhotoUrlsFromAllLists(env, isPhotoUrl) {
   return {
     ok: true,
     removed,
+    byList,
+    sample,
+    lists: ensured.lists.map(summarizeList),
+  };
+}
+
+/**
+ * Drop list items whose known duration is over 30s.
+ * durationForItem(item) → seconds | null. Unknown durations are kept.
+ * Also drops items that already have durationSec stored over the cap.
+ */
+export async function purgeLongVideosFromAllLists(env, durationForItem) {
+  const bucket = env?.MEDIA_BUCKET;
+  if (!bucket) return { ok: false, error: 'no_bucket' };
+  const ensured = await ensureUrlLists(env);
+  if (!ensured.ok) return ensured;
+  let removed = 0;
+  let checked = 0;
+  let unknown = 0;
+  const byList = [];
+  const sample = [];
+  for (const list of ensured.lists) {
+    if (!Array.isArray(list.items)) list.items = [];
+    const kept = [];
+    let n = 0;
+    for (const it of list.items) {
+      checked += 1;
+      let sec = parseTikTokDurationSec(it?.durationSec);
+      if (sec == null && typeof durationForItem === 'function') {
+        try {
+          sec = parseTikTokDurationSec(await durationForItem(it));
+        } catch {
+          sec = null;
+        }
+      }
+      if (sec == null) {
+        unknown += 1;
+        kept.push(it);
+        continue;
+      }
+      if (isOverMaxListDuration(sec)) {
+        n += 1;
+        if (sample.length < 30) {
+          sample.push({ listId: list.id, url: it.url, durationSec: Math.round(sec * 10) / 10 });
+        }
+      } else {
+        kept.push({ ...it, durationSec: Math.round(sec * 10) / 10 });
+      }
+    }
+    list.items = kept;
+    if (n) {
+      removed += n;
+      byList.push({ listId: list.id, name: list.name, removed: n });
+    }
+  }
+  await writeStore(bucket, { lists: ensured.lists });
+  return {
+    ok: true,
+    removed,
+    checked,
+    unknown,
     byList,
     sample,
     lists: ensured.lists.map(summarizeList),
