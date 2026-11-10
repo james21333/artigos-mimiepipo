@@ -25,7 +25,7 @@ import { isOverMaxListDuration, MAX_LIST_VIDEO_SEC } from '../../lib/tiktok-dura
  * POST { action: "add" } — rejects clips longer than 30 seconds
  */
 export async function onRequest(context) {
-  const auth = await requireRole(context, [ROLES.ADMIN, ROLES.DOWNLOAD, ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;

@@ -373,7 +373,7 @@ async function runRunpod(env, body) {
 }
 
 export async function onRequest(context) {
-  const auth = await requireRole(context, [ROLES.ADMIN]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;

@@ -541,6 +541,38 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.station-more-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.95rem;
+  align-items: baseline;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.station-more-links .foot-heading {
+  flex: 0 0 100%;
+  margin: 0 0 0.15rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.station-more-links a {
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.station-more-links a:hover {
+  color: var(--accent);
+}
+
+.station-more-links a[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 a { color: var(--accent); }
 
 @keyframes fade-in {

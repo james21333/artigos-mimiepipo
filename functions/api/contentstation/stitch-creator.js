@@ -98,7 +98,7 @@ async function listCreatorFinals(env, { limit = 50, account = '' } = {}) {
 }
 
 export async function onRequest(context) {
-  const auth = await requireRole(context, [ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   const { request, env } = context;

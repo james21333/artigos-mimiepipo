@@ -58,13 +58,37 @@ const ROLE_PAGES = Object.freeze({
     '/usage-tracker.html',
     '/old213223523.html',
   ],
-  [ROLES.DOWNLOAD]: ['/tiktok-download.html'],
-  [ROLES.READY]: ['/ready.html', '/ready-account.html', '/ready-archived.html'],
+  [ROLES.DOWNLOAD]: [
+    '/tiktok-download.html',
+    '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-url-lists.html',
+    '/ready.html',
+    '/ready-account.html',
+    '/ready-archived.html',
+    '/stitch-videos.html',
+    '/stitch-creator.html',
+    '/stitch-creator-videos.html',
+    '/character-remixes.html',
+    '/usage-tracker.html',
+  ],
+  [ROLES.READY]: [
+    '/ready.html',
+    '/ready-account.html',
+    '/ready-archived.html',
+    '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-url-lists.html',
+    '/stitch-videos.html',
+    '/stitch-creator.html',
+    '/stitch-creator-videos.html',
+    '/character-remixes.html',
+    '/usage-tracker.html',
+  ],
   [ROLES.KENNETH]: [
     '/kenneth.html',
     '/views-tracker.html',
     '/tiktok-download.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-url-lists.html',
     '/stitch-maker.html',
     '/stitch-videos.html',
     '/stitch-creator.html',
@@ -72,6 +96,8 @@ const ROLE_PAGES = Object.freeze({
     '/ready.html',
     '/ready-account.html',
     '/ready-archived.html',
+    '/character-remixes.html',
+    '/usage-tracker.html',
   ],
 });
 
@@ -426,14 +452,23 @@ export function mediaKeyAllowed(role, key) {
   if (role === ROLES.ADMIN) return true;
   if (!key || typeof key !== 'string') return false;
   if (role === ROLES.DOWNLOAD) {
-    return key.startsWith('tiktok/') || isCharacterMediaKey(key);
+    return (
+      key.startsWith('tiktok/') ||
+      isCharacterMediaKey(key) ||
+      key.startsWith('stitch-creator/') ||
+      key.startsWith('stitch-maker/') ||
+      key.startsWith('character-remix-2-og/') ||
+      key.startsWith('cleaned/')
+    );
   }
   if (role === ROLES.READY) {
     return (
       key.startsWith('cleaned/') ||
       isCharacterMediaKey(key) ||
       key.startsWith('facefusion-remix/') ||
-      /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
+      key.startsWith('stitch-creator/') ||
+      key.startsWith('stitch-maker/') ||
+      key.startsWith('character-remix-2-og/')
     );
   }
   if (role === ROLES.KENNETH) return kennethKeyAllowed(key);
@@ -444,7 +479,19 @@ export function mediaPrefixAllowed(role, prefix) {
   if (role === ROLES.ADMIN) return true;
   const p = prefix || '';
   if (role === ROLES.DOWNLOAD) {
-    return p === 'tiktok/' || p.startsWith('tiktok/') || isCharacterMediaPrefix(p);
+    return (
+      p === 'tiktok/' ||
+      p.startsWith('tiktok/') ||
+      isCharacterMediaPrefix(p) ||
+      p === 'stitch-creator/' ||
+      p.startsWith('stitch-creator/') ||
+      p === 'stitch-maker/' ||
+      p.startsWith('stitch-maker/') ||
+      p === 'character-remix-2-og/' ||
+      p.startsWith('character-remix-2-og/') ||
+      p === 'cleaned/' ||
+      p.startsWith('cleaned/')
+    );
   }
   if (role === ROLES.READY) {
     return (
@@ -454,7 +501,11 @@ export function mediaPrefixAllowed(role, prefix) {
       p === 'character-remix-2-og/' ||
       p.startsWith('character-remix-2-og/') ||
       p === 'facefusion-remix/' ||
-      p.startsWith('facefusion-remix/')
+      p.startsWith('facefusion-remix/') ||
+      p === 'stitch-creator/' ||
+      p.startsWith('stitch-creator/') ||
+      p === 'stitch-maker/' ||
+      p.startsWith('stitch-maker/')
     );
   }
   if (role === ROLES.KENNETH) return kennethPrefixAllowed(p);

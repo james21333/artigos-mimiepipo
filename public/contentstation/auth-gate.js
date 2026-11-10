@@ -9,6 +9,7 @@
  */
 (function (global) {
   const BRAND_KENNETH = "Kenneth's Content Tools";
+  const ALL_ROLES = ['admin', 'download', 'ready', 'kenneth'];
 
   const HOMES = {
     admin: './',
@@ -17,35 +18,15 @@
     kenneth: './kenneth.html',
   };
 
-  /** Full Kenneth top-nav (rebuilt on shared pages so he never sees admin links). */
-  const KENNETH_NAV = [
-    { href: './kenneth.html', label: 'Home', page: 'kenneth.html' },
-    {
-      href: './views-tracker.html',
-      label: 'Views & URLs',
-      page: 'views-tracker.html',
-    },
+  /**
+   * Top nav on every page, for every login.
+   * Keep this list in sync with index.html footer (footer = everything else).
+   */
+  const PRIMARY_NAV = [
     {
       href: './tiktok-download-character-remix-2-og-v2-music.html',
       label: 'V2 Music-Only',
       page: 'tiktok-download-character-remix-2-og-v2-music.html',
-    },
-    { href: './tiktok-download.html', label: 'TikTok download', page: 'tiktok-download.html' },
-    {
-      href: './stitch-maker.html',
-      label: 'Stitch Maker with Character',
-      page: 'stitch-maker.html',
-    },
-    { href: './stitch-videos.html', label: 'Stitch videos', page: 'stitch-videos.html' },
-    {
-      href: './stitch-creator.html',
-      label: 'Stitch Creator',
-      page: 'stitch-creator.html',
-    },
-    {
-      href: './stitch-creator-videos.html',
-      label: 'Stitch Creator gallery',
-      page: 'stitch-creator-videos.html',
     },
     {
       href: './ready.html',
@@ -54,17 +35,10 @@
       alsoCurrent: ['ready-account.html', 'ready-archived.html'],
     },
     {
-      href: './ready-archived.html',
-      label: 'Archived accounts',
-      page: 'ready-archived.html',
+      href: './tiktok-url-lists.html',
+      label: 'TikTok URL lists',
+      page: 'tiktok-url-lists.html',
     },
-  ];
-
-  /**
-   * Injected onto every admin top-nav so Stitch tools are reachable from all pages
-   * without editing each HTML file.
-   */
-  const ADMIN_SHARED_LINKS = [
     { href: './stitch-videos.html', label: 'Stitch videos', page: 'stitch-videos.html' },
     { href: './stitch-creator.html', label: 'Stitch Creator', page: 'stitch-creator.html' },
     {
@@ -72,17 +46,59 @@
       label: 'Stitch Creator gallery',
       page: 'stitch-creator-videos.html',
     },
+    {
+      href: './character-remixes.html',
+      label: 'Recent remixes',
+      page: 'character-remixes.html',
+    },
+    { href: './usage-tracker.html', label: 'Usage tracker', page: 'usage-tracker.html' },
   ];
 
-  /** Nav link href → roles that may see it (admin always sees all). */
+  /** Other station pages — shown in the main Clean page footer only. */
+  const FOOTER_LINKS = [
+    { href: './', label: 'Clean video', page: 'index.html' },
+    { href: './cleaned.html', label: 'Cleaned videos' },
+    { href: './tiktok-download.html', label: 'TikTok download' },
+    { href: './downloaded.html', label: 'Downloaded videos' },
+    { href: './tiktok-download-character-remix.html', label: 'Character remix' },
+    { href: './tiktok-download-character-remix-2-og.html', label: 'Remix 2 OG V1' },
+    { href: './tiktok-download-character-remix-2-og-v2.html', label: 'V2 Talking Heads' },
+    { href: './tiktok-download-character-remix-2-og-v3.html', label: 'Talking Heads V3' },
+    { href: './tiktok-download-character-remix-2-og-talking-johnny.html', label: 'Talking Johnny' },
+    {
+      href: './tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod.html',
+      label: 'Talking Johnny Jolly Voice Mod',
+    },
+    { href: './johnny-stub-fix.html', label: 'Johnny Stub Fix' },
+    { href: './johnny-jolly-voice-mod.html', label: 'Johnny Jolly Voice Mod' },
+    { href: './prompt-talking.html', label: 'Prompt talking' },
+    { href: './disclaimer-burn.html', label: 'Disclaimer burn' },
+    { href: './viral-video-builder.html', label: 'Viral Video Builder' },
+    { href: './remix2-ready.html', label: 'Remix 2 ready' },
+    { href: './tiktok-download-facefusion-remix.html', label: 'Remix 3 FaceFusion' },
+    { href: './facefusion-remixes.html', label: 'FaceFusion remixes' },
+    { href: './ready-account.html', label: 'Ready account' },
+    { href: './ready-archived.html', label: 'Archived accounts' },
+    { href: './stitch-maker.html', label: 'Stitch Maker with Character' },
+    { href: './kenneth.html', label: "Kenneth's home" },
+    { href: './views-tracker.html', label: 'Views & URLs' },
+    { href: './old213223523.html', label: 'Old tools' },
+    { href: '/', label: '← Artigos hub' },
+  ];
+
+  /** Nav / footer href → roles that may see it (admin always sees all). */
   const NAV_BY_HREF = [
-    { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
+    { match: /usage-tracker\.html/, roles: ALL_ROLES },
+    { match: /character-remixes\.html/, roles: ALL_ROLES },
+    { match: /tiktok-url-lists\.html/, roles: ALL_ROLES },
+    { match: /stitch-videos\.html/, roles: ALL_ROLES },
+    { match: /stitch-creator\.html/, roles: ALL_ROLES },
+    { match: /stitch-creator-videos\.html/, roles: ALL_ROLES },
+    { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ALL_ROLES },
+    { match: /ready(?:-account|-archived)?\.html/, roles: ALL_ROLES },
     { match: /views-tracker\.html/, roles: ['kenneth', 'admin'] },
     { match: /stitch-maker\.html/, roles: ['kenneth', 'admin'] },
-    { match: /stitch-videos\.html/, roles: ['kenneth', 'admin'] },
-    { match: /stitch-creator\.html/, roles: ['kenneth', 'admin'] },
-    { match: /stitch-creator-videos\.html/, roles: ['kenneth', 'admin'] },
-    { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ['admin', 'kenneth'] },
+    { match: /kenneth\.html/, roles: ['kenneth', 'admin'] },
     { match: /(?:^|\/)(?:index\.html)?$/, roles: ['admin'], label: 'Clean' },
     { match: /cleaned\.html/, roles: ['admin'] },
     { match: /tiktok-download-facefusion-remix\.html/, roles: ['admin'] },
@@ -94,16 +110,14 @@
     { match: /tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og-talking-johnny\.html/, roles: ['admin'] },
     { match: /prompt-talking\.html/, roles: ['admin'] },
-    { match: /tiktok-url-lists\.html/, roles: ['admin'] },
     { match: /disclaimer-burn\.html/, roles: ['admin'] },
     { match: /viral-video-builder\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix-2-og(?:-v1)?\.html/, roles: ['admin'] },
     { match: /tiktok-download-character-remix\.html/, roles: ['admin'] },
     { match: /remix2-ready\.html/, roles: ['admin'] },
-    { match: /character-remixes\.html/, roles: ['admin'] },
     { match: /tiktok-download\.html/, roles: ['admin', 'download', 'kenneth'] },
     { match: /downloaded\.html/, roles: ['admin'] },
-    { match: /ready(?:-account|-archived)?\.html/, roles: ['admin', 'ready', 'kenneth'] },
+    { match: /old213223523\.html/, roles: ['admin'] },
   ];
 
   const PAGE_ROLES = {
@@ -122,22 +136,23 @@
     'johnny-stub-fix': ['admin'],
     'johnny-jolly-voice-mod': ['admin'],
     'tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod': ['admin'],
-    'tiktok-download-character-remix-2-og-v2-music': ['admin', 'kenneth'],
+    'tiktok-download-character-remix-2-og-v2-music': ALL_ROLES,
     'prompt-talking': ['admin'],
-    'tiktok-url-lists': ['admin'],
+    'tiktok-url-lists': ALL_ROLES,
     'disclaimer-burn': ['admin'],
     'viral-video-builder': ['admin'],
-    'character-remixes': ['admin'],
+    'character-remixes': ALL_ROLES,
     'remix2-ready': ['admin'],
-    ready: ['admin', 'ready', 'kenneth'],
-    'ready-account': ['admin', 'ready', 'kenneth'],
-    'ready-archived': ['admin', 'ready', 'kenneth'],
+    ready: ALL_ROLES,
+    'ready-account': ALL_ROLES,
+    'ready-archived': ALL_ROLES,
     kenneth: ['admin', 'kenneth'],
     'views-tracker': ['admin', 'kenneth'],
     'stitch-maker': ['admin', 'kenneth'],
-    'stitch-videos': ['admin', 'kenneth'],
-    'stitch-creator': ['admin', 'kenneth'],
-    'stitch-creator-videos': ['admin', 'kenneth'],
+    'stitch-videos': ALL_ROLES,
+    'stitch-creator': ALL_ROLES,
+    'stitch-creator-videos': ALL_ROLES,
+    'usage-tracker': ALL_ROLES,
     old: ['admin'],
   };
 
@@ -172,6 +187,7 @@
 
   function hrefAllowedForRole(href, role) {
     if (role === 'admin') return true;
+    if (href === '/' || href === '') return true;
     for (const rule of NAV_BY_HREF) {
       if (rule.match.test(href) && rule.roles.includes(role)) return true;
     }
@@ -188,96 +204,77 @@
     try {
       const path = String(global.location?.pathname || '');
       const leaf = path.split('/').filter(Boolean).pop() || '';
-      return leaf || 'index.html';
+      if (!leaf || leaf === 'contentstation') return 'index.html';
+      return leaf;
     } catch {
       return '';
     }
   }
 
-  function hrefMatchesPage(href, page) {
-    const leaf = String(href || '')
-      .split('/')
-      .filter(Boolean)
-      .pop();
-    return leaf === page || (page === 'index.html' && (leaf === '' || leaf === 'index.html'));
+  function isPrimaryNavPage(page, item) {
+    return (
+      page === item.page ||
+      (Array.isArray(item.alsoCurrent) && item.alsoCurrent.includes(page))
+    );
   }
 
-  /** Replace top-nav with Kenneth-only links on every shared page he can open. */
-  function applyKennethNav() {
+  /** Rebuild every top-nav with the shared primary links. */
+  function applyPrimaryNav(role) {
     const page = currentPageFile();
+    const r = role || 'admin';
     document.querySelectorAll('nav.top-nav').forEach((nav) => {
-      nav.setAttribute('aria-label', 'Kenneth tools');
+      nav.setAttribute('aria-label', 'Station');
       nav.replaceChildren();
-      for (const item of KENNETH_NAV) {
+      for (const item of PRIMARY_NAV) {
+        if (!hrefAllowedForRole(item.href, r)) continue;
         const a = document.createElement('a');
         a.href = item.href;
         a.textContent = item.label;
-        if (
-          page === item.page ||
-          (Array.isArray(item.alsoCurrent) && item.alsoCurrent.includes(page))
-        ) {
+        if (isPrimaryNavPage(page, item)) {
           a.setAttribute('aria-current', 'page');
         }
         nav.appendChild(a);
       }
     });
-    // Hide leftover footer / secondary links that aren't in Kenneth's set.
-    document.querySelectorAll('footer a, .site-footer a').forEach((a) => {
-      const href = a.getAttribute('href') || '';
-      const allowed = hrefAllowedForRole(href, 'kenneth');
-      a.hidden = !allowed;
-      if (!allowed) {
-        a.setAttribute('aria-hidden', 'true');
-        a.tabIndex = -1;
-      } else {
-        a.removeAttribute('aria-hidden');
-        a.removeAttribute('tabIndex');
-      }
-    });
   }
 
-  /** Ensure Stitch videos / Creator links exist on admin top-navs. */
-  function ensureAdminSharedLinks() {
+  /** Main Clean page only: fill footer with every other station link. */
+  function applyMainFooter(role) {
     const page = currentPageFile();
-    document.querySelectorAll('nav.top-nav').forEach((nav) => {
-      for (const item of ADMIN_SHARED_LINKS) {
-        const existing = [...nav.querySelectorAll('a')].find((a) =>
-          hrefMatchesPage(a.getAttribute('href') || '', item.page),
-        );
-        if (existing) {
-          if (page === item.page) existing.setAttribute('aria-current', 'page');
-          continue;
-        }
-        const a = document.createElement('a');
-        a.href = item.href;
-        a.textContent = item.label;
-        if (page === item.page) a.setAttribute('aria-current', 'page');
-        nav.appendChild(a);
+    if (page !== 'index.html') return;
+
+    const r = role || 'admin';
+    let foot = document.getElementById('station-more-links');
+    if (!foot) {
+      foot = document.querySelector('p.foot, footer.site-footer, .site-footer');
+    }
+    if (!foot) return;
+
+    foot.replaceChildren();
+    foot.classList.add('foot', 'station-more-links');
+    foot.setAttribute('aria-label', 'More Content Station pages');
+
+    const heading = document.createElement('span');
+    heading.className = 'foot-heading';
+    heading.textContent = 'More pages';
+    foot.appendChild(heading);
+
+    for (const item of FOOTER_LINKS) {
+      if (!hrefAllowedForRole(item.href, r) && item.href !== '/') continue;
+      const a = document.createElement('a');
+      a.href = item.href;
+      a.textContent = item.label;
+      if (item.page && isPrimaryNavPage(page, item)) {
+        a.setAttribute('aria-current', 'page');
       }
-    });
+      foot.appendChild(a);
+    }
   }
 
   function applyNav(role) {
     const r = role || 'admin';
-    if (r === 'kenneth') {
-      applyKennethNav();
-      applyBrand(r);
-      return;
-    }
-    const navs = document.querySelectorAll('nav.top-nav a, footer a, .site-footer a');
-    navs.forEach((a) => {
-      const href = a.getAttribute('href') || '';
-      const allowed = hrefAllowedForRole(href, r);
-      a.hidden = !allowed;
-      if (!allowed) {
-        a.setAttribute('aria-hidden', 'true');
-        a.tabIndex = -1;
-      } else {
-        a.removeAttribute('aria-hidden');
-        a.removeAttribute('tabIndex');
-      }
-    });
-    if (r === 'admin') ensureAdminSharedLinks();
+    applyPrimaryNav(r);
+    applyMainFooter(r);
     applyBrand(r);
   }
 
@@ -299,7 +296,8 @@
     applyNav,
     applyBrand,
     PAGE_ROLES,
-    KENNETH_NAV,
+    PRIMARY_NAV,
+    FOOTER_LINKS,
     BRAND_KENNETH,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

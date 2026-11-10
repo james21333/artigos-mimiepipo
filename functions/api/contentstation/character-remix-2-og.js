@@ -115,7 +115,7 @@ export async function onRequest(context) {
     }
   }
 
-  const auth = await requireRole(context, [ROLES.KENNETH]);
+  const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
   if (!auth.ok) return auth.response;
 
   if (method === 'OPTIONS') {
