@@ -11,18 +11,23 @@ import {
 } from '../../lib/tiktok-url-lists.js';
 import { isTikTokPhotoUrl } from '../../lib/tiktok-download-seen.js';
 import { lookupTikTokDurationSec } from '../../lib/tiktok-download.js';
-import { isOverMaxListDuration, MAX_LIST_VIDEO_SEC } from '../../lib/tiktok-duration.js';
+import {
+  listDurationLimits,
+  listDurationRejectInfo,
+  MAX_LIST_VIDEO_SEC,
+  normalizeListDurationMode,
+} from '../../lib/tiktok-duration.js';
 
 /**
  * Named TikTok URL lists (GLP-1 List, etc.)
  * GET  ?action=list
  * GET  ?action=get&listId=
  * POST { action: "create", name, reuseUrls?: boolean }
- * POST { action: "add", listId, urls: string[] | url: string }
+ * POST { action: "add", listId, urls, durationMode?: "default"|"long120"|"mid55_90" }
  * POST { action: "remove", listId, urls: string[] | url: string }
  * POST { action: "purge-photos" } — strip TikTok /photo/ items from every list
  * POST { action: "purge-long" } — strip clips longer than 30 seconds from every list
- * POST { action: "add" } — rejects clips longer than 30 seconds
+ * POST { action: "add" } — duration filter (default max 30s; long120 up to 2m; mid55_90 only 55s–90s)
  */
 export async function onRequest(context) {
   const auth = await requireRole(context, [ROLES.DOWNLOAD, ROLES.READY, ROLES.KENNETH]);
@@ -86,6 +91,8 @@ export async function onRequest(context) {
   }
 
   if (action === 'add') {
+    const durationMode = normalizeListDurationMode(body.durationMode);
+    const limits = listDurationLimits(durationMode);
     const urls = (Array.isArray(body.urls) ? body.urls : body.url ? [body.url] : [])
       .map((raw) => String(raw || '').trim())
       .filter(Boolean);
@@ -96,8 +103,15 @@ export async function onRequest(context) {
     const rejected = [];
     const accepted = [];
     for (const { url, sec } of looked) {
-      if (isOverMaxListDuration(sec)) {
-        rejected.push({ url, durationSec: sec });
+      const info = listDurationRejectInfo(sec, durationMode);
+      if (info) {
+        rejected.push({
+          url,
+          durationSec: info.durationSec ?? sec,
+          reason: info.reason,
+          minSec: info.minSec,
+          maxSec: info.maxSec,
+        });
         continue;
       }
       if (sec != null) durationByUrl[url] = sec;
@@ -109,14 +123,22 @@ export async function onRequest(context) {
       durationByUrl,
     });
     if (!result.ok) return json(result, result.error === 'list_not_found' ? 404 : 400);
+    let message;
+    if (rejected.length) {
+      if (durationMode === 'mid55_90') {
+        message = `Skipped ${rejected.length} video(s) outside ${limits.minSec}–${limits.maxSec} seconds.`;
+      } else {
+        message = `Skipped ${rejected.length} video(s) longer than ${limits.maxSec} seconds.`;
+      }
+    }
     return json({
       ...result,
       rejectedLong: rejected.length,
       rejected,
-      maxDurationSec: MAX_LIST_VIDEO_SEC,
-      message: rejected.length
-        ? `Skipped ${rejected.length} video(s) longer than ${MAX_LIST_VIDEO_SEC} seconds.`
-        : undefined,
+      durationMode,
+      minDurationSec: limits.minSec,
+      maxDurationSec: limits.maxSec,
+      message,
     });
   }
 

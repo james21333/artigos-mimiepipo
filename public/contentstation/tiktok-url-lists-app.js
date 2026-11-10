@@ -11,6 +11,8 @@
   const tiktokUrls = document.getElementById('tiktok-urls');
   const urlCountEl = document.getElementById('url-count');
   const addBtn = document.getElementById('add-urls-btn');
+  const optAllowLong = document.getElementById('opt-allow-long');
+  const optMidRange = document.getElementById('opt-mid-range');
   const itemsEl = document.getElementById('url-list-items');
   const emptyEl = document.getElementById('url-list-empty');
   const statusLine = document.getElementById('status-line');
@@ -19,6 +21,19 @@
   const selectNoneBtn = document.getElementById('select-none-items-btn');
   const openSelectedBtn = document.getElementById('open-selected-btn');
   const removeSelectedBtn = document.getElementById('remove-selected-btn');
+
+  function selectedDurationMode() {
+    if (optMidRange?.checked) return 'mid55_90';
+    if (optAllowLong?.checked) return 'long120';
+    return 'default';
+  }
+
+  optAllowLong?.addEventListener('change', () => {
+    if (optAllowLong.checked && optMidRange) optMidRange.checked = false;
+  });
+  optMidRange?.addEventListener('change', () => {
+    if (optMidRange.checked && optAllowLong) optAllowLong.checked = false;
+  });
 
   /** @type {{ url: string, tiktokId?: string }[]} */
   let items = [];
@@ -195,6 +210,7 @@
     busy = true;
     addBtn.disabled = true;
     try {
+      const durationMode = selectedDurationMode();
       const { ok, data } = await api('/api/contentstation/tiktok-lists', {
         method: 'POST',
         body: JSON.stringify({
@@ -202,6 +218,7 @@
           listId: selectedListId(),
           urls,
           addedFrom: 'url-lists-page',
+          durationMode,
         }),
       });
       if (!ok) throw new Error((data && (data.message || data.error)) || 'Could not add URLs.');
@@ -210,7 +227,20 @@
       if (listsUi) await listsUi.load().catch(() => {});
       await loadItems();
       const added = Number(data.added) || 0;
-      setStatus(added ? `Added ${added} URL(s).` : 'Those URLs were already on this list.');
+      const rejectedLong = Number(data.rejectedLong) || 0;
+      const minSec = data.minDurationSec != null ? Number(data.minDurationSec) : null;
+      const maxSec = Number(data.maxDurationSec) || 30;
+      const parts = [];
+      if (added) parts.push(`Added ${added} URL(s).`);
+      if (rejectedLong) {
+        if (durationMode === 'mid55_90' || (minSec != null && Number.isFinite(minSec))) {
+          parts.push(`Rejected ${rejectedLong} outside ${minSec ?? 55}–${maxSec}s.`);
+        } else {
+          parts.push(`Rejected ${rejectedLong} longer than ${maxSec}s.`);
+        }
+      }
+      if (data.message && !parts.length) parts.push(data.message);
+      setStatus(parts.length ? parts.join(' ') : 'Those URLs were already on this list.');
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
