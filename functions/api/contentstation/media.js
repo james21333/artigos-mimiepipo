@@ -455,7 +455,7 @@ export async function onRequest(context) {
       return listObjects(env, bucket, url);
     }
 
-    // Writes: admin all keys; kenneth only character / stitch prefixes.
+    // Writes: admin all keys; kenneth character/stitch; download+ready character-lock only.
     if (!mediaWriteAllowed(role)) return forbidMedia(role);
 
     if (method === 'DELETE') {

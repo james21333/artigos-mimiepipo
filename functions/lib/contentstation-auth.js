@@ -55,6 +55,7 @@ const ROLE_PAGES = Object.freeze({
     '/stitch-videos.html',
     '/stitch-creator.html',
     '/stitch-creator-videos.html',
+    '/usage-tracker.html',
     '/old213223523.html',
   ],
   [ROLES.DOWNLOAD]: ['/tiktok-download.html'],
@@ -81,9 +82,11 @@ const ROLE_HOME = Object.freeze({
   [ROLES.KENNETH]: './kenneth.html',
 });
 
+/** Any authenticated role may upload / replace character-lock images here. */
+const CHARACTER_WRITE_PREFIXES = ['account-characters/', 'characters/'];
+
 const KENNETH_WRITE_PREFIXES = [
-  'account-characters/',
-  'characters/',
+  ...CHARACTER_WRITE_PREFIXES,
   'stitch-maker/',
   'stitch-creator/',
 ];
@@ -403,22 +406,32 @@ function kennethPrefixAllowed(prefix) {
   );
 }
 
+function isCharacterMediaKey(key) {
+  return CHARACTER_WRITE_PREFIXES.some((p) => key.startsWith(p));
+}
+
+function isCharacterMediaPrefix(prefix) {
+  const p = prefix || '';
+  return CHARACTER_WRITE_PREFIXES.some((c) => p === c || p.startsWith(c));
+}
+
 /**
  * Media key/prefix access by role.
- * download → tiktok/ read
- * ready → cleaned/ + Remix 2 finals + FaceFusion remixes read
+ * download → tiktok/ read + character-lock read
+ * ready → cleaned/ + Remix 2 finals + FaceFusion remixes + character-lock read
  * kenneth → ready media + tiktok + characters + stitch-maker + remix2 frames
  * admin → all
  */
 export function mediaKeyAllowed(role, key) {
   if (role === ROLES.ADMIN) return true;
   if (!key || typeof key !== 'string') return false;
-  if (role === ROLES.DOWNLOAD) return key.startsWith('tiktok/');
+  if (role === ROLES.DOWNLOAD) {
+    return key.startsWith('tiktok/') || isCharacterMediaKey(key);
+  }
   if (role === ROLES.READY) {
     return (
       key.startsWith('cleaned/') ||
-      key.startsWith('characters/') ||
-      key.startsWith('account-characters/') ||
+      isCharacterMediaKey(key) ||
       key.startsWith('facefusion-remix/') ||
       /^character-remix-2-og\/[^/]+\/final\.mp4$/i.test(key)
     );
@@ -430,15 +443,14 @@ export function mediaKeyAllowed(role, key) {
 export function mediaPrefixAllowed(role, prefix) {
   if (role === ROLES.ADMIN) return true;
   const p = prefix || '';
-  if (role === ROLES.DOWNLOAD) return p === 'tiktok/' || p.startsWith('tiktok/');
+  if (role === ROLES.DOWNLOAD) {
+    return p === 'tiktok/' || p.startsWith('tiktok/') || isCharacterMediaPrefix(p);
+  }
   if (role === ROLES.READY) {
     return (
       p === 'cleaned/' ||
       p.startsWith('cleaned/') ||
-      p === 'characters/' ||
-      p.startsWith('characters/') ||
-      p === 'account-characters/' ||
-      p.startsWith('account-characters/') ||
+      isCharacterMediaPrefix(p) ||
       p === 'character-remix-2-og/' ||
       p.startsWith('character-remix-2-og/') ||
       p === 'facefusion-remix/' ||
@@ -449,16 +461,29 @@ export function mediaPrefixAllowed(role, prefix) {
   return false;
 }
 
-/** Admin always; kenneth may write only under character / stitch prefixes. */
+/**
+ * Who may hit media write endpoints at all.
+ * Key still gated by mediaWriteKeyAllowed — download/ready = character-lock only.
+ */
 export function mediaWriteAllowed(role) {
-  return role === ROLES.ADMIN || role === ROLES.KENNETH;
+  return (
+    role === ROLES.ADMIN ||
+    role === ROLES.KENNETH ||
+    role === ROLES.DOWNLOAD ||
+    role === ROLES.READY
+  );
 }
 
 export function mediaWriteKeyAllowed(role, key) {
   if (role === ROLES.ADMIN) return true;
-  if (role !== ROLES.KENNETH) return false;
   if (!key || typeof key !== 'string') return false;
-  return KENNETH_WRITE_PREFIXES.some((p) => key.startsWith(p));
+  if (role === ROLES.KENNETH) {
+    return KENNETH_WRITE_PREFIXES.some((p) => key.startsWith(p));
+  }
+  if (role === ROLES.DOWNLOAD || role === ROLES.READY) {
+    return isCharacterMediaKey(key);
+  }
+  return false;
 }
 
 export { COOKIE_NAME, SESSION_TTL_SEC, anyPasswordConfigured };
