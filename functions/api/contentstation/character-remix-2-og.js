@@ -241,7 +241,10 @@ export async function onRequest(context) {
           else if (musicLock === false) remixVariant = 'talking-heads';
         }
 
-        if (wantVariant === 'music-only' || wantVariant === 'musiconly' || wantVariant === 'music') {
+        if (wantVariant === 'music-retention') {
+          if (remixVariant !== 'music-retention') continue;
+        } else if (wantVariant === 'music-only' || wantVariant === 'musiconly' || wantVariant === 'music') {
+          if (remixVariant === 'music-retention') continue;
           if (musicLock !== true && remixVariant !== 'music-only' && remixVariant !== 'music') {
             continue;
           }
@@ -417,7 +420,8 @@ export async function onRequest(context) {
         String(body.audioMode || '').trim().toLowerCase() === 'mix' ||
         remixVariantRaw === 'music-only' ||
         remixVariantRaw === 'musiconly' ||
-        remixVariantRaw === 'music';
+        remixVariantRaw === 'music' ||
+        remixVariantRaw === 'music-retention';
     let audioMode = String(body.audioMode || 'grok').trim() || 'grok';
     if (writeFromScratch) {
       const wantGrok = body.grokDialogue !== false;
@@ -902,7 +906,8 @@ export async function onRequest(context) {
       String(body.audioMode || '').trim().toLowerCase() === 'source' ||
       remixVariantRaw === 'music-only' ||
       remixVariantRaw === 'musiconly' ||
-      remixVariantRaw === 'music';
+      remixVariantRaw === 'music' ||
+      remixVariantRaw === 'music-retention';
     const audioMode = musicLock ? 'source' : String(body.audioMode || 'grok').trim() || 'grok';
     const remixVariant =
       body.remixVariant ||

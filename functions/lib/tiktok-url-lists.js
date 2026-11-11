@@ -7,7 +7,11 @@
 
 import { extractTikTokVideoId } from './tiktok-download-seen.js';
 import { GLP1_SEED_URLS } from './tiktok-url-list-seed.js';
-import { isOverMaxListDuration, parseTikTokDurationSec } from './tiktok-duration.js';
+import {
+  isOverMaxListDuration,
+  normalizeListDurationMode,
+  parseTikTokDurationSec,
+} from './tiktok-duration.js';
 
 const LISTS_KEY = 'meta/tiktok-url-lists.json';
 export const DEFAULT_LIST_ID = 'glp-1';
@@ -167,7 +171,19 @@ export async function createUrlList(env, nameRaw, { reuseUrls = false } = {}) {
   return { ok: true, list: summarizeList(list), lists: next.lists.map(summarizeList) };
 }
 
-export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId, durationSec, durationByUrl } = {}) {
+export async function addUrlsToList(
+  env,
+  listIdRaw,
+  urls,
+  {
+    addedFrom,
+    tiktokId,
+    durationSec,
+    durationByUrl,
+    durationMode = 'default',
+    allowDuplicates = true,
+  } = {},
+) {
   const bucket = env?.MEDIA_BUCKET;
   if (!bucket) return { ok: false, error: 'no_bucket' };
   const ensured = await ensureUrlLists(env);
@@ -176,12 +192,14 @@ export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId,
   const list = ensured.lists.find((l) => l.id === id);
   if (!list) return { ok: false, error: 'list_not_found' };
   if (!Array.isArray(list.items)) list.items = [];
-  const seen = new Set(list.items.map(itemKey));
+  const mode = normalizeListDurationMode(durationMode);
+  const seen = allowDuplicates ? null : new Set(list.items.map(itemKey));
   const incoming = Array.isArray(urls) ? urls : [urls];
   const fallbackSec = parseTikTokDurationSec(durationSec);
   const byUrl = durationByUrl && typeof durationByUrl === 'object' ? durationByUrl : null;
   let added = 0;
   let rejectedLong = 0;
+  let skippedDuplicate = 0;
   const rejected = [];
   for (const raw of incoming) {
     const item = normalizeItem(raw, {
@@ -192,14 +210,19 @@ export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId,
     const fromMap = byUrl ? parseTikTokDurationSec(byUrl[item.url] ?? byUrl[String(raw || '').trim()]) : null;
     const sec = fromMap ?? fallbackSec;
     if (sec != null) item.durationSec = Math.round(sec * 10) / 10;
-    if (isOverMaxListDuration(sec)) {
+    if (isOverMaxListDuration(sec, mode)) {
       rejectedLong += 1;
       if (rejected.length < 20) rejected.push(item.url);
       continue;
     }
     const k = itemKey(item);
-    if (seen.has(k)) continue;
-    seen.add(k);
+    if (seen) {
+      if (seen.has(k)) {
+        skippedDuplicate += 1;
+        continue;
+      }
+      seen.add(k);
+    }
     list.items.push(item);
     added += 1;
   }
@@ -208,6 +231,7 @@ export async function addUrlsToList(env, listIdRaw, urls, { addedFrom, tiktokId,
     ok: true,
     listId: list.id,
     added,
+    skippedDuplicate,
     rejectedLong,
     rejected,
     count: list.items.length,

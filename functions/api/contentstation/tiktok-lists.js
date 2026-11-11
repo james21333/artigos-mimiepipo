@@ -117,10 +117,13 @@ export async function onRequest(context) {
       if (sec != null) durationByUrl[url] = sec;
       accepted.push(url);
     }
+    const allowDuplicates = body.allowDuplicates !== false;
     const result = await addUrlsToList(env, body.listId || DEFAULT_LIST_ID, accepted, {
       addedFrom: body.addedFrom || 'manual',
       tiktokId: body.tiktokId,
       durationByUrl,
+      durationMode,
+      allowDuplicates,
     });
     if (!result.ok) return json(result, result.error === 'list_not_found' ? 404 : 400);
     let message;
@@ -131,6 +134,10 @@ export async function onRequest(context) {
         message = `Skipped ${rejected.length} video(s) longer than ${limits.maxSec} seconds.`;
       }
     }
+    let extraMsg = message;
+    if (!extraMsg && Number(result.skippedDuplicate) > 0 && Number(result.added) === 0) {
+      extraMsg = `${result.skippedDuplicate} URL(s) already on this list (send allowDuplicates: true to add again).`;
+    }
     return json({
       ...result,
       rejectedLong: rejected.length,
@@ -138,7 +145,8 @@ export async function onRequest(context) {
       durationMode,
       minDurationSec: limits.minSec,
       maxDurationSec: limits.maxSec,
-      message,
+      allowDuplicates,
+      message: extraMsg || message,
     });
   }
 

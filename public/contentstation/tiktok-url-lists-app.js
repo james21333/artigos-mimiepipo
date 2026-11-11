@@ -219,6 +219,7 @@
           urls,
           addedFrom: 'url-lists-page',
           durationMode,
+          allowDuplicates: true,
         }),
       });
       if (!ok) throw new Error((data && (data.message || data.error)) || 'Could not add URLs.');
@@ -240,7 +241,10 @@
         }
       }
       if (data.message && !parts.length) parts.push(data.message);
-      setStatus(parts.length ? parts.join(' ') : 'Those URLs were already on this list.');
+      if (!parts.length && rejectedLong) {
+        parts.push('No URLs added — check duration filter (use “Allow up to 2 minutes” for long clips).');
+      }
+      setStatus(parts.length ? parts.join(' ') : 'Nothing added — invalid URL or rejected by duration filter.');
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
