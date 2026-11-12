@@ -29,6 +29,11 @@
       page: 'tiktok-download-character-remix-2-og-v2-music.html',
     },
     {
+      href: './tiktok-download-character-remix-2-og-v2-music-retention.html',
+      label: 'Music Retention',
+      page: 'tiktok-download-character-remix-2-og-v2-music-retention.html',
+    },
+    {
       href: './ready.html',
       label: 'Ready For Upload',
       page: 'ready.html',
@@ -94,6 +99,7 @@
     { match: /stitch-videos\.html/, roles: ALL_ROLES },
     { match: /stitch-creator\.html/, roles: ALL_ROLES },
     { match: /stitch-creator-videos\.html/, roles: ALL_ROLES },
+    { match: /tiktok-download-character-remix-2-og-v2-music-retention\.html/, roles: ALL_ROLES },
     { match: /tiktok-download-character-remix-2-og-v2-music\.html/, roles: ALL_ROLES },
     { match: /ready(?:-account|-archived)?\.html/, roles: ALL_ROLES },
     { match: /views-tracker\.html/, roles: ['kenneth', 'admin'] },
@@ -137,6 +143,7 @@
     'johnny-jolly-voice-mod': ['admin'],
     'tiktok-download-character-remix-2-og-talking-johnny-jolly-voice-mod': ['admin'],
     'tiktok-download-character-remix-2-og-v2-music': ALL_ROLES,
+    'tiktok-download-character-remix-2-og-v2-music-retention': ALL_ROLES,
     'prompt-talking': ['admin'],
     'tiktok-url-lists': ALL_ROLES,
     'disclaimer-burn': ['admin'],

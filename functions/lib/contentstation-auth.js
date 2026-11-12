@@ -34,6 +34,7 @@ const ROLE_PAGES = Object.freeze({
     '/tiktok-download-character-remix-2-og-v1.html',
     '/tiktok-download-character-remix-2-og-v2.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-download-character-remix-2-og-v2-music-retention.html',
     '/tiktok-download-character-remix-2-og-v3.html',
     '/tiktok-download-character-remix-2-og-talking-johnny.html',
     '/johnny-stub-fix.html',
@@ -61,6 +62,7 @@ const ROLE_PAGES = Object.freeze({
   [ROLES.DOWNLOAD]: [
     '/tiktok-download.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-download-character-remix-2-og-v2-music-retention.html',
     '/tiktok-url-lists.html',
     '/ready.html',
     '/ready-account.html',
@@ -76,6 +78,7 @@ const ROLE_PAGES = Object.freeze({
     '/ready-account.html',
     '/ready-archived.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-download-character-remix-2-og-v2-music-retention.html',
     '/tiktok-url-lists.html',
     '/stitch-videos.html',
     '/stitch-creator.html',
@@ -88,6 +91,7 @@ const ROLE_PAGES = Object.freeze({
     '/views-tracker.html',
     '/tiktok-download.html',
     '/tiktok-download-character-remix-2-og-v2-music.html',
+    '/tiktok-download-character-remix-2-og-v2-music-retention.html',
     '/tiktok-url-lists.html',
     '/stitch-maker.html',
     '/stitch-videos.html',
@@ -373,6 +377,9 @@ export function roleMayAccessPage(role, pageId) {
     'prompt-talking': ['/prompt-talking.html'],
     'tiktok-download-character-remix-2-og-v2-music': [
       '/tiktok-download-character-remix-2-og-v2-music.html',
+    ],
+    'tiktok-download-character-remix-2-og-v2-music-retention': [
+      '/tiktok-download-character-remix-2-og-v2-music-retention.html',
     ],
     'tiktok-url-lists': ['/tiktok-url-lists.html'],
     'disclaimer-burn': ['/disclaimer-burn.html'],
