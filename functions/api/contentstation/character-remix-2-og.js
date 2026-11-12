@@ -1070,6 +1070,18 @@ export async function onRequest(context) {
     return json(result.data || { error: 'worker_error' }, result.ok ? 200 : result.status || 502);
   }
 
+  if (action === 'retention-learn') {
+    if (!remix2WorkerConfigured(env)) {
+      return json({ ok: false, error: 'remix2_unconfigured', ...configPayload(env) }, 503);
+    }
+    const result = await workerFetch(env, '/retention-learn', {
+      method: 'POST',
+      body: {},
+      timeoutMs: 60000,
+    });
+    return json(result.data || { ok: false, error: 'worker_error' }, result.ok ? 200 : result.status || 502);
+  }
+
   if (
     action === 'run' ||
     action === 'first-frames' ||

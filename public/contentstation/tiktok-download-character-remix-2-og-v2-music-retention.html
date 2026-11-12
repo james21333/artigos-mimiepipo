@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content Station | Music Retention</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Music Retention: same Music-Only remake, with a silent retention plan (hook, answer chain, payoff) on the existing viral edit.">
+  <link rel="stylesheet" href="./styles.css?v=grokquota1">
+</head>
+<body>
+  <main class="download-main">
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Station">
+        <a href="./">Clean video</a>
+        <a href="./cleaned.html">Cleaned videos</a>
+        <a href="./tiktok-download.html">TikTok download</a>
+        <a href="./tiktok-download-character-remix.html">Character remix</a>
+        <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+        <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>
+        <a href="./tiktok-download-character-remix-2-og-v2-music-retention.html" aria-current="page">Music Retention</a>
+        <a href="./johnny-jolly-voice-mod.html">Johnny Jolly Voice Mod</a>
+        <a href="./tiktok-url-lists.html">TikTok URL lists</a>
+        <a href="./disclaimer-burn.html">Disclaimer burn</a>
+        <a href="./viral-video-builder.html">Viral Video Builder</a>
+        <a href="./character-remixes.html">Recent remixes</a>
+        <a href="./downloaded.html">Downloaded videos</a>
+        <a href="./ready.html">Ready For Upload</a>
+      </nav>
+      <p class="brand">Content Station</p>
+      <p class="sub">Music Retention</p>
+    </header>
+
+    <section id="gate" class="panel" hidden>
+      <h1>Sign in</h1>
+      <p class="lede">Password-protected station.</p>
+      <form id="login-form">
+        <label for="password">Station password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="toolbar">
+        <p id="session-meta" class="meta"></p>
+        <button type="button" id="logout-btn" class="ghost">Log out</button>
+      </div>
+
+      <div id="grok-quota-banner"></div>
+
+      <aside id="account-character-rail" class="account-character-rail" hidden aria-label="Accounts and characters">
+        <h2 class="account-character-rail-title">Accounts</h2>
+        <ul id="account-character-rail-list" class="account-character-rail-list"></ul>
+        <p id="account-character-rail-empty" class="muted-line" hidden>No accounts yet.</p>
+        <p class="muted-line">Tap to select · character thumb = default</p>
+      </aside>
+
+      <section class="hero-flow">
+        <h1>Music Retention</h1>
+        <p class="lede">
+          Same engine as <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>:
+          uploaded character, exact source cuts, original TikTok music, one job at a time.
+          Before the stills are drawn, one plan writes a silent hook, a because/but/so caption chain,
+          and a payoff onto those existing beats. It does not recut the music or start a new story.
+          Paste up to <strong>20 TikTok URLs</strong>.
+          The original page is unchanged:
+          <a href="./tiktok-download-character-remix-2-og-v2-music.html">V2 Music-Only</a>.
+          Prefer talking-heads with Grok dialogue?
+          <a href="./tiktok-download-character-remix-2-og-v2.html">V2 Talking Heads Remix</a>
+          ·
+          <a href="./tiktok-download-character-remix-2-og.html">Version 1: Same Character</a>
+        </p>
+
+        <section class="account-picker" id="account-picker">
+          <label for="account-select">Ready For Upload account</label>
+          <p class="muted-line">Uses that account’s saved character (if any) and auto-tags the finished MP4. Same TikTok URL is skipped only if this account already remixed it.</p>
+          <div class="row account-select-row">
+            <select id="account-select" class="account-select">
+              <option value="">— No account (tag later) —</option>
+            </select>
+          </div>
+          <form id="create-account-form" class="account-create-row">
+            <label for="new-account-name">Create account</label>
+            <div class="row">
+              <input id="new-account-name" type="text" maxlength="80" placeholder="e.g. 1 - GLP" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+        </section>
+
+        <section class="url-list-picker" id="url-list-picker">
+          <label for="url-list-select">URL list</label>
+          <p class="muted-line">
+            Manage lists on
+            <a href="./tiktok-url-lists.html">TikTok URL lists</a>
+        <a href="./disclaimer-burn.html">Disclaimer burn</a>.
+            Every TikTok URL used here is added to this list. Autogenerate leftovers =
+            the list minus videos <strong>this account</strong> already remixed. All accounts share the same list.
+          </p>
+          <div class="row account-select-row">
+            <select id="url-list-select" class="account-select"></select>
+          </div>
+          <form id="create-url-list-form" class="account-create-row">
+            <label for="new-url-list-name">Create list</label>
+            <div class="row">
+              <input id="new-url-list-name" type="text" maxlength="80" placeholder="e.g. GLP-1 List" autocomplete="off">
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <p id="url-list-meta" class="muted-line"></p>
+          <p id="url-list-error" class="error" hidden></p>
+        </section>
+
+        <section class="autogen-panel" id="autogen-panel" aria-labelledby="autogen-title">
+          <h2 id="autogen-title">Autogenerate from GLP-1 List</h2>
+          <p class="muted-line">
+            Shared pool for every account. A URL is blocked for an account only after
+            <strong>that account</strong> already remixed it. Each account uses
+            <strong>its own saved character</strong>. Accounts without a character can’t run.
+          </p>
+          <label class="check" for="autogen-random">
+            <input id="autogen-random" type="checkbox" checked>
+            <span>Random leftover
+              <em class="muted-line">— default. One unused original per selected account. Uncheck to pick specific URLs.</em>
+            </span>
+          </label>
+          <label class="check" for="autogen-reuse-urls">
+            <input id="autogen-reuse-urls" type="checkbox">
+            <span>Reuse URLs (don’t mark as used)
+              <em class="muted-line">— same TikTok can run again for each account; skips “already remixed” and the 30s list cap for this run only.</em>
+            </span>
+          </label>
+          <p class="autogen-group-label">Accounts to run</p>
+          <div class="row autogen-select-row">
+            <button type="button" id="autogen-select-all" class="ghost">Select all accounts</button>
+            <button type="button" id="autogen-select-none" class="ghost">Uncheck all</button>
+          </div>
+          <ul id="autogen-account-list" class="autogen-account-list"></ul>
+          <p id="autogen-empty" class="muted-line" hidden>No accounts loaded yet.</p>
+          <p id="autogen-summary" class="autogen-summary" aria-live="polite"></p>
+          <div class="row">
+            <button type="button" id="autogen-btn">Autogenerate leftover remakes</button>
+          </div>
+        </section>
+
+        <label for="tiktok-urls">Or paste TikTok URLs yourself (max 20)</label>
+        <textarea id="tiktok-urls" rows="8" autocomplete="off" spellcheck="false"
+          placeholder="https://www.tiktok.com/@user/video/…
+https://www.tiktok.com/@user/video/…
+(up to 20 links)"></textarea>
+        <p id="url-count" class="muted-line">0 / 20 links</p>
+        <div id="remix-dup-banner" class="duplicate-skip-banner" hidden role="alert"></div>
+        <p id="autogen-paste-summary" class="autogen-summary" aria-live="polite"></p>
+        <div class="row">
+          <button type="button" id="autogen-paste-btn">Autogenerate pasted URLs for selected accounts</button>
+        </div>
+
+        <label for="character-file">Character image</label>
+        <input id="character-file" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+        <div id="character-preview-wrap" class="character-preview-wrap" hidden>
+          <img id="character-preview" alt="Character preview" class="character-preview">
+        </div>
+        <p id="character-account-hint" class="muted-line">
+          Pick a Ready For Upload account, choose an image, then Save character to this account — no remix needed.
+        </p>
+        <div class="row">
+          <button type="button" id="save-character-btn" disabled>Save character to this account</button>
+        </div>
+        <p id="save-character-status" class="muted-line" hidden></p>
+        <div id="character-history-wrap" class="character-history-wrap" hidden>
+          <label for="character-history-select">Previously used for this account</label>
+          <div class="row">
+            <select id="character-history-select" class="account-select">
+              <option value="">— Saved characters —</option>
+            </select>
+            <button type="button" id="set-character-default-btn" class="ghost" hidden>Set as default</button>
+          </div>
+        </div>
+        <p class="muted-line">
+          Same identity-lock first-frame pipeline as Talking Heads. Music-lock stitch: each beat trimmed
+          or freeze-padded to exact <code>durationMs</code>, video-only concat, remux
+          <code>source.mp4</code> audio. Optionally burns original on-screen hooks/titles back at source timings.
+        </p>
+
+        <label class="check" for="restore-overlays">
+          <input id="restore-overlays" type="checkbox" checked>
+          <span>Restore original on-screen text / hooks
+            <em class="muted-line">— OCR from source, burned onto final at the same times</em>
+          </span>
+        </label>
+
+        <label class="check" for="subtle-rewrite-overlays">
+          <input id="subtle-rewrite-overlays" type="checkbox" checked>
+          <span>Subtle rewrite on-screen text
+            <em class="muted-line">— same meaning, different wording (casual TikTok voice); needs restore overlays</em>
+          </span>
+        </label>
+
+        <label class="check" for="viral-scene-chat">
+          <input id="viral-scene-chat" data-flag="viral-scene-chat-v1" type="checkbox" checked>
+          <span>Viral OpenAI↔Grok scene chat (test)
+            <em class="muted-line">— before stills/video: brainstorm hook + body position + location for each scene</em>
+          </span>
+        </label>
+
+        <label for="job-title">Title (optional)</label>
+        <input id="job-title" type="text" value="TikTok remake (music retention)" autocomplete="off">
+
+        <p id="remix2-config" class="muted-line" hidden></p>
+
+        <div class="row">
+          <button type="button" id="run-btn">Queue remakes (retention)</button>
+          <button type="button" id="learn-btn" class="ghost">Learn (write review prompt)</button>
+        </div>
+        <p class="muted-line">
+          Learn pulls Fast Panda retention genomes + fitness and writes a prompt so the agent
+          updates only <code>retention_plan.py</code> (inputs 1–6). Story-style mix stays until we review.
+        </p>
+        <p class="muted-line">
+          Finished untagged finals →
+          <a class="btn-link" href="./character-remixes.html">Recent remixes</a>
+          (Open MP4 / assign account). Tagged clips →
+          <a class="btn-link" href="./ready.html">Ready For Upload</a>.
+        </p>
+
+        <p id="status-line" class="status" aria-live="polite">Ready.</p>
+        <p id="status-detail" class="muted-line" hidden></p>
+        <p id="remix2-v2-error" class="error" hidden></p>
+
+        <div class="row" id="batch-actions" hidden>
+          <button type="button" id="clear-finished-btn" class="ghost">Clear finished from this list</button>
+        </div>
+        <div id="batch-list" class="download-results" hidden></div>
+        <div id="frame-gallery" class="download-results" hidden></div>
+        <div id="output-gallery" class="download-results" hidden></div>
+      </section>
+    </section>
+
+    <p class="foot">
+      <a href="./tiktok-download-character-remix-2-og-v2.html">← V2 Talking Heads Remix</a>
+      ·
+      <a href="./character-remixes.html">Recent remixes</a>
+      ·
+      <a href="./tiktok-download-character-remix-2-og.html">Remix 2 OG V1</a>
+      ·
+      <a href="./">Clean video</a>
+      ·
+      <a href="/">Artigos hub</a>
+    </p>
+  </main>
+  <script src="./auth-gate.js?v=kenneth4"></script>
+  <script src="./grok-quota-banner.js?v=3"></script>
+  <script src="./remix2-account-ui.js?v=voice6"></script>
+  <script src="./tiktok-lists-ui.js?v=1"></script>
+  <script src="./tiktok-download-character-remix-2-og-v2-music-retention-app.js?v=retention2"></script>
+</body>
+</html>
